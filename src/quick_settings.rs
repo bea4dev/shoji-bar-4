@@ -168,7 +168,6 @@ fn header() -> Div {
                                 })
                                 .child(sized_icon(symbol, 22.0))
                                 .child(static_txt(TextStyle::LABEL_MEDIUM, label)),
-                            20.0,
                             |c| c.on_secondary_container,
                         ));
                     }
@@ -255,7 +254,6 @@ fn power_button(open: Signal<bool>) -> Div {
                 22.0,
                 |c| c.on_surface_variant,
             )),
-        20.0,
         |c| c.on_surface,
     )
 }
@@ -347,7 +345,6 @@ fn tile(
                             .dyn_style(move |s| s.opacity(0.8)),
                     ),
             ),
-        34.0,
         content,
     )
 }
@@ -575,7 +572,6 @@ fn sliders() -> Div {
                         22.0,
                         |c| c.on_surface_variant,
                     )),
-                20.0,
                 |c| c.on_surface,
             ),
             styled_slider(volume, style()),
@@ -736,7 +732,6 @@ fn media_card() -> Div {
                                 26.0,
                             )
                         })),
-                    26.0,
                     |c| c.on_primary,
                 ))
                 .child(icon_btn(icons::SKIP_NEXT, 40.0, fg).on_click(move |_| {

@@ -3,7 +3,7 @@
 use crate::theme::{TextStyle, colors, elevation};
 use anti_webui::prelude::*;
 use anti_webui_md3e::ColorScheme;
-use anti_webui_md3e::components::sized_icon;
+use anti_webui_md3e::components::{Ink, sized_icon};
 use anti_webui_md3e::icons::Symbol;
 
 /// A color of the scheme, chosen by a function of it.
@@ -67,32 +67,10 @@ pub fn island() -> Div {
         .dyn_style(|s| s.bg(colors().surface_container))
 }
 
-/// Gives `node` a state layer: a veil of `color` that shows on hover and deepens while pressed, in
-/// a box of `radius`. `node` becomes `relative`.
-pub fn pressable(node: Div, radius: f32, color: impl Role) -> Div {
-    let hovered = signal(false);
-    let pressed = signal(false);
-    node.relative()
-        .on_hover(move |h| hovered.set(h))
-        .on_active(move |a| pressed.set(a))
-        .child(
-            div()
-                .absolute()
-                .inset(0.0)
-                .rounded(radius)
-                .pointer_events_none()
-                .transition(Transition::ms(120).ease_out())
-                .dyn_style(move |s| {
-                    let level = if pressed.get() {
-                        0.12
-                    } else if hovered.get() {
-                        0.08
-                    } else {
-                        0.0
-                    };
-                    s.bg(color(&colors()).with_alpha(level))
-                }),
-        )
+/// Gives `node` Material's state layer and ripples, in its own shape, in `color`.
+pub fn pressable(node: Div, color: impl Role) -> Div {
+    let ink = Ink::new(move |c: &ColorScheme| color(c), || false);
+    ink.paint(ink.listen(node))
 }
 
 /// A round button of an icon, `size` across, with its state layer.
@@ -106,7 +84,6 @@ pub fn icon_btn(symbol: &'static Symbol, size: f32, color: impl Role) -> Div {
             .flex_none()
             .rounded(size / 2.0)
             .child(sym(symbol, (size * 0.55).round(), color)),
-        size / 2.0,
         color,
     )
 }

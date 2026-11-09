@@ -203,6 +203,12 @@ fn save(settings: &Settings) {
 
 thread_local! {
     static SETTINGS: Cell<Option<Signal<Settings>>> = const { Cell::new(None) };
+    static SAVING: Cell<bool> = const { Cell::new(true) };
+}
+
+/// Keeps changes from being written, for pictures of the shell.
+pub fn never_save() {
+    SAVING.with(|s| s.set(false));
 }
 
 /// The settings of the shell. Reading them tracks them; writing them saves them a moment later.
@@ -216,7 +222,7 @@ pub fn settings() -> Signal<Settings> {
                 let first = Cell::new(true);
                 effect(move || {
                     let now = s.get();
-                    if first.replace(false) {
+                    if first.replace(false) || !SAVING.with(Cell::get) {
                         return;
                     }
                     if let Some(t) = pending.take() {

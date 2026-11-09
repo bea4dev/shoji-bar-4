@@ -9,10 +9,11 @@ use crate::theme::{TextStyle, colors};
 use crate::ui::*;
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
-use anti_webui::shell::{BatteryState, Connectivity, Workspace};
+use anti_webui::shell::{BatteryState, Connectivity};
 use anti_webui_md3e::icons;
 use anti_webui_md3e::motion::{fast_spatial, slow_spatial};
 use std::cell::Cell;
+use std::rc::Rc;
 
 /// How tall the layer is; the islands are 40 of it.
 pub const HEIGHT: i32 = 56;
@@ -42,7 +43,19 @@ pub fn view(output: Output) -> Div {
                 .flex_1()
                 .min_w(0.0)
                 .child(launcher_island(output.clone()))
-                .child(workspaces_island(output.clone()))
+                .child(workspaces_island(
+                    workspaces_of(output.clone()),
+                    Rc::new({
+                        let output = output.clone();
+                        move |id: &str| {
+                            if let Some(w) =
+                                workspaces().on(&output).into_iter().find(|w| w.id() == id)
+                            {
+                                w.activate();
+                            }
+                        }
+                    }),
+                ))
                 .child(window_island(output.clone())),
         )
         .child(clock_island(output.clone()))
@@ -128,25 +141,43 @@ fn launcher_island(output: Output) -> Div {
         )
 }
 
+/// A workspace as the bar shows it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Ws {
+    pub id: String,
+    pub name: String,
+    pub active: bool,
+    /// Has no windows.
+    pub empty: bool,
+    pub urgent: bool,
+}
+
+/// The workspaces of an output, in order.
+fn workspaces_of(output: Output) -> Memo<Vec<Ws>> {
+    memo(move || {
+        let mut all = workspaces().on(&output);
+        all.sort_by(|a, b| a.coordinates().cmp(b.coordinates()));
+        all.iter()
+            .map(|w| Ws {
+                id: w.id().to_owned(),
+                name: w.name().to_owned(),
+                active: w.is_active(),
+                empty: w.is_hidden(),
+                urgent: w.is_urgent(),
+            })
+            .collect()
+    })
+}
+
 const SLOT: f32 = 20.0;
 const ACTIVE: f32 = 40.0;
 
 /// The workspaces of the output as dots, with a pill under the active one that stretches as it
 /// goes from one to another: its front edge leads on a quick spring, its back follows on a slow
 /// one.
-fn workspaces_island(output: Output) -> Div {
-    let list = memo({
-        let output = output.clone();
-        move || {
-            let mut all = workspaces().on(&output);
-            all.sort_by(|a, b| a.coordinates().cmp(b.coordinates()));
-            all
-        }
-    });
-    let active = memo(move || {
-        list.with(|l| l.iter().position(Workspace::is_active))
-            .unwrap_or(0)
-    });
+pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div {
+    let active = memo(move || list.with(|l| l.iter().position(|w| w.active)).unwrap_or(0));
+    let scrolled = activate.clone();
     let left = animated(0.0f32);
     let right = animated(ACTIVE);
     let first = Cell::new(true);
@@ -178,24 +209,22 @@ fn workspaces_island(output: Output) -> Div {
     let slots =
         for_each(
             move || list.get(),
-            |w| w.id().to_owned(),
+            |w| w.id.clone(),
             move |w| {
-                let id = w.id().to_owned();
-                let me = memo(move || list.with(|l| l.iter().find(|x| x.id() == id).cloned()));
-                let on = memo(move || me.with(|w| w.as_ref().is_some_and(Workspace::is_active)));
-                let empty = memo(move || me.with(|w| w.as_ref().is_none_or(Workspace::is_hidden)));
-                let urgent =
-                    memo(move || me.with(|w| w.as_ref().is_some_and(Workspace::is_urgent)));
-                let name = w.name().to_owned();
+                let id = w.id.clone();
+                let me = memo(move || list.with(|l| l.iter().find(|x| x.id == id).cloned()));
+                let on = memo(move || me.with(|w| w.as_ref().is_some_and(|w| w.active)));
+                let empty = memo(move || me.with(|w| w.as_ref().is_none_or(|w| w.empty)));
+                let urgent = memo(move || me.with(|w| w.as_ref().is_some_and(|w| w.urgent)));
+                let name = w.name.clone();
+                let activate = activate.clone();
                 div()
                     .relative()
                     .h(28.0)
                     .flex_none()
                     .transition_of([Prop::Width], emphasized(350))
                     .dyn_style(move |s| s.w(if on.get() { ACTIVE } else { SLOT }))
-                    .on_click(move |_| {
-                        w.activate();
-                    })
+                    .on_click(move |_| activate(&w.id))
                     // The dot, which gives way to the number.
                     .child(
                         div()
@@ -259,7 +288,7 @@ fn workspaces_island(output: Output) -> Div {
             if step != 0
                 && let Some(w) = usize::try_from(next).ok().and_then(|i| all.get(i))
             {
-                w.activate();
+                scrolled(&w.id);
             }
         })
         .child(
@@ -413,7 +442,6 @@ fn clock_island(output: Output) -> Div {
                     })
                 }),
             ),
-        20.0,
         |c| c.on_surface,
     )
 }
@@ -454,7 +482,6 @@ fn media_island() -> Show {
                         .min_w(0.0)
                         .overflow_hidden(),
                     ),
-                20.0,
                 |c| c.on_surface,
             )
         },
@@ -551,7 +578,6 @@ fn tray_icon(item: TrayItem) -> Div {
                 _ => {}
             })
             .child(tray_menu(&item, open)),
-        15.0,
         |c| c.on_surface,
     )
 }
@@ -639,7 +665,6 @@ fn status_island(output: Output) -> Div {
                     s
                 }
             }),
-        20.0,
         |c| c.on_surface,
     )
 }

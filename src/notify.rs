@@ -243,7 +243,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
     if any_action {
         body = body.child(actions);
     }
-    pressable(body, 24.0, |c| c.on_surface)
+    pressable(body, |c| c.on_surface)
 }
 
 /// The notifications that are kept, for quick settings, with a button that clears them.

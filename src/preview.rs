@@ -58,6 +58,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         .filter_map(|(i, _)| args.get(i + 1).cloned().and_then(point))
         .collect();
     let ms: u64 = opt("--ms").and_then(|s| s.parse().ok()).unwrap_or(1200);
+    // `--frames N --every MS` writes N pictures, MS apart, after the first, as `<out>-<i>.png`.
+    let frames: u32 = opt("--frames").and_then(|s| s.parse().ok()).unwrap_or(0);
+    let every: u64 = opt("--every").and_then(|s| s.parse().ok()).unwrap_or(50);
 
     let gpu = Gpu::headless()?;
     let mut renderer = Renderer::new(
@@ -65,6 +68,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         anti_webui::wgpu::wgpu::TextureFormat::Rgba8Unorm,
     );
     let output = outputs().into_iter().next();
+    crate::settings::never_save();
     let mut ui = Ui::new(move || {
         if light {
             crate::settings::settings().update(|s| s.mode = crate::settings::ThemeMode::Light);
@@ -81,6 +85,27 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         }
         let view = match part.as_str() {
             "bar" => crate::bar::view(output),
+            // Five workspaces; the third becomes the active one a moment after the start.
+            "workspaces" => {
+                let list = signal(
+                    (1..=5)
+                        .map(|i| crate::bar::Ws {
+                            id: i.to_string(),
+                            name: i.to_string(),
+                            active: i == 1,
+                            empty: i > 3,
+                            urgent: i == 5,
+                        })
+                        .collect::<Vec<_>>(),
+                );
+                set_timeout(Duration::from_millis(1500), move || {
+                    list.update(|l| l.iter_mut().for_each(|w| w.active = w.id == "4"))
+                });
+                div().p(8.0).child(crate::bar::workspaces_island(
+                    memo(move || list.get()),
+                    std::rc::Rc::new(|_: &str| {}),
+                ))
+            }
             "notifications" => match crate::notify::server() {
                 Some(server) => crate::notify::popups(server),
                 None => div().child("not the notification daemon"),
@@ -104,21 +129,22 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     ui.handle_event(WindowEvent::Focused(true));
     ui.update();
     let mut now = Instant::now();
-    let mut step = |ui: &mut Ui, frames: u64| {
+    let step = |ui: &mut Ui, now: &mut Instant, frames: u64| {
         for _ in 0..frames {
             // In real time, so that what the services send arrives on the way.
             std::thread::sleep(Duration::from_millis(16));
-            now += Duration::from_millis(16);
-            ui.tick(now);
-            ui.animate(now);
+            // Transitions start at the real time, so the clock here has to be the real one.
+            *now = Instant::now();
+            ui.tick(*now);
+            ui.animate(*now);
             ui.update();
-            ui.paint(now);
+            ui.paint(*now);
         }
     };
     // Lets the services and pictures arrive.
     let _ = ui.wait_for_images(Duration::from_secs(5));
     std::thread::sleep(Duration::from_millis(600));
-    step(&mut ui, 30);
+    step(&mut ui, &mut now, 30);
     let m = Modifiers::default();
     for c in clicks {
         let at = to_physical(c);
@@ -140,7 +166,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             modifiers: m,
             time: 10,
         });
-        step(&mut ui, 20);
+        step(&mut ui, &mut now, 20);
     }
     if let Some(p) = pointer {
         ui.handle_event(WindowEvent::PointerMoved {
@@ -149,10 +175,20 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         });
     }
     let _ = ui.wait_for_images(Duration::from_secs(5));
-    step(&mut ui, ms / 16);
-    ui.update();
-    let scene = ui.paint(now);
-    let pixels = gpu.render_to_rgba(&mut renderer, &scene);
-    write_png(&out, w, h, &pixels)?;
+    step(&mut ui, &mut now, ms / 16);
+    for i in 0..=frames {
+        if i > 0 {
+            step(&mut ui, &mut now, (every / 16).max(1));
+        }
+        ui.update();
+        let scene = ui.paint(now);
+        let pixels = gpu.render_to_rgba(&mut renderer, &scene);
+        let path = if frames == 0 {
+            out.clone()
+        } else {
+            out.replace(".png", &format!("-{i}.png"))
+        };
+        write_png(&path, w, h, &pixels)?;
+    }
     Ok(())
 }
