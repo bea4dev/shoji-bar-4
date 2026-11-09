@@ -14,7 +14,7 @@ use anti_webui_md3e::components::{
 use anti_webui_md3e::icons::{self, Symbol};
 use anti_webui_md3e::motion::{default_effects, fast_spatial};
 
-const WIDTH: f32 = 380.0;
+const WIDTH: f32 = 412.0;
 
 pub fn panel(output: Output) -> Div {
     let _ = output;
@@ -22,9 +22,9 @@ pub fn panel(output: Output) -> Div {
         .w(WIDTH)
         .flex()
         .flex_col()
-        .gap(12.0)
-        .p(14.0)
-        .rounded(28.0)
+        .gap(16.0)
+        .p(18.0)
+        .rounded(32.0)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -43,9 +43,9 @@ fn section() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(10.0)
-        .p(14.0)
-        .rounded(20.0)
+        .gap(14.0)
+        .p(18.0)
+        .rounded(24.0)
         .dyn_style(|s| s.bg(colors().surface_container_high))
 }
 
@@ -280,12 +280,12 @@ fn tile(
         div()
             .flex_1()
             .min_w(0.0)
-            .h(56.0)
+            .h(60.0)
             .flex()
             .flex_row()
             .items_center()
-            .gap(10.0)
-            .px(10.0)
+            .gap(12.0)
+            .px(12.0)
             .on_active(move |a| pressed.set(a))
             .on_click(move |_| {
                 if available() {
@@ -367,12 +367,12 @@ fn tiles() -> Div {
         "balanced" => "Balanced".to_owned(),
         other => other.to_owned(),
     };
-    let row = || div().flex().flex_row().gap(8.0);
+    let row = || div().flex().flex_row().gap(10.0);
     let dark = move || crate::theme::is_dark();
     div()
         .flex()
         .flex_col()
-        .gap(8.0)
+        .gap(10.0)
         .child(
             row()
                 .child(tile(
@@ -521,19 +521,13 @@ fn tiles() -> Div {
 fn sliders() -> Div {
     let a = audio();
     let s = session();
-    let style = || {
-        SliderStyle::new()
-            .track(14.0)
-            .handle_height(34.0)
-            .wave(4.0, 26.0, 6.0)
-            .no_stops()
-    };
+    let style = || SliderStyle::new().wavy().no_stops();
     let row = |icon: Div, slider: Div| {
         div()
             .flex()
             .flex_row()
             .items_center()
-            .gap(8.0)
+            .gap(12.0)
             .child(icon)
             .child(slider.flex_1().min_w(0.0))
     };

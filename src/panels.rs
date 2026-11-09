@@ -33,7 +33,7 @@ impl Panel {
     fn exit_time(self) -> Duration {
         Duration::from_millis(match self {
             Self::Launcher => 380,
-            _ => 300,
+            _ => 450,
         })
     }
 }
@@ -152,6 +152,12 @@ const ABOVE_DOCK: f32 = crate::dock::RESERVED as f32 + 16.0;
 type Place = fn(Div) -> Div;
 type Enter = fn(Style) -> Style;
 
+/// Down from under the bar, fading in, quick at first and settling slowly: Material's emphasized
+/// deceleration.
+fn from_above(s: Style) -> Style {
+    s.opacity(0.0).scale(0.97).translate_y(-56.0)
+}
+
 /// All of the output: a catcher of clicks outside the panel, and the panel where it goes.
 fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
     let content = move || match panel {
@@ -162,11 +168,11 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
     let (place, enter): (Place, Enter) = match panel {
         Panel::QuickSettings => (
             |d| d.items_end().justify_start().pt(BELOW_BAR).pr(14.0),
-            |s| s.opacity(0.0).scale(0.82).translate_y(-18.0),
+            from_above,
         ),
         Panel::Calendar => (
             |d| d.items_center().justify_start().pt(BELOW_BAR),
-            |s| s.opacity(0.0).scale(0.82).translate_y(-18.0),
+            from_above,
         ),
         Panel::Launcher => (
             |d| d.items_center().justify_end().pb(ABOVE_DOCK),
@@ -222,11 +228,14 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             .transition(Transition::ms(300).ease_out()),
         );
     }
-    root.child(
-        show(move || wanted.get(), content)
-            .appear()
-            .enter(enter)
+    let shown = show(move || wanted.get(), content).appear().enter(enter);
+    root.child(if panel == Panel::Launcher {
+        shown
             .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
-            .transition(crate::ui::overshoot(420)),
-    )
+            .transition(crate::ui::overshoot(420))
+    } else {
+        shown
+            .exit(|s| s.opacity(0.0).scale(0.98).translate_y(-32.0))
+            .transition(Transition::ms(450).cubic_bezier(0.05, 0.7, 0.1, 1.0))
+    })
 }
