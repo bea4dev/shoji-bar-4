@@ -10,6 +10,7 @@ mod notify;
 mod osd;
 mod panels;
 mod preview;
+mod qs_pages;
 mod quick_settings;
 mod settings;
 mod theme;

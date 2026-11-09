@@ -1,5 +1,6 @@
 //! Quick settings: who is here and the power buttons, toggles as tiles, the volume and the
-//! brightness, what is playing, and the colors of the shell.
+//! brightness, what is playing, and the colors of the shell. Some tiles lead to a page of their
+//! own (`qs_pages`), which takes the place of all this in the panel.
 
 use crate::bar::wifi_icon;
 use crate::settings::{Palette, ThemeMode, settings};
@@ -13,23 +14,119 @@ use anti_webui_md3e::components::{
 };
 use anti_webui_md3e::icons::{self, Symbol};
 use anti_webui_md3e::motion::{default_effects, fast_spatial};
+use std::cell::Cell;
 
 const WIDTH: f32 = 396.0;
 
+/// What the panel shows: everything, or the page of one thing.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Page {
+    Main,
+    Wifi,
+    Bluetooth,
+    Sound,
+}
+
+thread_local! {
+    /// The page of the panel that is open, if one is.
+    static PAGE: Cell<Option<Signal<Page>>> = const { Cell::new(None) };
+}
+
+fn page_signal() -> Option<Signal<Page>> {
+    PAGE.with(Cell::get).filter(|p| p.is_alive())
+}
+
+/// Shows a page of the panel that is open.
+pub fn go(page: Page) {
+    if let Some(p) = page_signal() {
+        p.set(page);
+    }
+}
+
+/// Goes back to the first page, for Escape; false when it is already there.
+pub fn back() -> bool {
+    match page_signal() {
+        Some(p) if p.get_untracked() != Page::Main => {
+            p.set(Page::Main);
+            true
+        }
+        _ => false,
+    }
+}
+
+/// The style of the panel's sliders.
+pub fn slider_style() -> SliderStyle {
+    SliderStyle::new().wavy().no_stops()
+}
+
 pub fn panel(output: Output) -> Div {
     let _ = output;
+    let page = signal(Page::Main);
+    PAGE.with(|p| p.set(Some(page)));
+    // The pages lie over each other, so the panel takes the height of the one shown, going to that
+    // of another on a spring as it comes in.
+    let height = animated(0.0f32);
+    let sized = Cell::new(false);
+    let fit = std::rc::Rc::new(move |which: Page, h: f32| {
+        if untrack(|| page.get()) != which {
+            return;
+        }
+        if sized.replace(true) {
+            height.spring_to(h, fast_spatial());
+        } else {
+            height.set(h);
+        }
+    });
+    let page_view = |which: Page, build: fn() -> Div, from: f32| {
+        let fit = fit.clone();
+        show(
+            move || page.get() == which,
+            move || {
+                let fit = fit.clone();
+                build()
+                    .absolute()
+                    .top(0.0)
+                    .left(0.0)
+                    .right(0.0)
+                    .on_resized(move |_, h| fit(which, h))
+            },
+        )
+        .enter(move |s| s.opacity(0.0).translate_x(from))
+        .exit(move |s| s.opacity(0.0).translate_x(from))
+        .transition(emphasized(380))
+    };
     div()
         .w(WIDTH)
-        .flex()
-        .flex_col()
-        .gap(12.0)
         .p(16.0)
         .rounded(30.0)
+        // Pages going out to the side go out of sight at its edge.
+        .overflow_hidden()
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
             s.bg(c.surface_container).text_color(c.on_surface)
         })
+        .child(
+            div()
+                .relative()
+                .dyn_style(move |s| s.h(height.get()))
+                .child(page_view(Page::Main, main_page, -56.0))
+                .child(page_view(Page::Wifi, crate::qs_pages::wifi_page, 56.0))
+                .child(page_view(
+                    Page::Bluetooth,
+                    crate::qs_pages::bluetooth_page,
+                    56.0,
+                ))
+                .child(page_view(Page::Sound, crate::qs_pages::sound_page, 56.0)),
+        )
+}
+
+/// What the panel shows first.
+fn main_page() -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .gap(12.0)
         .child(settle_in(0, header()))
         .child(tiles())
         .child(settle_in(4, sliders()))
@@ -42,7 +139,7 @@ pub fn panel(output: Output) -> Div {
 }
 
 /// A section of the panel on a card of its own.
-fn section() -> Div {
+pub fn section() -> Div {
     div()
         .flex()
         .flex_col()
@@ -270,6 +367,7 @@ fn tile(
     on: impl Fn() -> bool + Copy + 'static,
     available: impl Fn() -> bool + Copy + 'static,
     click: impl Fn() + 'static,
+    details: Option<Page>,
 ) -> Div {
     let round = follow(move || if on() { 1.0 } else { 0.0 }, fast_spatial());
     let pressed = signal(false);
@@ -279,6 +377,44 @@ fn tile(
     );
     let content =
         move |c: &anti_webui_md3e::ColorScheme| if on() { c.on_primary } else { c.on_surface };
+    let click = std::rc::Rc::new(click);
+    let bubble = div()
+        .size(36.0)
+        .flex()
+        .items_center()
+        .justify_center()
+        .flex_none()
+        .transition_of([Prop::Background], Transition::ms(180).ease_out())
+        .dyn_style(move |s| {
+            let c = colors();
+            let r = round.get();
+            s.rounded(11.0 + 7.0 * r).bg(if on() {
+                c.on_primary.with_alpha(0.16)
+            } else {
+                c.secondary_container
+            })
+        })
+        .child(
+            div()
+                .transition(Transition::ms(200).ease_out())
+                .dyn_style(move |s| s.font_axis(b"FILL", if on() { 1.0 } else { 0.0 }))
+                .child(dyn_view(move || sized_icon(icon(), 18.0))),
+        );
+    // With a page of its own, the tile opens it, and its icon is what turns it on and off.
+    let bubble = if details.is_some() {
+        let click = click.clone();
+        pressable(
+            bubble.on_click(move |e| {
+                e.stop_propagation();
+                if available() {
+                    click();
+                }
+            }),
+            content,
+        )
+    } else {
+        bubble
+    };
     pressable(
         div()
             .flex_1()
@@ -290,9 +426,12 @@ fn tile(
             .gap(10.0)
             .px(10.0)
             .on_active(move |a| pressed.set(a))
-            .on_click(move |_| {
-                if available() {
-                    click()
+            .on_click({
+                let click = click.clone();
+                move |_| match details {
+                    Some(page) => go(page),
+                    None if available() => click(),
+                    None => {}
                 }
             })
             .transition_of(
@@ -312,34 +451,12 @@ fn tile(
                     .text_color(content(&c))
                     .opacity(if available() { 1.0 } else { 0.45 })
             })
-            .child(
-                div()
-                    .size(36.0)
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .flex_none()
-                    .transition_of([Prop::Background], Transition::ms(180).ease_out())
-                    .dyn_style(move |s| {
-                        let c = colors();
-                        let r = round.get();
-                        s.rounded(11.0 + 7.0 * r).bg(if on() {
-                            c.on_primary.with_alpha(0.16)
-                        } else {
-                            c.secondary_container
-                        })
-                    })
-                    .child(
-                        div()
-                            .transition(Transition::ms(200).ease_out())
-                            .dyn_style(move |s| s.font_axis(b"FILL", if on() { 1.0 } else { 0.0 }))
-                            .child(dyn_view(move || sized_icon(icon(), 18.0))),
-                    ),
-            )
+            .child(bubble)
             .child(
                 div()
                     .flex()
                     .flex_col()
+                    .flex_1()
                     .min_w(0.0)
                     .overflow_hidden()
                     .child(static_txt(TextStyle::LABEL_LARGE, title))
@@ -348,7 +465,12 @@ fn tile(
                             .overflow_hidden()
                             .dyn_style(move |s| s.opacity(0.8)),
                     ),
-            ),
+            )
+            .children(details.map(|_| {
+                sized_icon(icons::CHEVRON_RIGHT, 18.0)
+                    .flex_none()
+                    .dyn_style(|s| s.opacity(0.7))
+            })),
         content,
     )
 }
@@ -394,6 +516,7 @@ fn tiles() -> Div {
                     move || net.wifi_enabled(),
                     move || net.available(),
                     move || drop(net.set_wifi_enabled(!net.wifi_enabled())),
+                    Some(Page::Wifi),
                 ))
                 .child(tile(
                     move || {
@@ -426,6 +549,7 @@ fn tiles() -> Div {
                         let on = bt.adapter().is_some_and(|a| a.powered);
                         drop(bt.set_powered(!on));
                     },
+                    Some(Page::Bluetooth),
                 )),
         )
         .child(
@@ -455,6 +579,7 @@ fn tiles() -> Div {
                             }
                         })
                     },
+                    None,
                 ))
                 .child(tile(
                     move || {
@@ -473,6 +598,7 @@ fn tiles() -> Div {
                             s.set_do_not_disturb(!s.do_not_disturb());
                         }
                     },
+                    None,
                 )),
         )
         .child(
@@ -494,6 +620,7 @@ fn tiles() -> Div {
                             drop(p.set_active(next));
                         }
                     },
+                    None,
                 ))
                 .child(tile(
                     move || {
@@ -516,6 +643,7 @@ fn tiles() -> Div {
                             drop(s.set_muted(!s.muted));
                         }
                     },
+                    Some(Page::Sound),
                 )),
         )
 }
@@ -524,7 +652,7 @@ fn tiles() -> Div {
 fn sliders() -> Div {
     let a = audio();
     let s = session();
-    let style = || SliderStyle::new().wavy().no_stops();
+    let style = slider_style;
     let row = |icon: Div, slider: Div| {
         div()
             .flex()
@@ -550,33 +678,39 @@ fn sliders() -> Div {
     section()
         .py(8.0)
         .gap(2.0)
-        .child(row(
-            pressable(
-                div()
-                    .size(34.0)
-                    .flex()
-                    .items_center()
-                    .justify_center()
-                    .flex_none()
-                    .rounded(17.0)
-                    .on_click(move |_| {
-                        if let Some(sink) = a.default_sink() {
-                            drop(sink.set_muted(!sink.muted));
-                        }
-                    })
-                    .child(dyn_sym(
-                        move || match a.default_sink() {
-                            Some(s) if s.muted || s.volume <= 0.001 => icons::VOLUME_OFF,
-                            Some(s) if s.volume < 0.5 => icons::VOLUME_DOWN,
-                            _ => icons::VOLUME_UP,
-                        },
-                        18.0,
-                        |c| c.on_surface_variant,
-                    )),
-                |c| c.on_surface,
+        .child(
+            row(
+                pressable(
+                    div()
+                        .size(34.0)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .flex_none()
+                        .rounded(17.0)
+                        .on_click(move |_| {
+                            if let Some(sink) = a.default_sink() {
+                                drop(sink.set_muted(!sink.muted));
+                            }
+                        })
+                        .child(dyn_sym(
+                            move || match a.default_sink() {
+                                Some(s) if s.muted || s.volume <= 0.001 => icons::VOLUME_OFF,
+                                Some(s) if s.volume < 0.5 => icons::VOLUME_DOWN,
+                                _ => icons::VOLUME_UP,
+                            },
+                            18.0,
+                            |c| c.on_surface_variant,
+                        )),
+                    |c| c.on_surface,
+                ),
+                styled_slider(volume, style()),
+            )
+            .child(
+                icon_btn(icons::CHEVRON_RIGHT, 32.0, |c| c.on_surface_variant)
+                    .on_click(|_| go(Page::Sound)),
             ),
-            styled_slider(volume, style()),
-        ))
+        )
         .child(show(
             move || s.brightness().is_some(),
             move || {
@@ -590,6 +724,8 @@ fn sliders() -> Div {
                         .child(sym(icons::BRIGHTNESS_6, 18.0, |c| c.on_surface_variant)),
                     styled_slider(brightness, style()),
                 )
+                // As wide as the way to the sound page above it, for the sliders to line up.
+                .child(div().size(32.0).flex_none())
             },
         ))
 }

@@ -190,8 +190,11 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         .flex()
         .flex_col()
         .select_none()
-        .on_key_down(|e| {
-            if e.key == Key::Named(NamedKey::Escape) {
+        .on_key_down(move |e| {
+            // Out of a page of quick settings first, then out of the panel.
+            if e.key == Key::Named(NamedKey::Escape)
+                && !(panel == Panel::QuickSettings && crate::quick_settings::back())
+            {
                 close();
             }
         })
