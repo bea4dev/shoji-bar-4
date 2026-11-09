@@ -27,6 +27,7 @@ pub fn open(output: Output) {
 
 pub fn view(output: Output) -> Div {
     div()
+        .select_none()
         .size_full()
         .flex()
         .flex_row()

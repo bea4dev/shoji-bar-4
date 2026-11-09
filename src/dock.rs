@@ -29,6 +29,8 @@ const MARGIN: f32 = 12.0;
 /// The body of the dock; what grows reaches above it, into the rest of the layer.
 const BODY: f32 = CELL + 2.0 * PAD;
 const LAYER: i32 = 136;
+/// What the dock keeps for itself at the bottom of the output.
+pub const RESERVED: i32 = (BODY + MARGIN) as i32;
 
 pub fn open(output: Output) {
     let region = signal(InputRegion::Empty);
@@ -36,7 +38,7 @@ pub fn open(output: Output) {
         LayerOptions::new()
             .anchor(Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT)
             .height(LAYER)
-            .exclusive(Exclusive::Fixed((BODY + MARGIN) as i32))
+            .exclusive(Exclusive::Fixed(RESERVED))
             .output(&output)
             .namespace("shoji-bar-4-dock")
             .input_region(InputRegion::Empty),
@@ -191,6 +193,7 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
     div()
         .size_full()
         .relative()
+        .select_none()
         .flex()
         .flex_col()
         .justify_end()

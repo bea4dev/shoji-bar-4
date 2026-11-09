@@ -12,9 +12,9 @@ pub fn panel() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(12.0)
-        .p(14.0)
-        .rounded(28.0)
+        .gap(14.0)
+        .p(16.0)
+        .rounded(30.0)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -118,22 +118,19 @@ fn gauges() -> Div {
         div()
             .flex_1()
             .flex()
-            .flex_row()
+            .flex_col()
             .items_center()
             .gap(8.0)
-            .p(10.0)
-            .rounded(16.0)
+            .px(8.0)
+            .py(14.0)
+            .rounded(20.0)
             .dyn_style(|s| s.bg(colors().surface_container_high))
             .child(
+                // The ring is as big as it draws itself; the icon sits in its middle.
                 div()
-                    .size(40.0)
                     .relative()
                     .flex_none()
-                    .child(
-                        circular_wavy_progress(move || value())
-                            .absolute()
-                            .inset(0.0),
-                    )
+                    .child(circular_wavy_progress(move || value()))
                     .child(
                         div()
                             .absolute()
@@ -141,14 +138,15 @@ fn gauges() -> Div {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .child(sym(symbol, 16.0, |c| c.primary)),
+                            .child(sym(symbol, 18.0, |c| c.primary)),
                     ),
             )
             .child(
                 div()
                     .flex()
                     .flex_col()
-                    .child(txt(TextStyle::LABEL_LARGE, shown))
+                    .items_center()
+                    .child(txt(TextStyle::TITLE_SMALL, shown))
                     .child(
                         static_txt(TextStyle::LABEL_SMALL, label)
                             .dyn_style(|s| s.text_color(colors().on_surface_variant)),
@@ -159,7 +157,7 @@ fn gauges() -> Div {
     div()
         .flex()
         .flex_row()
-        .gap(8.0)
+        .gap(10.0)
         .child(gauge(
             icons::SPEED,
             "CPU",

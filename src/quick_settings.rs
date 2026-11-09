@@ -523,9 +523,9 @@ fn sliders() -> Div {
     let s = session();
     let style = || {
         SliderStyle::new()
-            .track(30.0)
-            .corner(11.0)
-            .handle_height(40.0)
+            .track(14.0)
+            .handle_height(34.0)
+            .wave(4.0, 26.0, 6.0)
             .no_stops()
     };
     let row = |icon: Div, slider: Div| {

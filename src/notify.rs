@@ -77,7 +77,7 @@ pub fn open_popups() {
 }
 
 pub fn popups(server: NotificationServer) -> Div {
-    div().flex().flex_col().p(14.0).child(
+    div().flex().flex_col().p(14.0).select_none().child(
         for_each(
             move || server.popups(),
             |n| n.id,

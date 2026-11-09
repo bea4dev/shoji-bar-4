@@ -112,7 +112,7 @@ pub fn install() {
                         },
                     }
                 };
-                div().p(16.0).child(
+                div().p(16.0).select_none().child(
                     show(move || visible.get(), move || pill(level, symbol))
                         .appear()
                         .enter(|s| s.opacity(0.0).translate_y(40.0).scale(0.8))

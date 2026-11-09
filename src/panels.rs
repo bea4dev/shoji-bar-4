@@ -109,16 +109,15 @@ pub fn install(output: Output) {
             if !mounted.get() {
                 return;
             }
-            let keyboard = match panel {
-                Panel::Launcher => Keyboard::Exclusive,
-                _ => Keyboard::OnDemand,
-            };
             let content_output = output.clone();
             let layer = open_layer(
                 LayerOptions::new()
                     .layer(Layer::Top)
                     .anchor(Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT)
-                    .keyboard(keyboard)
+                    // Over the bar and the dock too, so that a click anywhere closes it.
+                    .exclusive(Exclusive::Ignore)
+                    // And Escape, without clicking it first.
+                    .keyboard(Keyboard::Exclusive)
                     .output(&output)
                     .namespace(format!("shoji-bar-4-{}", panel.name())),
                 move || surface(content_output, panel, wanted),
@@ -144,6 +143,11 @@ pub fn view(output: Output, panel: Panel) -> Div {
     surface(output, panel, wanted)
 }
 
+/// How far the panels keep from the top and the bottom of the output: they cover all of it, the
+/// bar and the dock included.
+const BELOW_BAR: f32 = crate::bar::HEIGHT as f32 + 6.0;
+const ABOVE_DOCK: f32 = crate::dock::RESERVED as f32 + 16.0;
+
 /// Where a panel goes on the output, and how it comes in.
 type Place = fn(Div) -> Div;
 type Enter = fn(Style) -> Style;
@@ -157,15 +161,15 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
     };
     let (place, enter): (Place, Enter) = match panel {
         Panel::QuickSettings => (
-            |d| d.items_end().justify_start().pt(6.0).pr(14.0),
+            |d| d.items_end().justify_start().pt(BELOW_BAR).pr(14.0),
             |s| s.opacity(0.0).scale(0.82).translate_y(-18.0),
         ),
         Panel::Calendar => (
-            |d| d.items_center().justify_start().pt(6.0),
+            |d| d.items_center().justify_start().pt(BELOW_BAR),
             |s| s.opacity(0.0).scale(0.82).translate_y(-18.0),
         ),
         Panel::Launcher => (
-            |d| d.items_center().justify_end().pb(16.0),
+            |d| d.items_center().justify_end().pb(ABOVE_DOCK),
             |s| s.opacity(0.0).scale(0.7).translate_y(80.0),
         ),
     };
@@ -174,6 +178,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         .relative()
         .flex()
         .flex_col()
+        .select_none()
         .on_key_down(|e| {
             if e.key == Key::Named(NamedKey::Escape) {
                 close();

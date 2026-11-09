@@ -76,6 +76,7 @@ pub fn panel(output: Output) -> Div {
                         .apply(text_input())
                         .value(query)
                         .placeholder("Search apps")
+                        .select_text()
                         .node_ref(input)
                         .flex_1()
                         .on_submit(move |_| {
