@@ -30,6 +30,11 @@ pub fn server() -> Option<NotificationServer> {
 }
 
 const WIDTH: f32 = 352.0;
+/// At most this many pop up at once, the newest; the rest are in quick settings.
+const MAX_POPUPS: usize = 3;
+/// The layer is this tall whatever is in it, so a card coming in is never cut off while the
+/// surface would be growing; clicks go through all of it but the cards.
+const LAYER_HEIGHT: i32 = 560;
 
 /// The popups, on the first output. Call once, from the root.
 pub fn open_popups() {
@@ -49,7 +54,7 @@ pub fn open_popups() {
             mounted.set(true);
         } else {
             pending.set(Some(set_timeout(
-                std::time::Duration::from_millis(600),
+                std::time::Duration::from_millis(700),
                 move || mounted.set(false),
             )));
         }
@@ -59,7 +64,8 @@ pub fn open_popups() {
             return;
         }
         let server = server.clone();
-        open_layer(
+        let region = signal(InputRegion::Empty);
+        let layer = open_layer(
             LayerOptions::new()
                 .layer(Layer::Overlay)
                 .anchor(Anchor::TOP | Anchor::RIGHT)
@@ -68,27 +74,43 @@ pub fn open_popups() {
                     right: 10,
                     ..Default::default()
                 })
-                .width(WIDTH as i32 + 24)
-                .fit_content()
+                .width(WIDTH as i32 + 28)
+                .height(LAYER_HEIGHT)
+                .input_region(InputRegion::Empty)
                 .namespace("shoji-bar-4-notifications"),
-            move || popups(server.clone()),
+            move || popups(server.clone(), region),
         );
+        effect(move || layer.set_input_region(region.get()));
     });
 }
 
-pub fn popups(server: NotificationServer) -> Div {
-    div().flex().flex_col().p(14.0).select_none().child(
-        for_each(
-            move || server.popups(),
-            |n| n.id,
-            |n| card(n, true).mb(10.0),
+/// The cards, newest on top. Those below make room for a new one and close up after one that
+/// goes, sliding to their places; `region` follows where the cards are.
+pub fn popups(server: NotificationServer, region: Signal<InputRegion>) -> Div {
+    div()
+        .flex()
+        .flex_col()
+        .p(14.0)
+        .select_none()
+        .on_resized(move |w, h| {
+            region.set(if h > 28.5 {
+                InputRegion::Rects(vec![RectI::new(0, 0, w.ceil() as i32, h.ceil() as i32)])
+            } else {
+                InputRegion::Empty
+            })
+        })
+        .child(
+            for_each(
+                move || server.popups().into_iter().take(MAX_POPUPS).collect(),
+                |n| n.id,
+                |n| card(n, true).mb(10.0),
+            )
+            .appear()
+            .enter(|s| s.opacity(0.0).translate_x(WIDTH * 0.6).scale(0.9))
+            .exit(|s| s.opacity(0.0).translate_x(WIDTH * 0.6).scale(0.9))
+            .moves(emphasized(380))
+            .transition(overshoot(480)),
         )
-        .appear()
-        .enter(|s| s.opacity(0.0).translate_x(WIDTH * 0.6).scale(0.9))
-        .exit(|s| s.opacity(0.0).translate_x(WIDTH * 0.6).h(0.0).mb(0.0))
-        .moves(emphasized(380))
-        .transition(overshoot(480)),
-    )
 }
 
 /// The icon of a notification: its picture, its app's icon, or a bell.

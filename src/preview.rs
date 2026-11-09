@@ -118,7 +118,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 ))
             }
             "notifications" => match crate::notify::server() {
-                Some(server) => crate::notify::popups(server),
+                Some(server) => crate::notify::popups(server, signal(InputRegion::Empty)),
                 None => div().child("not the notification daemon"),
             },
             "dock" => crate::dock::view(output, signal(InputRegion::Full)),
