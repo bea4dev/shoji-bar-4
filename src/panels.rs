@@ -152,9 +152,9 @@ const ABOVE_DOCK: f32 = crate::dock::RESERVED as f32 + 16.0;
 type Place = fn(Div) -> Div;
 type Enter = fn(Style) -> Style;
 
-/// Down from above the screen, growing out of a blur as it fades in.
+/// Down from well above, fading in.
 fn from_above(s: Style) -> Style {
-    s.opacity(0.0).scale(0.6).translate_y(-160.0).blur(24.0)
+    s.opacity(0.0).translate_y(-200.0)
 }
 
 /// All of the output: a catcher of clicks outside the panel, and the panel where it goes.
@@ -238,24 +238,18 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
     }
     // Coming in takes longer than going: the panel comes in on a show of its own inside the one
     // that takes it away.
-    let origin = if panel == Panel::QuickSettings {
-        1.0
-    } else {
-        0.5
-    };
     let coming = move || {
-        let content = content.clone();
-        show(|| true, move || content().transform_origin(origin, 0.0))
+        show(|| true, content.clone())
             .appear()
             .enter(enter)
-            .transition(Transition::ms(650).cubic_bezier(0.18, 1.25, 0.3, 1.0))
+            .transition(Transition::ms(200).cubic_bezier(0.2, 0.0, 0.0, 1.0))
     };
     root.child(
         show(
             move || wanted.get(),
             move || div().flex_none().child(coming()),
         )
-        .exit(|s| s.opacity(0.0).scale(0.92).translate_y(-48.0).blur(12.0))
-        .transition(Transition::ms(300).cubic_bezier(0.3, 0.0, 0.8, 0.15)),
+        .exit(|s| s.opacity(0.0).translate_y(-48.0))
+        .transition(Transition::ms(100).cubic_bezier(0.3, 0.0, 0.8, 0.15)),
     )
 }
