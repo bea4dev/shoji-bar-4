@@ -15,8 +15,8 @@ use anti_webui_md3e::motion::{fast_spatial, slow_spatial};
 use std::cell::Cell;
 use std::rc::Rc;
 
-/// How tall the layer is; the islands are 40 of it.
-pub const HEIGHT: i32 = 56;
+/// How tall the layer is; the islands are [`ISLAND`] of it, with room above and below.
+pub const HEIGHT: i32 = 48;
 
 pub fn open(output: Output) {
     open_layer(
@@ -31,15 +31,15 @@ pub fn view(output: Output) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .px(10.0)
-        .gap(8.0)
+        .px(14.0)
+        .gap(10.0)
         .dyn_style(|s| s.text_color(colors().on_surface))
         .child(
             div()
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(8.0)
+                .gap(10.0)
                 .flex_1()
                 .min_w(0.0)
                 .child(launcher_island(output.clone()))
@@ -65,7 +65,7 @@ pub fn view(output: Output) -> Div {
                 .flex_row()
                 .items_center()
                 .justify_end()
-                .gap(8.0)
+                .gap(10.0)
                 .flex_1()
                 .min_w(0.0)
                 .child(media_island())
@@ -82,11 +82,11 @@ fn launcher_island(output: Output) -> Div {
         move || is_open(&output, Panel::Launcher)
     });
     island()
-        .w(40.0)
+        .w(ISLAND)
         .justify_center()
         .on_hover(move |h| hovered.set(h))
         .on_click(move |_| toggle(&output, Panel::Launcher))
-        .child(launcher_glyph(open, hovered, || 18.0).size(32.0))
+        .child(launcher_glyph(open, hovered, || 15.0).size(26.0))
 }
 
 /// A workspace as the bar shows it.
@@ -117,8 +117,10 @@ fn workspaces_of(output: Output) -> Memo<Vec<Ws>> {
     })
 }
 
-const SLOT: f32 = 20.0;
-const ACTIVE: f32 = 40.0;
+const SLOT: f32 = 18.0;
+const ACTIVE: f32 = 32.0;
+/// How tall the pill under the active workspace is.
+const PILL: f32 = 22.0;
 
 /// The workspaces of the output as dots, with a pill under the active one that stretches as it
 /// goes from one to another: its front edge leads on a quick spring, its back follows on a slow
@@ -148,11 +150,11 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
     let pill = div()
         .absolute()
         .top(0.0)
-        .h(28.0)
-        .rounded(14.0)
+        .h(PILL)
+        .rounded(PILL / 2.0)
         .dyn_style(move |s| {
             let (l, r) = (left.get(), right.get());
-            s.left(l).w((r - l).max(28.0)).bg(colors().primary)
+            s.left(l).w((r - l).max(PILL)).bg(colors().primary)
         });
     let slots =
         for_each(
@@ -168,7 +170,7 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                 let activate = activate.clone();
                 div()
                     .relative()
-                    .h(28.0)
+                    .h(PILL)
                     .flex_none()
                     .transition_of([Prop::Width], emphasized(350))
                     .dyn_style(move |s| s.w(if on.get() { ACTIVE } else { SLOT }))
@@ -182,10 +184,10 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                             .items_center()
                             .justify_center()
                             .pointer_events_none()
-                            .child(div().rounded(4.0).transition(overshoot(350)).dyn_style(
+                            .child(div().rounded(3.0).transition(overshoot(350)).dyn_style(
                                 move |s| {
                                     let c = colors();
-                                    let size = if empty.get() { 6.0 } else { 8.0 };
+                                    let size = if empty.get() { 5.0 } else { 6.0 };
                                     let color = if urgent.get() {
                                         c.error
                                     } else if empty.get() {
@@ -200,7 +202,7 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                             )),
                     )
                     .child(
-                        TextStyle::LABEL_LARGE
+                        TextStyle::LABEL_MEDIUM
                             .apply(div())
                             .absolute()
                             .inset(0.0)
@@ -222,7 +224,7 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
         .exit(|s| s.opacity(0.0).scale(0.3))
         .transition(overshoot(300));
     island()
-        .px(6.0)
+        .px(5.0)
         .on_scroll(move |e| {
             let step = if e.delta_y > 0.0 {
                 1
@@ -245,7 +247,7 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                 .flex()
                 .flex_row()
                 .items_center()
-                .h(28.0)
+                .h(PILL)
                 .child(pill)
                 .child(slots),
         )
@@ -263,7 +265,7 @@ fn window_island(output: Output) -> Show {
         move || active.with(Option::is_some),
         move || {
             island()
-                .px(6.0)
+                .px(5.0)
                 .min_w(0.0)
                 .flex_shrink(1.0)
                 .overflow_hidden()
@@ -281,32 +283,32 @@ fn window_island(output: Output) -> Show {
                                 .flex_row()
                                 .items_center()
                                 .gap(8.0)
-                                .pr(10.0)
+                                .pr(9.0)
                                 .min_w(0.0)
                                 .child(dyn_view(move || match icon.get() {
-                                    Some(path) => img(path).size(28.0).flex_none().into_view(),
+                                    Some(path) => img(path).size(22.0).flex_none().into_view(),
                                     None => div()
-                                        .size(28.0)
-                                        .rounded(14.0)
+                                        .size(22.0)
+                                        .rounded(11.0)
                                         .flex()
                                         .items_center()
                                         .justify_center()
                                         .flex_none()
                                         .dyn_style(|s| s.bg(colors().secondary_container))
-                                        .child(sym(icons::DESKTOP_WINDOWS, 16.0, |c| {
+                                        .child(sym(icons::DESKTOP_WINDOWS, 13.0, |c| {
                                             c.on_secondary_container
                                         }))
                                         .into_view(),
                                 }))
                                 .child(
-                                    txt(TextStyle::TITLE_SMALL, move || {
+                                    txt(BAR_TEXT, move || {
                                         shown.with(|t| {
                                             t.as_ref()
                                                 .map(|t| t.title.chars().take(60).collect())
                                                 .unwrap_or_default()
                                         })
                                     })
-                                    .max_w(360.0)
+                                    .max_w(320.0)
                                     .overflow_hidden(),
                                 )
                         },
@@ -348,17 +350,17 @@ fn clock_island(output: Output) -> Div {
             hm.to_owned()
         })
     };
-    let size = 18.0;
+    let size = 15.0;
     let style = TextStyle {
         size,
-        line_height: 24.0,
+        line_height: 20.0,
         letter_spacing: 0.0,
         weight: 500,
     };
     pressable(
         island()
-            .px(16.0)
-            .gap(10.0)
+            .px(14.0)
+            .gap(8.0)
             .on_hover(move |h| hovered.set(h))
             .on_click(move |_| toggle(&output, Panel::Calendar))
             .dyn_style(move |s| {
@@ -378,7 +380,7 @@ fn clock_island(output: Output) -> Div {
                 .dyn_style(move |s| s.font_axis(b"wght", weight.get())),
             )
             .child(
-                txt(TextStyle::LABEL_MEDIUM, || {
+                txt(TextStyle::LABEL_SMALL, || {
                     local_time(Every::Minute).format("%a %-d %b")
                 })
                 .dyn_style(move |s| {
@@ -411,8 +413,8 @@ fn media_island() -> Show {
             pressable(
                 island()
                     .px(12.0)
-                    .gap(10.0)
-                    .max_w(280.0)
+                    .gap(8.0)
+                    .max_w(260.0)
                     .on_click(move |_| {
                         if let Some(p) = untrack(|| current.get()) {
                             p.play_pause();
@@ -420,7 +422,7 @@ fn media_island() -> Show {
                     })
                     .child(equalizer(playing))
                     .child(
-                        txt(TextStyle::LABEL_LARGE, move || {
+                        txt(BAR_TEXT, move || {
                             current.with(|p| {
                                 p.as_ref()
                                     .map(|p| p.title.chars().take(40).collect())
@@ -445,16 +447,17 @@ fn equalizer(playing: Memo<bool>) -> Div {
         move || if playing.get() { 1.0 } else { 0.0 },
         slow_spatial(),
     );
-    let t = clock_while(move || calming.get() > 0.001);
+    // Thirty times a second is plenty for bars that dance, and a quarter of the frames.
+    let t = clock_at(30, move || calming.get() > 0.001);
     let mut row = div()
         .flex()
         .flex_row()
         .items_center()
         .gap(2.0)
-        .h(16.0)
+        .h(13.0)
         .flex_none();
     for i in 0..4 {
-        row = row.child(div().w(3.0).rounded(1.5).dyn_style(move |s| {
+        row = row.child(div().w(2.5).rounded(1.25).dyn_style(move |s| {
             let level = calming.get();
             // Only asks for frames while it moves.
             let wave = if level > 0.001 {
@@ -463,7 +466,7 @@ fn equalizer(playing: Memo<bool>) -> Div {
             } else {
                 0.0
             };
-            s.h(3.0 + 13.0 * wave * level).bg(colors().primary)
+            s.h(2.5 + 10.5 * wave * level).bg(colors().primary)
         }));
     }
     row
@@ -474,7 +477,7 @@ fn tray_island() -> Show {
     show(
         || !tray().items().is_empty(),
         || {
-            island().px(8.0).gap(4.0).child(
+            island().px(5.0).gap(2.0).child(
                 for_each(|| tray().items(), |item| item.key(), tray_icon)
                     .enter(|s| s.opacity(0.0).scale(0.4))
                     .exit(|s| s.opacity(0.0).scale(0.4))
@@ -495,15 +498,15 @@ fn tray_icon(item: TrayItem) -> Div {
     let clicked = item.clone();
     pressable(
         div()
-            .size(30.0)
-            .rounded(15.0)
+            .size(24.0)
+            .rounded(12.0)
             .flex()
             .items_center()
             .justify_center()
             .child(dyn_view(move || {
                 match shown().and_then(|i| i.icon.best(48)) {
                     Some(picture) => bitmap_view(move || Some(picture.clone()))
-                        .size(18.0)
+                        .size(16.0)
                         .into_view(),
                     None => txt(TextStyle::LABEL_MEDIUM, {
                         let shown = shown.clone();
@@ -530,6 +533,14 @@ fn tray_icon(item: TrayItem) -> Div {
     )
 }
 
+/// The size of the words in the bar: smaller than Material's titles, as a bar is.
+const BAR_TEXT: TextStyle = TextStyle {
+    size: 13.0,
+    line_height: 18.0,
+    letter_spacing: 0.1,
+    weight: 500,
+};
+
 /// Network, Bluetooth, sound and battery at a glance; a click opens quick settings.
 fn status_island(output: Output) -> Div {
     let net = network();
@@ -544,7 +555,7 @@ fn status_island(output: Output) -> Div {
     pressable(
         island()
             .px(12.0)
-            .gap(10.0)
+            .gap(9.0)
             .on_click(move |_| toggle(&output, Panel::QuickSettings))
             .dyn_style(move |s| {
                 if open.get() {
@@ -560,7 +571,7 @@ fn status_island(output: Output) -> Div {
                     None if net.connectivity() == Connectivity::None => icons::SIGNAL_WIFI_OFF,
                     None => icons::WIFI_OFF,
                 },
-                18.0,
+                16.0,
                 color,
             ))
             .child(show(
@@ -574,7 +585,7 @@ fn status_island(output: Output) -> Div {
                                 icons::BLUETOOTH
                             }
                         },
-                        18.0,
+                        16.0,
                         color,
                     )
                 },
@@ -585,7 +596,7 @@ fn status_island(output: Output) -> Div {
                     Some(s) if s.volume < 0.5 => icons::VOLUME_DOWN,
                     _ => icons::VOLUME_UP,
                 },
-                18.0,
+                16.0,
                 color,
             ))
             .child(show(
@@ -598,10 +609,10 @@ fn status_island(output: Output) -> Div {
                         .gap(2.0)
                         .child(dyn_sym(
                             move || battery_icon(b.percentage(), b.state()),
-                            18.0,
+                            16.0,
                             color,
                         ))
-                        .child(txt(TextStyle::LABEL_LARGE, move || {
+                        .child(txt(TextStyle::LABEL_MEDIUM, move || {
                             format!("{:.0}%", b.percentage())
                         }))
                 },

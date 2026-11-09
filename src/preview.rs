@@ -34,8 +34,8 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     };
     let scale: f64 = opt("--scale").and_then(|s| s.parse().ok()).unwrap_or(1.8);
     let (default_w, default_h) = match part.as_str() {
-        "bar" => (1600.0, 56.0),
-        "dock" => (900.0, 150.0),
+        "bar" => (1600.0, crate::bar::HEIGHT as f32),
+        "dock" => (900.0, 136.0),
         "launcher" | "quick-settings" | "calendar" => (1600.0, 1000.0),
         _ => (800.0, 600.0),
     };

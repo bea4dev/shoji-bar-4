@@ -157,7 +157,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
     };
     let (place, enter): (Place, Enter) = match panel {
         Panel::QuickSettings => (
-            |d| d.items_end().justify_start().pt(6.0).pr(10.0),
+            |d| d.items_end().justify_start().pt(6.0).pr(14.0),
             |s| s.opacity(0.0).scale(0.82).translate_y(-18.0),
         ),
         Panel::Calendar => (
@@ -165,7 +165,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             |s| s.opacity(0.0).scale(0.82).translate_y(-18.0),
         ),
         Panel::Launcher => (
-            |d| d.items_center().justify_end().pb(12.0),
+            |d| d.items_center().justify_end().pb(16.0),
             |s| s.opacity(0.0).scale(0.7).translate_y(80.0),
         ),
     };

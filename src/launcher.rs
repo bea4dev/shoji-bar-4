@@ -12,8 +12,8 @@ use anti_webui_md3e::motion::fast_spatial;
 use std::time::Duration;
 
 const COLUMNS: usize = 6;
-const CELL_W: f32 = 112.0;
-const CELL_H: f32 = 112.0;
+const CELL_W: f32 = 100.0;
+const CELL_H: f32 = 100.0;
 /// How many cells come in one after another when it opens; the rest come with the last.
 const STAGGERED: usize = COLUMNS * 4;
 
@@ -41,7 +41,7 @@ pub fn panel(output: Output) -> Div {
     let input = node_ref();
     request_frame(move |_| input.focus());
     // Room for the cells, the padding and the scroll bar.
-    let width = COLUMNS as f32 * CELL_W + 32.0 + 12.0;
+    let width = COLUMNS as f32 * CELL_W + 40.0 + 12.0;
     let step = move |by: isize| {
         let n = results.with(Vec::len) as isize;
         if n > 0 {
@@ -53,8 +53,8 @@ pub fn panel(output: Output) -> Div {
         .flex()
         .flex_col()
         .gap(16.0)
-        .p(16.0)
-        .rounded(36.0)
+        .p(20.0)
+        .rounded(32.0)
         .shadows(elevation(4))
         .dyn_style(|s| {
             let c = colors();
@@ -65,14 +65,14 @@ pub fn panel(output: Output) -> Div {
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(12.0)
-                .h(56.0)
-                .px(18.0)
-                .rounded(28.0)
+                .gap(10.0)
+                .h(46.0)
+                .px(16.0)
+                .rounded(23.0)
                 .dyn_style(|s| s.bg(colors().surface_container_highest))
-                .child(sym(icons::SEARCH, 24.0, |c| c.on_surface_variant))
+                .child(sym(icons::SEARCH, 20.0, |c| c.on_surface_variant))
                 .child(
-                    TextStyle::BODY_LARGE
+                    TextStyle::BODY_MEDIUM
                         .apply(text_input())
                         .value(query)
                         .placeholder("Search apps")
@@ -97,7 +97,7 @@ pub fn panel(output: Output) -> Div {
                 .child(show(
                     move || !query.with(String::is_empty),
                     move || {
-                        icon_btn(icons::CLOSE, 36.0, |c| c.on_surface_variant)
+                        icon_btn(icons::CLOSE, 30.0, |c| c.on_surface_variant)
                             .on_click(move |_| query.set(String::new()))
                     },
                 )),
@@ -201,12 +201,12 @@ fn cell(
                 .flex_col()
                 .items_center()
                 .justify_center()
-                .gap(8.0)
+                .gap(6.0)
                 .transition_of([Prop::Background], Transition::ms(160).ease_out())
                 .dyn_style(move |s| {
                     let c = colors();
                     let t = shown.get();
-                    s.rounded(20.0 + 32.0 * round.get())
+                    s.rounded(18.0 + 28.0 * round.get())
                         .bg(if chosen.get() {
                             c.secondary_container
                         } else {
@@ -218,7 +218,7 @@ fn cell(
                 })
                 .child(
                     div()
-                        .size(56.0)
+                        .size(46.0)
                         .flex()
                         .items_center()
                         .justify_center()
@@ -228,13 +228,13 @@ fn cell(
                         })
                         .child(match icon {
                             Some(path) => img(path)
-                                .size(56.0)
+                                .size(46.0)
                                 .object_fit(ObjectFit::Contain)
                                 .into_view(),
-                            None => TextStyle::HEADLINE_SMALL
+                            None => TextStyle::TITLE_LARGE
                                 .apply(div())
-                                .size(56.0)
-                                .rounded(18.0)
+                                .size(46.0)
+                                .rounded(15.0)
                                 .flex()
                                 .items_center()
                                 .justify_center()
@@ -253,7 +253,7 @@ fn cell(
                         }),
                 )
                 .child(
-                    static_txt(TextStyle::LABEL_LARGE, name.clone())
+                    static_txt(TextStyle::LABEL_MEDIUM, name.clone())
                         .max_w(CELL_W - 16.0)
                         .overflow_hidden()
                         .dyn_style(move |s| {

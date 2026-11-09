@@ -14,7 +14,7 @@ use anti_webui_md3e::components::{
 use anti_webui_md3e::icons::{self, Symbol};
 use anti_webui_md3e::motion::{default_effects, fast_spatial};
 
-const WIDTH: f32 = 412.0;
+const WIDTH: f32 = 380.0;
 
 pub fn panel(output: Output) -> Div {
     let _ = output;
@@ -22,9 +22,9 @@ pub fn panel(output: Output) -> Div {
         .w(WIDTH)
         .flex()
         .flex_col()
-        .gap(10.0)
-        .p(12.0)
-        .rounded(32.0)
+        .gap(12.0)
+        .p(14.0)
+        .rounded(28.0)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -45,7 +45,7 @@ fn section() -> Div {
         .flex_col()
         .gap(10.0)
         .p(14.0)
-        .rounded(24.0)
+        .rounded(20.0)
         .dyn_style(|s| s.bg(colors().surface_container_high))
 }
 
@@ -79,8 +79,8 @@ fn header() -> Div {
                 .flex_row()
                 .items_center()
                 .gap(12.0)
-                .px(6.0)
-                .pt(4.0)
+                .px(4.0)
+                .pt(2.0)
                 .child(avatar(initial))
                 .child(
                     div()
@@ -88,7 +88,7 @@ fn header() -> Div {
                         .flex_col()
                         .flex_1()
                         .min_w(0.0)
-                        .child(txt(TextStyle::TITLE_MEDIUM, move || {
+                        .child(txt(TextStyle::TITLE_SMALL, move || {
                             format!("{}, {name}", greeting())
                         }))
                         .child(
@@ -107,7 +107,7 @@ fn header() -> Div {
                         ),
                 )
                 .child(
-                    icon_btn(icons::SETTINGS, 40.0, |c| c.on_surface_variant).on_click(|_| {
+                    icon_btn(icons::SETTINGS, 34.0, |c| c.on_surface_variant).on_click(|_| {
                         let _ = std::process::Command::new("systemsettings").spawn();
                         crate::panels::close();
                     }),
@@ -137,9 +137,9 @@ fn header() -> Div {
                                 .flex()
                                 .flex_col()
                                 .items_center()
-                                .gap(4.0)
-                                .py(10.0)
-                                .rounded(20.0)
+                                .gap(3.0)
+                                .py(8.0)
+                                .rounded(16.0)
                                 .dyn_style(move |st| {
                                     let c = colors();
                                     let a = appear.get();
@@ -166,7 +166,7 @@ fn header() -> Div {
                                         Power::Off => drop(s.power_off()),
                                     }
                                 })
-                                .child(sized_icon(symbol, 22.0))
+                                .child(sized_icon(symbol, 18.0))
                                 .child(static_txt(TextStyle::LABEL_MEDIUM, label)),
                             |c| c.on_secondary_container,
                         ));
@@ -192,7 +192,7 @@ enum Power {
 fn avatar(initial: String) -> Div {
     let hovered = signal(false);
     div()
-        .size(46.0)
+        .size(38.0)
         .relative()
         .flex_none()
         .on_hover(move |h| hovered.set(h))
@@ -210,10 +210,11 @@ fn avatar(initial: String) -> Div {
                     .rotation(move || if hovered.get() { 60.0 } else { 0.0 }),
             )
             .absolute()
-            .inset(0.0),
+            .inset(0.0)
+            .size_full(),
         )
         .child(
-            TextStyle::TITLE_LARGE
+            TextStyle::TITLE_MEDIUM
                 .apply(div())
                 .absolute()
                 .inset(0.0)
@@ -230,7 +231,7 @@ fn power_button(open: Signal<bool>) -> Div {
     let turn = follow(move || if open.get() { 1.0 } else { 0.0 }, fast_spatial());
     pressable(
         div()
-            .size(40.0)
+            .size(34.0)
             .flex()
             .items_center()
             .justify_center()
@@ -239,7 +240,7 @@ fn power_button(open: Signal<bool>) -> Div {
             .dyn_style(move |s| {
                 let c = colors();
                 let t = turn.get();
-                s.rounded(20.0 - 8.0 * t)
+                s.rounded(17.0 - 7.0 * t)
                     .bg(c.error_container.with_alpha(t.clamp(0.0, 1.0)))
                     .rotate(90.0 * t)
             })
@@ -251,7 +252,7 @@ fn power_button(open: Signal<bool>) -> Div {
                         icons::POWER_SETTINGS_NEW
                     }
                 },
-                22.0,
+                18.0,
                 |c| c.on_surface_variant,
             )),
         |c| c.on_surface,
@@ -279,12 +280,12 @@ fn tile(
         div()
             .flex_1()
             .min_w(0.0)
-            .h(68.0)
+            .h(56.0)
             .flex()
             .flex_row()
             .items_center()
             .gap(10.0)
-            .px(12.0)
+            .px(10.0)
             .on_active(move |a| pressed.set(a))
             .on_click(move |_| {
                 if available() {
@@ -298,7 +299,7 @@ fn tile(
             .dyn_style(move |s| {
                 let c = colors();
                 let r = round.get();
-                s.rounded(18.0 + 16.0 * r)
+                s.rounded(16.0 + 12.0 * r)
                     .scale(squash.get())
                     .bg(if on() {
                         c.primary
@@ -310,7 +311,7 @@ fn tile(
             })
             .child(
                 div()
-                    .size(40.0)
+                    .size(36.0)
                     .flex()
                     .items_center()
                     .justify_center()
@@ -319,7 +320,7 @@ fn tile(
                     .dyn_style(move |s| {
                         let c = colors();
                         let r = round.get();
-                        s.rounded(12.0 + 8.0 * r).bg(if on() {
+                        s.rounded(11.0 + 7.0 * r).bg(if on() {
                             c.on_primary.with_alpha(0.16)
                         } else {
                             c.secondary_container
@@ -329,7 +330,7 @@ fn tile(
                         div()
                             .transition(Transition::ms(200).ease_out())
                             .dyn_style(move |s| s.font_axis(b"FILL", if on() { 1.0 } else { 0.0 }))
-                            .child(dyn_view(move || sized_icon(icon(), 22.0))),
+                            .child(dyn_view(move || sized_icon(icon(), 18.0))),
                     ),
             )
             .child(
@@ -340,7 +341,7 @@ fn tile(
                     .overflow_hidden()
                     .child(static_txt(TextStyle::LABEL_LARGE, title))
                     .child(
-                        txt(TextStyle::BODY_SMALL, subtitle)
+                        txt(TextStyle::LABEL_SMALL, subtitle)
                             .overflow_hidden()
                             .dyn_style(move |s| s.opacity(0.8)),
                     ),
@@ -522,9 +523,9 @@ fn sliders() -> Div {
     let s = session();
     let style = || {
         SliderStyle::new()
-            .track(40.0)
-            .corner(14.0)
-            .handle_height(52.0)
+            .track(30.0)
+            .corner(11.0)
+            .handle_height(40.0)
             .no_stops()
     };
     let row = |icon: Div, slider: Div| {
@@ -532,7 +533,7 @@ fn sliders() -> Div {
             .flex()
             .flex_row()
             .items_center()
-            .gap(6.0)
+            .gap(8.0)
             .child(icon)
             .child(slider.flex_1().min_w(0.0))
     };
@@ -552,12 +553,12 @@ fn sliders() -> Div {
         .child(row(
             pressable(
                 div()
-                    .size(40.0)
+                    .size(34.0)
                     .flex()
                     .items_center()
                     .justify_center()
                     .flex_none()
-                    .rounded(20.0)
+                    .rounded(17.0)
                     .on_click(move |_| {
                         if let Some(sink) = a.default_sink() {
                             drop(sink.set_muted(!sink.muted));
@@ -569,7 +570,7 @@ fn sliders() -> Div {
                             Some(s) if s.volume < 0.5 => icons::VOLUME_DOWN,
                             _ => icons::VOLUME_UP,
                         },
-                        22.0,
+                        18.0,
                         |c| c.on_surface_variant,
                     )),
                 |c| c.on_surface,
@@ -581,12 +582,12 @@ fn sliders() -> Div {
             move || {
                 row(
                     div()
-                        .size(40.0)
+                        .size(34.0)
                         .flex()
                         .items_center()
                         .justify_center()
                         .flex_none()
-                        .child(sym(icons::BRIGHTNESS_6, 22.0, |c| c.on_surface_variant)),
+                        .child(sym(icons::BRIGHTNESS_6, 18.0, |c| c.on_surface_variant)),
                     styled_slider(brightness, style()),
                 )
             },
@@ -638,9 +639,9 @@ fn media_card() -> Div {
         .relative()
         .flex()
         .flex_col()
-        .gap(8.0)
-        .p(16.0)
-        .rounded(24.0)
+        .gap(6.0)
+        .p(14.0)
+        .rounded(20.0)
         .overflow_hidden()
         // Its own stacking context, so that the veil below goes between the art and the text.
         .z_index(0)
@@ -675,7 +676,7 @@ fn media_card() -> Div {
                         .flex_1()
                         .min_w(0.0)
                         .child(
-                            txt(TextStyle::TITLE_MEDIUM, move || {
+                            txt(TextStyle::TITLE_SMALL, move || {
                                 current.with(|p| {
                                     p.as_ref().map(|p| p.title.clone()).unwrap_or_default()
                                 })
@@ -683,7 +684,7 @@ fn media_card() -> Div {
                             .overflow_hidden(),
                         )
                         .child(
-                            txt(TextStyle::BODY_MEDIUM, move || {
+                            txt(TextStyle::BODY_SMALL, move || {
                                 current.with(|p| {
                                     p.as_ref()
                                         .map(|p| {
@@ -701,14 +702,14 @@ fn media_card() -> Div {
                             .opacity(0.8),
                         ),
                 )
-                .child(icon_btn(icons::SKIP_PREVIOUS, 40.0, fg).on_click(move |_| {
+                .child(icon_btn(icons::SKIP_PREVIOUS, 34.0, fg).on_click(move |_| {
                     if let Some(p) = current.get() {
                         drop(p.previous());
                     }
                 }))
                 .child(pressable(
                     div()
-                        .size(52.0)
+                        .size(44.0)
                         .flex()
                         .items_center()
                         .justify_center()
@@ -721,7 +722,7 @@ fn media_card() -> Div {
                         .dyn_style(move |s| {
                             let c = colors();
                             let t = morph.get();
-                            s.rounded(14.0 + 12.0 * t)
+                            s.rounded(12.0 + 10.0 * t)
                                 .bg(c.primary)
                                 .text_color(c.on_primary)
                         })
@@ -732,12 +733,12 @@ fn media_card() -> Div {
                                 } else {
                                     icons::PLAY_ARROW
                                 },
-                                26.0,
+                                22.0,
                             )
                         })),
                     |c| c.on_primary,
                 ))
-                .child(icon_btn(icons::SKIP_NEXT, 40.0, fg).on_click(move |_| {
+                .child(icon_btn(icons::SKIP_NEXT, 34.0, fg).on_click(move |_| {
                     if let Some(p) = current.get() {
                         drop(p.next());
                     }
@@ -788,7 +789,7 @@ fn style_section() -> Div {
                 .flex_row()
                 .items_center()
                 .gap(8.0)
-                .child(sym(icons::PALETTE, 20.0, |c| c.primary))
+                .child(sym(icons::PALETTE, 18.0, |c| c.primary))
                 .child(static_txt(TextStyle::TITLE_SMALL, "Style & color")),
         )
         .child(wallpapers())
@@ -827,8 +828,8 @@ fn wallpapers() -> Div {
         let picked = path.clone();
         row = row.child(
             div()
-                .w(88.0)
-                .h(56.0)
+                .w(80.0)
+                .h(50.0)
                 .flex_none()
                 .relative()
                 .on_hover(move |h| hovered.set(h))
@@ -888,7 +889,7 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
         default_effects(),
     );
     div()
-        .size(38.0)
+        .size(30.0)
         .relative()
         .flex_none()
         .on_hover(move |h| hovered.set(h))
@@ -918,7 +919,8 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
                     .rotation(move || if chosen.get() { 40.0 } else { 0.0 }),
             )
             .absolute()
-            .inset(0.0),
+            .inset(0.0)
+            .size_full(),
         )
         .child(
             div()
@@ -930,8 +932,8 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
                 .pointer_events_none()
                 .child(
                     div()
-                        .size(18.0)
-                        .rounded(9.0)
+                        .size(14.0)
+                        .rounded(7.0)
                         .overflow_hidden()
                         .flex()
                         .flex_row()
@@ -940,13 +942,13 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
                         })
                         .child(
                             div()
-                                .w(9.0)
+                                .w(7.0)
                                 .h_full()
                                 .dyn_style(move |s| s.bg(scheme.get().secondary_container)),
                         )
                         .child(
                             div()
-                                .w(9.0)
+                                .w(7.0)
                                 .h_full()
                                 .dyn_style(move |s| s.bg(scheme.get().tertiary)),
                         ),
@@ -970,7 +972,7 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
                             } else {
                                 icons::WALLPAPER
                             },
-                            20.0,
+                            16.0,
                         )),
                 ),
         )

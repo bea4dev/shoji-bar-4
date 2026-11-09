@@ -6,6 +6,9 @@ use anti_webui_md3e::ColorScheme;
 use anti_webui_md3e::components::{Ink, MaterialShape, ShapeStyle, sized_icon, styled_shape};
 use anti_webui_md3e::icons::{self, Symbol};
 use anti_webui_md3e::motion::fast_spatial;
+use std::cell::Cell;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
 
 /// A color of the scheme, chosen by a function of it.
 pub trait Role: Fn(&ColorScheme) -> Color + Copy + 'static {}
@@ -56,14 +59,17 @@ pub fn static_txt(style: TextStyle, s: impl Into<String>) -> Div {
 }
 
 /// A floating container of the bar: a pill on `surface_container`.
+/// How tall an island of the bar is.
+pub const ISLAND: f32 = 32.0;
+
 pub fn island() -> Div {
     div()
         .flex()
         .flex_row()
         .items_center()
         .flex_none()
-        .h(40.0)
-        .rounded(20.0)
+        .h(ISLAND)
+        .rounded(ISLAND / 2.0)
         .shadows(elevation(1))
         .dyn_style(|s| s.bg(colors().surface_container))
 }
@@ -137,19 +143,88 @@ pub fn rolling_text(
 /// Seconds since `running` last became true, going on frame by frame only while it stays so: a
 /// [`clock`] that asks for no frames the rest of the time.
 pub fn clock_while(running: impl Fn() -> bool + 'static) -> Signal<f32> {
-    fn tick(time: Signal<f32>, start: std::time::Instant, running: Memo<bool>) {
-        request_frame(move |now| {
-            if time.is_alive() && untrack(|| running.get()) {
-                time.set(now.saturating_duration_since(start).as_secs_f32());
-                tick(time, start, running);
+    ticker(running, None)
+}
+
+/// [`clock_while`] that goes on only `per_second` times a second, for what moves without having
+/// to be smooth: it costs a fraction of the frames.
+pub fn clock_at(per_second: u32, running: impl Fn() -> bool + 'static) -> Signal<f32> {
+    ticker(
+        running,
+        Some(Duration::from_secs_f32(1.0 / per_second.max(1) as f32)),
+    )
+}
+
+thread_local! {
+    static TICKING: Cell<usize> = const { Cell::new(0) };
+}
+
+/// How many clocks are going on now. Each asks for frames, so one that never stops is what keeps
+/// the shell busy: `shoji-bar-4 msg status` tells.
+pub fn ticking() -> usize {
+    TICKING.with(Cell::get)
+}
+
+/// Counted while a clock goes on, however it ends.
+struct Ticking;
+
+impl Ticking {
+    fn new() -> Self {
+        TICKING.with(|t| t.set(t.get() + 1));
+        Self
+    }
+}
+
+impl Drop for Ticking {
+    fn drop(&mut self) {
+        TICKING.with(|t| t.set(t.get().saturating_sub(1)));
+    }
+}
+
+fn ticker(running: impl Fn() -> bool + 'static, every: Option<Duration>) -> Signal<f32> {
+    struct Run {
+        time: Signal<f32>,
+        start: Instant,
+        running: Memo<bool>,
+        every: Option<Duration>,
+        /// Which run is the latest: one that went off and on again before its next tick is over.
+        latest: Rc<Cell<u64>>,
+        me: u64,
+        _counted: Ticking,
+    }
+    fn next(run: Run) {
+        let every = run.every;
+        let step = move |now: Instant| {
+            if run.time.is_alive()
+                && run.latest.get() == run.me
+                && untrack(|| run.running.get())
+            {
+                run.time
+                    .set(now.saturating_duration_since(run.start).as_secs_f32());
+                next(run);
             }
-        });
+        };
+        match every {
+            None => request_frame(step),
+            Some(every) => drop(set_timeout(every, move || step(Instant::now()))),
+        }
     }
     let running = memo(running);
     let time = signal(0.0f32);
+    let latest = Rc::new(Cell::new(0u64));
     effect(move || {
         if running.get() {
-            tick(time, std::time::Instant::now(), running);
+            let me = latest.get() + 1;
+            latest.set(me);
+            next(Run {
+                time,
+                start: Instant::now(),
+                running,
+                every,
+                latest: latest.clone(),
+                me,
+                _counted: Ticking::new(),
+            });
         }
     });
     time

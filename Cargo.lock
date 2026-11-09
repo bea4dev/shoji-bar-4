@@ -65,6 +65,7 @@ dependencies = [
  "icu_properties",
  "image",
  "kurbo",
+ "libc",
  "log",
  "moxcms",
  "parley",
@@ -1951,7 +1952,6 @@ version = "0.1.0"
 dependencies = [
  "anti-webui",
  "anti-webui-md3e",
- "image",
  "serde_json",
 ]
 

@@ -111,9 +111,14 @@ pub fn install() {
 
 /// The best seed in a picture, read from a small copy of it.
 fn seed_of_image(path: &Path) -> Option<u32> {
-    let picture = image::open(path).ok()?;
-    let small = picture.thumbnail(128, 128).to_rgba8();
-    let seeds = seed_colors(small.pixels().map(|p| p.0), 1);
+    let small = anti_webui::core::images::decode_bitmap(path, (128, 128)).ok()?;
+    let mut pixels = Vec::new();
+    small.with_levels(|i, _, level| {
+        if i == 0 {
+            pixels = level.chunks_exact(4).map(|p| [p[0], p[1], p[2], p[3]]).collect();
+        }
+    });
+    let seeds = seed_colors(pixels, 1);
     seeds.first().map(|c| hex_of(*c))
 }
 

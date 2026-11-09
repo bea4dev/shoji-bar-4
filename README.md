@@ -52,6 +52,7 @@ shoji-bar-4 msg toggle quick-settings [OUTPUT]
 shoji-bar-4 msg toggle calendar [OUTPUT]
 shoji-bar-4 msg close
 shoji-bar-4 msg theme dark|light|auto|toggle
+shoji-bar-4 msg status                         # 開いているパネル、動いている時計の数など
 shoji-bar-4 msg quit
 ```
 
@@ -91,6 +92,23 @@ COMPOSITOR.key.bind("launcher", "Super+A", toggleLauncher);
 
 壁紙の候補は `~/Pictures/wallpapers` から読みます。
 
+## CPU を使い続けるときの調べ方
+
+```sh
+scripts/cpu-report.sh 10               # 今すぐ 10 秒調べて報告を書く
+scripts/cpu-report.sh watch 8 30       # 常駐して、8% を 2 回続けて超えたら自動で報告を書く
+scripts/cpu-report.sh --sudo watch     # perf の関数ごとの時間も取る（perf だけを sudo で動かす）
+```
+
+報告は `~/.local/state/shoji-bar-4/reports/` に書きます。
+
+- スレッドごとの CPU と目覚めの回数：UI スレッドが毎秒 60〜120 回目覚めていれば、フレームを描き続けています。
+- `msg status`：止まらない時計（`ticking`）がないか、UI スレッドがすぐ答えるか。
+- perf：時間を使っている関数。release ビルドは、このために関数名を残しています。
+- D-Bus：シグナルが大量に来ていないか。
+
+最後に、これらからの見立てを書きます。
+
 ## 開発用：オフスクリーンの絵
 
 コンポジタの面を使わずに、各部分を PNG に描けます。ポインタやクリックも模擬できます。
@@ -116,3 +134,4 @@ shoji-bar-4 preview workspaces out.png --ms 0 --frames 40 --every 30   # out-0.p
 - md3e の形：`MaterialShape`（34 種）、`shape` / `styled_shape`（ばねで変形）、公開の `Ink`（状態レイヤーとリップル）。
 - md3e：`DatePickerStyle::no_header()`。
 - style：`overflow_x_scroll()`。
+- 画像のメモリ：大きな写真は 1 枚ずつ、RGB のまま縮小してデコードします。glibc のヒープに残った分は OS に返します。`images::decode_bitmap`（表示せずに画素を取る）も足しました。

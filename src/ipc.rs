@@ -8,6 +8,7 @@
 //! shoji-bar-4 msg close
 //! shoji-bar-4 msg theme dark|light|auto|toggle
 //! shoji-bar-4 msg quit
+//! shoji-bar-4 msg status
 //! ```
 //!
 //! Without an output, a panel opens where the window with the keyboard is.
@@ -36,10 +37,15 @@ pub fn send(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let mut answer = String::new();
     BufReader::new(stream).read_line(&mut answer)?;
     let answer = answer.trim();
-    if answer != "ok" {
-        return Err(answer.to_owned().into());
+    match answer.strip_prefix("ok") {
+        Some(said) if said.is_empty() || said.starts_with(' ') => {
+            if !said.is_empty() {
+                println!("{}", said.trim_start());
+            }
+            Ok(())
+        }
+        _ => Err(answer.to_owned().into()),
     }
-    Ok(())
 }
 
 /// Listens for commands. Call once, from the root.
@@ -61,7 +67,11 @@ pub fn serve() {
     };
     let to_ui = ui_channel(
         move |(line, answer): (String, std::sync::mpsc::Sender<String>)| {
-            let _ = answer.send(run(&line).map_or_else(|e| e, |()| "ok".into()));
+            let _ = answer.send(match run(&line) {
+                Ok(said) if said.is_empty() => "ok".into(),
+                Ok(said) => format!("ok {said}"),
+                Err(e) => e,
+            });
         },
     );
     let _ = std::thread::Builder::new()
@@ -82,6 +92,27 @@ pub fn serve() {
         });
 }
 
+/// What could keep the shell busy, on one line, for `scripts/cpu-report.sh`.
+fn status() -> String {
+    let panel = panels::current()
+        .map_or("none".into(), |(output, panel)| format!("{panel:?}@{output}"));
+    let playing = media()
+        .current()
+        .map_or("none".into(), |p| format!("{:?}", p.status));
+    let notifications = crate::notify::server().map_or("off".into(), |s| {
+        format!("{}/{}", s.popups().len(), s.notifications().len())
+    });
+    format!(
+        "panel={panel} ticking={} media={playing} popups/notifications={notifications} \
+         windows={} workspaces={} tray={} dark={}",
+        crate::ui::ticking(),
+        toplevels().all().len(),
+        workspaces().all().len(),
+        tray().items().len(),
+        crate::theme::is_dark(),
+    )
+}
+
 /// The output where the window with the keyboard is, else the first.
 fn focused_output() -> Option<String> {
     toplevels()
@@ -90,7 +121,7 @@ fn focused_output() -> Option<String> {
         .or_else(|| outputs().first().map(|o| o.name.clone()))
 }
 
-fn run(line: &str) -> Result<(), String> {
+fn run(line: &str) -> Result<String, String> {
     let words: Vec<&str> = line.split_whitespace().collect();
     match words.as_slice() {
         ["toggle" | "open", name, rest @ ..] => {
@@ -106,11 +137,11 @@ fn run(line: &str) -> Result<(), String> {
             } else {
                 panels::open(&output, panel);
             }
-            Ok(())
+            Ok(String::new())
         }
         ["close"] => {
             panels::close();
-            Ok(())
+            Ok(String::new())
         }
         ["theme", mode] => {
             let mode = match *mode {
@@ -122,12 +153,13 @@ fn run(line: &str) -> Result<(), String> {
                 other => return Err(format!("no theme called {other}")),
             };
             settings().update(|s| s.mode = mode);
-            Ok(())
+            Ok(String::new())
         }
+        ["status"] => Ok(status()),
         ["quit"] => {
             let _ = std::fs::remove_file(socket());
             quit();
-            Ok(())
+            Ok(String::new())
         }
         _ => Err(format!("unknown command: {line}")),
     }

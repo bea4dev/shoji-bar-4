@@ -17,18 +17,18 @@ use anti_webui_md3e::motion::{default_spatial, fast_spatial};
 use std::time::{Duration, Instant};
 
 /// The square an icon has, unmagnified.
-const CELL: f32 = 56.0;
-const ICON: f32 = 44.0;
+const CELL: f32 = 46.0;
+const ICON: f32 = 36.0;
 /// How much bigger the icon under the pointer gets, and how far the growth reaches.
 const MAGNIFY: f32 = 0.5;
 const REACH: f32 = 1.6 * CELL;
-const PAD: f32 = 8.0;
+const PAD: f32 = 7.0;
 /// How far an icon at rest stands above the bottom of its cell: in its middle.
 const LIFT: f32 = (CELL - ICON) / 2.0;
-const MARGIN: f32 = 8.0;
+const MARGIN: f32 = 12.0;
 /// The body of the dock; what grows reaches above it, into the rest of the layer.
 const BODY: f32 = CELL + 2.0 * PAD;
-const LAYER: i32 = 150;
+const LAYER: i32 = 136;
 
 pub fn open(output: Output) {
     let region = signal(InputRegion::Empty);
@@ -226,9 +226,9 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
                     || {
                         div()
                             .w(1.0)
-                            .h(32.0)
-                            .mx(8.0)
-                            .mb(12.0)
+                            .h(26.0)
+                            .mx(7.0)
+                            .mb(10.0)
                             .dyn_style(|s| s.bg(colors().outline_variant))
                     },
                 ))),
@@ -350,10 +350,10 @@ fn item(
                         .pointer_events_none()
                         .dyn_style(move |s| s.bottom(LIFT + ICON * growth() + 10.0))
                         .child(
-                            txt(TextStyle::LABEL_LARGE, move || name.get())
-                                .px(12.0)
-                                .py(6.0)
-                                .rounded(10.0)
+                            txt(TextStyle::LABEL_MEDIUM, move || name.get())
+                                .px(10.0)
+                                .py(5.0)
+                                .rounded(8.0)
                                 .shadows(elevation(2))
                                 .dyn_style(|s| {
                                     let c = colors();
@@ -383,7 +383,7 @@ fn item(
                         -((since_launch.get() * std::f32::consts::PI * 2.2)
                             .sin()
                             .abs())
-                            * 16.0
+                            * 13.0
                     } else {
                         0.0
                     };
@@ -397,7 +397,7 @@ fn item(
                         .dyn_style(move |s| s.size(ICON * growth()))
                         .into_view(),
                     None => div()
-                        .rounded(14.0)
+                        .rounded(11.0)
                         .flex()
                         .items_center()
                         .justify_center()
@@ -408,7 +408,7 @@ fn item(
                                 .text_color(c.on_tertiary_container)
                         })
                         .child(
-                            TextStyle::TITLE_LARGE.apply(div()).child(
+                            TextStyle::TITLE_MEDIUM.apply(div()).child(
                                 name.get()
                                     .chars()
                                     .next()
@@ -423,7 +423,7 @@ fn item(
         .child(
             div()
                 .absolute()
-                .bottom(-4.0)
+                .bottom(-3.0)
                 .left(0.0)
                 .right(0.0)
                 .flex()
@@ -432,8 +432,8 @@ fn item(
                 .pointer_events_none()
                 .child(
                     div()
-                        .h(4.0)
-                        .rounded(2.0)
+                        .h(3.0)
+                        .rounded(1.5)
                         .transition_of(
                             [Prop::Width, Prop::Background, Prop::Opacity],
                             overshoot(380),
@@ -442,10 +442,10 @@ fn item(
                             let c = colors();
                             let n = count.get();
                             let w = match (n, focused.get()) {
-                                (0, _) => 4.0,
-                                (_, true) => 18.0,
-                                (1, _) => 6.0,
-                                _ => 12.0,
+                                (0, _) => 3.0,
+                                (_, true) => 14.0,
+                                (1, _) => 5.0,
+                                _ => 10.0,
                             };
                             s.w(w)
                                 .opacity(if n == 0 { 0.0 } else { 1.0 })
@@ -545,7 +545,7 @@ fn launcher_button(output: Output, growth: impl Fn() -> f32 + Copy + 'static) ->
                 .items_end()
                 .pointer_events_none()
                 .child(
-                    launcher_glyph(open, hovered, || 24.0)
+                    launcher_glyph(open, hovered, || 19.0)
                         .transform_origin(0.5, 1.0)
                         .dyn_style(move |s| {
                             let g = growth();

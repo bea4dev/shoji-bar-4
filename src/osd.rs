@@ -130,14 +130,14 @@ fn pill(
 ) -> Div {
     let fill = follow(level, fast_spatial());
     div()
-        .w(320.0)
-        .h(60.0)
+        .w(280.0)
+        .h(48.0)
         .flex()
         .flex_row()
         .items_center()
-        .gap(14.0)
-        .px(18.0)
-        .rounded(30.0)
+        .gap(12.0)
+        .px(12.0)
+        .rounded(24.0)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -145,20 +145,20 @@ fn pill(
         })
         .child(
             div()
-                .size(36.0)
-                .rounded(18.0)
+                .size(30.0)
+                .rounded(15.0)
                 .flex()
                 .items_center()
                 .justify_center()
                 .flex_none()
                 .dyn_style(|s| s.bg(colors().primary_container))
-                .child(dyn_sym(symbol, 20.0, |c| c.on_primary_container)),
+                .child(dyn_sym(symbol, 17.0, |c| c.on_primary_container)),
         )
         .child(
             div()
                 .flex_1()
-                .h(14.0)
-                .rounded(7.0)
+                .h(10.0)
+                .rounded(5.0)
                 .relative()
                 .overflow_hidden()
                 .dyn_style(|s| s.bg(colors().secondary_container))
@@ -168,7 +168,7 @@ fn pill(
                         .top(0.0)
                         .bottom(0.0)
                         .left(0.0)
-                        .rounded(7.0)
+                        .rounded(5.0)
                         .dyn_style(move |s| {
                             s.w(pct(fill.get().clamp(0.0, 1.0) * 100.0))
                                 .bg(colors().primary)
@@ -178,10 +178,10 @@ fn pill(
         .child(
             rolling_text(
                 move || format!("{:>3}", (level() * 100.0).round() as i32),
-                TextStyle::TITLE_MEDIUM,
-                |c| if c == ' ' { 0.0 } else { 10.0 },
+                TextStyle::LABEL_LARGE,
+                |c| if c == ' ' { 0.0 } else { 9.0 },
             )
-            .w(36.0)
+            .w(32.0)
             .justify_end(),
         )
 }

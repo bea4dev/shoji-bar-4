@@ -29,7 +29,7 @@ pub fn server() -> Option<NotificationServer> {
     })
 }
 
-const WIDTH: f32 = 380.0;
+const WIDTH: f32 = 352.0;
 
 /// The popups, on the first output. Call once, from the root.
 pub fn open_popups() {
@@ -77,7 +77,7 @@ pub fn open_popups() {
 }
 
 pub fn popups(server: NotificationServer) -> Div {
-    div().flex().flex_col().p(12.0).child(
+    div().flex().flex_col().p(14.0).child(
         for_each(
             move || server.popups(),
             |n| n.id,
@@ -115,7 +115,7 @@ fn icon_of(n: &Notification) -> Div {
                 .and_then(app_by_id)
                 .and_then(|a| app_icon(&a, 64))
         });
-    let frame = div().size(40.0).flex_none().rounded(14.0).overflow_hidden();
+    let frame = div().size(36.0).flex_none().rounded(12.0).overflow_hidden();
     if let Some(picture) = n.image.clone() {
         frame.child(
             bitmap_view(move || Some(picture.clone()))
@@ -130,7 +130,7 @@ fn icon_of(n: &Notification) -> Div {
             .items_center()
             .justify_center()
             .dyn_style(|s| s.bg(colors().secondary_container))
-            .child(sym(icons::NOTIFICATIONS, 22.0, |c| {
+            .child(sym(icons::NOTIFICATIONS, 18.0, |c| {
                 c.on_secondary_container
             }))
     }
@@ -167,7 +167,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
         .flex_col()
         .gap(6.0)
         .p(14.0)
-        .rounded(24.0)
+        .rounded(20.0)
         .overflow_hidden()
         .shadows(if popup { elevation(3) } else { Vec::new() })
         .on_hover(move |h| hovered.set(h))
@@ -200,7 +200,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
                         .min_w(0.0)
                         .gap(2.0)
                         .child(
-                            txt(TextStyle::LABEL_MEDIUM, move || {
+                            txt(TextStyle::LABEL_SMALL, move || {
                                 let ago = when.elapsed().as_secs();
                                 let ago = match ago {
                                     0..60 => "now".to_owned(),
@@ -220,16 +220,16 @@ pub fn card(n: Notification, popup: bool) -> Div {
                             static_txt(TextStyle::TITLE_SMALL, n.summary.clone()).overflow_hidden(),
                         )
                         .child(
-                            TextStyle::BODY_MEDIUM
+                            TextStyle::BODY_SMALL
                                 .apply(div())
-                                .max_h(60.0)
+                                .max_h(48.0)
                                 .overflow_hidden()
                                 .dyn_style(move |s| s.opacity(0.85))
                                 .child(n.body_text()),
                         ),
                 )
                 .child(
-                    icon_btn(icons::CLOSE, 32.0, |c| c.on_surface_variant)
+                    icon_btn(icons::CLOSE, 28.0, |c| c.on_surface_variant)
                         .on_click(move |e| {
                             e.stop_propagation();
                             gone.dismiss();
@@ -247,16 +247,14 @@ pub fn card(n: Notification, popup: bool) -> Div {
 }
 
 /// The notifications that are kept, for quick settings, with a button that clears them.
-pub fn history() -> Div {
-    let Some(server) = server() else { return div() };
-    let list = server.clone();
+pub fn history() -> Show {
+    let server = server();
     let count = server.clone();
-    let clear = server.clone();
-    div().child(show(
-        move || !count.notifications().is_empty(),
+    show(
+        move || count.as_ref().is_some_and(|s| !s.notifications().is_empty()),
         move || {
-            let list = list.clone();
-            let clear = clear.clone();
+            let list = server.clone().expect("only shown with a server");
+            let clear = list.clone();
             div()
                 .flex()
                 .flex_col()
@@ -268,7 +266,7 @@ pub fn history() -> Div {
                         .items_center()
                         .gap(8.0)
                         .px(6.0)
-                        .child(sym(icons::NOTIFICATIONS, 20.0, |c| c.primary))
+                        .child(sym(icons::NOTIFICATIONS, 18.0, |c| c.primary))
                         .child(static_txt(TextStyle::TITLE_SMALL, "Notifications").flex_1())
                         .child(
                             styled_button(
@@ -297,5 +295,5 @@ pub fn history() -> Div {
                         ),
                 )
         },
-    ))
+    )
 }

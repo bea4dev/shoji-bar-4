@@ -12,9 +12,9 @@ pub fn panel() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(10.0)
-        .p(12.0)
-        .rounded(32.0)
+        .gap(12.0)
+        .p(14.0)
+        .rounded(28.0)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -23,7 +23,7 @@ pub fn panel() -> Div {
         .child(header())
         .child(
             div()
-                .rounded(24.0)
+                .rounded(20.0)
                 .overflow_hidden()
                 .flex()
                 .justify_center()
@@ -47,14 +47,14 @@ pub fn panel() -> Div {
 /// The time with its seconds rolling, and the day.
 fn header() -> Div {
     let big = TextStyle {
-        size: 52.0,
-        line_height: 60.0,
+        size: 44.0,
+        line_height: 52.0,
         letter_spacing: -0.5,
         weight: 400,
     };
     let small = TextStyle {
-        size: 22.0,
-        line_height: 28.0,
+        size: 18.0,
+        line_height: 24.0,
         letter_spacing: 0.0,
         weight: 500,
     };
@@ -120,13 +120,13 @@ fn gauges() -> Div {
             .flex()
             .flex_row()
             .items_center()
-            .gap(10.0)
+            .gap(8.0)
             .p(10.0)
-            .rounded(20.0)
+            .rounded(16.0)
             .dyn_style(|s| s.bg(colors().surface_container_high))
             .child(
                 div()
-                    .size(48.0)
+                    .size(40.0)
                     .relative()
                     .flex_none()
                     .child(
@@ -141,14 +141,14 @@ fn gauges() -> Div {
                             .flex()
                             .items_center()
                             .justify_center()
-                            .child(sym(symbol, 18.0, |c| c.primary)),
+                            .child(sym(symbol, 16.0, |c| c.primary)),
                     ),
             )
             .child(
                 div()
                     .flex()
                     .flex_col()
-                    .child(txt(TextStyle::TITLE_SMALL, shown))
+                    .child(txt(TextStyle::LABEL_LARGE, shown))
                     .child(
                         static_txt(TextStyle::LABEL_SMALL, label)
                             .dyn_style(|s| s.text_color(colors().on_surface_variant)),
