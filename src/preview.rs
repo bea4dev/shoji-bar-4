@@ -96,23 +96,24 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         }
         let view = match part.as_str() {
             "bar" => crate::bar::view(output),
-            // Five workspaces; the third becomes the active one a moment after the start.
+            // As ShojiWM lists them: the ones with windows and the active one. At 1.5 s a new,
+            // empty one after the last is gone to; at 3 s the first, which leaves the empty one.
             "workspaces" => {
-                let list = signal(
-                    (1..=5)
-                        .map(|i| crate::bar::Ws {
-                            id: i.to_string(),
-                            name: i.to_string(),
-                            active: i == 1,
-                            empty: i > 3,
-                            urgent: i == 5,
-                        })
-                        .collect::<Vec<_>>(),
-                );
+                let ws = |i: u32, active: bool| crate::bar::Ws {
+                    id: i.to_string(),
+                    name: i.to_string(),
+                    active,
+                    empty: false,
+                    urgent: false,
+                };
+                let list = signal(vec![ws(1, false), ws(2, true)]);
                 set_timeout(Duration::from_millis(1500), move || {
-                    list.update(|l| l.iter_mut().for_each(|w| w.active = w.id == "4"))
+                    list.set(vec![ws(1, false), ws(2, false), ws(3, true)])
                 });
-                div().p(8.0).child(crate::bar::workspaces_island(
+                set_timeout(Duration::from_millis(3000), move || {
+                    list.set(vec![ws(1, true), ws(2, false)])
+                });
+                div().p(8.0).flex().child(crate::bar::workspaces_island(
                     memo(move || list.get()),
                     std::rc::Rc::new(|_: &str| {}),
                 ))

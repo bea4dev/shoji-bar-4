@@ -141,7 +141,13 @@ const PILL: f32 = 22.0;
 /// goes from one to another: its front edge leads on a quick spring, its back follows on a slow
 /// one.
 pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div {
-    let active = memo(move || list.with(|l| l.iter().position(|w| w.active)).unwrap_or(0));
+    // Between one workspace going and the next coming there may be none: the pill stays.
+    let last = Cell::new(0);
+    let active = memo(move || {
+        let at = list.with(|l| l.iter().position(|w| w.active)).unwrap_or(last.get());
+        last.set(at);
+        at
+    });
     let scrolled = activate.clone();
     let left = animated(0.0f32);
     let right = animated(ACTIVE);
@@ -162,8 +168,11 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
             }
         })
     });
+    // Under the slots, also while one of them comes or goes: fading or scaling, a slot is
+    // painted as one image with what is in it, and would otherwise go under the pill.
     let pill = div()
         .absolute()
+        .z_index(-1)
         .top(0.0)
         .h(PILL)
         .rounded(PILL / 2.0)
@@ -177,10 +186,17 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
             |w| w.id.clone(),
             move |w| {
                 let id = w.id.clone();
-                let me = memo(move || list.with(|l| l.iter().find(|x| x.id == id).cloned()));
-                let on = memo(move || me.with(|w| w.as_ref().is_some_and(|w| w.active)));
-                let empty = memo(move || me.with(|w| w.as_ref().is_none_or(|w| w.empty)));
-                let urgent = memo(move || me.with(|w| w.as_ref().is_some_and(|w| w.urgent)));
+                // Once gone from the list it leaves as it was, without turning back into a dot.
+                let seen = std::cell::RefCell::new(w.clone());
+                let me = memo(move || {
+                    if let Some(now) = list.with(|l| l.iter().find(|x| x.id == id).cloned()) {
+                        *seen.borrow_mut() = now;
+                    }
+                    seen.borrow().clone()
+                });
+                let on = memo(move || me.with(|w| w.active));
+                let empty = memo(move || me.with(|w| w.empty));
+                let urgent = memo(move || me.with(|w| w.urgent));
                 let name = w.name.clone();
                 let activate = activate.clone();
                 div()
@@ -216,11 +232,16 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                                 },
                             )),
                     )
+                    // As wide as the slot is when active, whatever it is on the way, so the
+                    // number stays on the pill while the slot opens and closes.
                     .child(
                         TextStyle::LABEL_MEDIUM
                             .apply(div())
                             .absolute()
-                            .inset(0.0)
+                            .top(0.0)
+                            .bottom(0.0)
+                            .left(0.0)
+                            .w(ACTIVE)
                             .flex()
                             .items_center()
                             .justify_center()
@@ -235,9 +256,10 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                     )
             },
         )
-        .enter(|s| s.opacity(0.0).scale(0.3))
-        .exit(|s| s.opacity(0.0).scale(0.3))
-        .transition(overshoot(300));
+        // They open and close their place, so the others and the island move over with them.
+        .enter(|s| s.w(0.0).opacity(0.0).scale(0.3))
+        .exit(|s| s.w(0.0).opacity(0.0).scale(0.3))
+        .transition(emphasized(350));
     island()
         .px(5.0)
         .on_scroll(move |e| {
@@ -259,6 +281,7 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
         .child(
             div()
                 .relative()
+                .z_index(0)
                 .flex()
                 .flex_row()
                 .items_center()
