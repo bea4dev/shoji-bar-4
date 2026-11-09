@@ -79,7 +79,9 @@ pub fn panel(output: Output) -> Div {
                         .node_ref(input)
                         .flex_1()
                         .on_submit(move |_| {
-                            if let Some(id) = results.with(|r| r.get(untrack(|| picked.get())).cloned()) {
+                            if let Some(id) =
+                                results.with(|r| r.get(untrack(|| picked.get())).cloned())
+                            {
                                 launch(&id);
                             }
                         })
@@ -94,7 +96,10 @@ pub fn panel(output: Output) -> Div {
                 )
                 .child(show(
                     move || !query.with(String::is_empty),
-                    move || icon_btn(icons::CLOSE, 36.0, |c| c.on_surface_variant).on_click(move |_| query.set(String::new())),
+                    move || {
+                        icon_btn(icons::CLOSE, 36.0, |c| c.on_surface_variant)
+                            .on_click(move |_| query.set(String::new()))
+                    },
                 )),
         )
         .child(
@@ -136,8 +141,10 @@ pub fn panel(output: Output) -> Div {
                             .gap(8.0)
                             .child(sym(icons::SEARCH, 48.0, |c| c.outline))
                             .child(
-                                txt(TextStyle::TITLE_MEDIUM, move || format!("Nothing called “{}”", query.get()))
-                                    .dyn_style(|s| s.text_color(colors().on_surface_variant)),
+                                txt(TextStyle::TITLE_MEDIUM, move || {
+                                    format!("Nothing called “{}”", query.get())
+                                })
+                                .dyn_style(|s| s.text_color(colors().on_surface_variant)),
                             )
                     },
                 )),
@@ -146,20 +153,33 @@ pub fn panel(output: Output) -> Div {
 
 /// An app: its icon over its name. The chosen one sits on a round tile; the icon hops when the
 /// pointer comes.
-fn cell(id: String, index: Memo<Option<usize>>, picked: Signal<usize>, launch: impl Fn(&str) + Copy + 'static) -> Div {
+fn cell(
+    id: String,
+    index: Memo<Option<usize>>,
+    picked: Signal<usize>,
+    launch: impl Fn(&str) + Copy + 'static,
+) -> Div {
     let app = apps().get(&id);
     let name = app.as_ref().map(|a| a.name.clone()).unwrap_or_default();
     let icon = app.as_ref().and_then(|a| app_icon(a, 128));
     let chosen = memo(move || index.get() == Some(picked.get()));
     let hovered = signal(false);
     let pressed = signal(false);
-    let hop = follow(move || if hovered.get() { 1.0 } else { 0.0 }, fast_spatial());
-    let squash = follow(move || if pressed.get() { 0.9 } else { 1.0 }, fast_spatial());
+    let hop = follow(
+        move || if hovered.get() { 1.0 } else { 0.0 },
+        fast_spatial(),
+    );
+    let squash = follow(
+        move || if pressed.get() { 0.9 } else { 1.0 },
+        fast_spatial(),
+    );
     let round = follow(move || if chosen.get() { 1.0 } else { 0.0 }, fast_spatial());
     // Comes in a little after the one before it, the first time the grid shows.
     let shown = animated(0.0f32);
     let delay = untrack(|| index.get()).unwrap_or(0).min(STAGGERED) as u64 * 14;
-    set_timeout(Duration::from_millis(delay), move || shown.spring_to(1.0, fast_spatial()));
+    set_timeout(Duration::from_millis(delay), move || {
+        shown.spring_to(1.0, fast_spatial())
+    });
     let launch_id = id.clone();
     div()
         .w(CELL_W)
@@ -187,7 +207,11 @@ fn cell(id: String, index: Memo<Option<usize>>, picked: Signal<usize>, launch: i
                     let c = colors();
                     let t = shown.get();
                     s.rounded(20.0 + 32.0 * round.get())
-                        .bg(if chosen.get() { c.secondary_container } else { c.secondary_container.with_alpha(0.0) })
+                        .bg(if chosen.get() {
+                            c.secondary_container
+                        } else {
+                            c.secondary_container.with_alpha(0.0)
+                        })
                         .opacity(t.clamp(0.0, 1.0))
                         .scale((0.6 + 0.4 * t) * squash.get())
                         .translate_y(14.0 * (1.0 - t))
@@ -198,9 +222,15 @@ fn cell(id: String, index: Memo<Option<usize>>, picked: Signal<usize>, launch: i
                         .flex()
                         .items_center()
                         .justify_center()
-                        .dyn_style(move |s| s.translate_y(-5.0 * hop.get()).scale(1.0 + 0.08 * hop.get()))
+                        .dyn_style(move |s| {
+                            s.translate_y(-5.0 * hop.get())
+                                .scale(1.0 + 0.08 * hop.get())
+                        })
                         .child(match icon {
-                            Some(path) => img(path).size(56.0).object_fit(ObjectFit::Contain).into_view(),
+                            Some(path) => img(path)
+                                .size(56.0)
+                                .object_fit(ObjectFit::Contain)
+                                .into_view(),
                             None => TextStyle::HEADLINE_SMALL
                                 .apply(div())
                                 .size(56.0)
@@ -210,9 +240,15 @@ fn cell(id: String, index: Memo<Option<usize>>, picked: Signal<usize>, launch: i
                                 .justify_center()
                                 .dyn_style(|s| {
                                     let c = colors();
-                                    s.bg(c.tertiary_container).text_color(c.on_tertiary_container)
+                                    s.bg(c.tertiary_container)
+                                        .text_color(c.on_tertiary_container)
                                 })
-                                .child(name.chars().next().map(|c| c.to_uppercase().to_string()).unwrap_or_default())
+                                .child(
+                                    name.chars()
+                                        .next()
+                                        .map(|c| c.to_uppercase().to_string())
+                                        .unwrap_or_default(),
+                                )
                                 .into_view(),
                         }),
                 )
@@ -222,7 +258,11 @@ fn cell(id: String, index: Memo<Option<usize>>, picked: Signal<usize>, launch: i
                         .overflow_hidden()
                         .dyn_style(move |s| {
                             let c = colors();
-                            s.text_color(if chosen.get() { c.on_secondary_container } else { c.on_surface })
+                            s.text_color(if chosen.get() {
+                                c.on_secondary_container
+                            } else {
+                                c.on_surface
+                            })
                         }),
                 ),
         )

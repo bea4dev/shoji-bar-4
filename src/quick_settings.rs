@@ -34,6 +34,7 @@ pub fn panel(output: Output) -> Div {
         .child(tiles())
         .child(sliders())
         .child(show(|| media().current().is_some(), media_card))
+        .child(crate::notify::history())
         .child(style_section())
 }
 
@@ -60,7 +61,11 @@ fn greeting() -> &'static str {
 /// The user, the battery, and the power buttons, which open into a row of what they can do.
 fn header() -> Div {
     let user = std::env::var("USER").unwrap_or_else(|_| "you".into());
-    let initial = user.chars().next().map(|c| c.to_uppercase().to_string()).unwrap_or_default();
+    let initial = user
+        .chars()
+        .next()
+        .map(|c| c.to_uppercase().to_string())
+        .unwrap_or_default();
     let power_open = signal(false);
     let b = battery();
     let name = user.clone();
@@ -83,7 +88,9 @@ fn header() -> Div {
                         .flex_col()
                         .flex_1()
                         .min_w(0.0)
-                        .child(txt(TextStyle::TITLE_MEDIUM, move || format!("{}, {name}", greeting())))
+                        .child(txt(TextStyle::TITLE_MEDIUM, move || {
+                            format!("{}, {name}", greeting())
+                        }))
                         .child(
                             txt(TextStyle::BODY_SMALL, move || {
                                 let t = local_time(Every::Minute);
@@ -108,55 +115,66 @@ fn header() -> Div {
                 .child(power_button(power_open)),
         )
         .child(
-            show(move || power_open.get(), move || {
-                let s = session();
-                let actions: [(&'static Symbol, &str, Power); 4] = [
-                    (icons::LOCK, "Lock", Power::Lock),
-                    (icons::BEDTIME, "Sleep", Power::Sleep),
-                    (icons::RESTART_ALT, "Restart", Power::Restart),
-                    (icons::POWER_SETTINGS_NEW, "Shut down", Power::Off),
-                ];
-                let mut row = div().flex().flex_row().gap(8.0);
-                for (i, (symbol, label, action)) in actions.into_iter().enumerate() {
-                    let appear = animated(0.0f32);
-                    set_timeout(std::time::Duration::from_millis(40 * i as u64), move || {
-                        appear.spring_to(1.0, fast_spatial())
-                    });
-                    row = row.child(pressable(
-                        div()
-                            .flex_1()
-                            .flex()
-                            .flex_col()
-                            .items_center()
-                            .gap(4.0)
-                            .py(10.0)
-                            .rounded(20.0)
-                            .dyn_style(move |st| {
-                                let c = colors();
-                                let a = appear.get();
-                                let danger = matches!(action, Power::Off | Power::Restart);
-                                st.bg(if danger { c.error_container } else { c.secondary_container })
-                                    .text_color(if danger { c.on_error_container } else { c.on_secondary_container })
+            show(
+                move || power_open.get(),
+                move || {
+                    let s = session();
+                    let actions: [(&'static Symbol, &str, Power); 4] = [
+                        (icons::LOCK, "Lock", Power::Lock),
+                        (icons::BEDTIME, "Sleep", Power::Sleep),
+                        (icons::RESTART_ALT, "Restart", Power::Restart),
+                        (icons::POWER_SETTINGS_NEW, "Shut down", Power::Off),
+                    ];
+                    let mut row = div().flex().flex_row().gap(8.0);
+                    for (i, (symbol, label, action)) in actions.into_iter().enumerate() {
+                        let appear = animated(0.0f32);
+                        set_timeout(std::time::Duration::from_millis(40 * i as u64), move || {
+                            appear.spring_to(1.0, fast_spatial())
+                        });
+                        row = row.child(pressable(
+                            div()
+                                .flex_1()
+                                .flex()
+                                .flex_col()
+                                .items_center()
+                                .gap(4.0)
+                                .py(10.0)
+                                .rounded(20.0)
+                                .dyn_style(move |st| {
+                                    let c = colors();
+                                    let a = appear.get();
+                                    let danger = matches!(action, Power::Off | Power::Restart);
+                                    st.bg(if danger {
+                                        c.error_container
+                                    } else {
+                                        c.secondary_container
+                                    })
+                                    .text_color(if danger {
+                                        c.on_error_container
+                                    } else {
+                                        c.on_secondary_container
+                                    })
                                     .opacity(a.clamp(0.0, 1.0))
                                     .scale(0.6 + 0.4 * a)
-                            })
-                            .on_click(move |_| {
-                                crate::panels::close();
-                                match action {
-                                    Power::Lock => drop(s.lock()),
-                                    Power::Sleep => drop(s.suspend()),
-                                    Power::Restart => drop(s.reboot()),
-                                    Power::Off => drop(s.power_off()),
-                                }
-                            })
-                            .child(sized_icon(symbol, 22.0))
-                            .child(static_txt(TextStyle::LABEL_MEDIUM, label)),
-                        20.0,
-                        |c| c.on_secondary_container,
-                    ));
-                }
-                row
-            })
+                                })
+                                .on_click(move |_| {
+                                    crate::panels::close();
+                                    match action {
+                                        Power::Lock => drop(s.lock()),
+                                        Power::Sleep => drop(s.suspend()),
+                                        Power::Restart => drop(s.reboot()),
+                                        Power::Off => drop(s.power_off()),
+                                    }
+                                })
+                                .child(sized_icon(symbol, 22.0))
+                                .child(static_txt(TextStyle::LABEL_MEDIUM, label)),
+                            20.0,
+                            |c| c.on_secondary_container,
+                        ));
+                    }
+                    row
+                },
+            )
             .enter(|s| s.opacity(0.0).h(0.0))
             .exit(|s| s.opacity(0.0).h(0.0))
             .transition(emphasized(300)),
@@ -181,7 +199,13 @@ fn avatar(initial: String) -> Div {
         .on_hover(move |h| hovered.set(h))
         .child(
             styled_shape(
-                move || if hovered.get() { MaterialShape::SoftBurst } else { MaterialShape::Cookie12Sided },
+                move || {
+                    if hovered.get() {
+                        MaterialShape::SoftBurst
+                    } else {
+                        MaterialShape::Cookie12Sided
+                    }
+                },
                 ShapeStyle::new()
                     .color(|c| c.tertiary_container)
                     .rotation(move || if hovered.get() { 60.0 } else { 0.0 }),
@@ -221,7 +245,13 @@ fn power_button(open: Signal<bool>) -> Div {
                     .rotate(90.0 * t)
             })
             .child(dyn_sym(
-                move || if open.get() { icons::CLOSE } else { icons::POWER_SETTINGS_NEW },
+                move || {
+                    if open.get() {
+                        icons::CLOSE
+                    } else {
+                        icons::POWER_SETTINGS_NEW
+                    }
+                },
                 22.0,
                 |c| c.on_surface_variant,
             )),
@@ -241,8 +271,12 @@ fn tile(
 ) -> Div {
     let round = follow(move || if on() { 1.0 } else { 0.0 }, fast_spatial());
     let pressed = signal(false);
-    let squash = follow(move || if pressed.get() { 0.95 } else { 1.0 }, fast_spatial());
-    let content = move |c: &anti_webui_md3e::ColorScheme| if on() { c.on_primary } else { c.on_surface };
+    let squash = follow(
+        move || if pressed.get() { 0.95 } else { 1.0 },
+        fast_spatial(),
+    );
+    let content =
+        move |c: &anti_webui_md3e::ColorScheme| if on() { c.on_primary } else { c.on_surface };
     pressable(
         div()
             .flex_1()
@@ -259,13 +293,20 @@ fn tile(
                     click()
                 }
             })
-            .transition_of([Prop::Background, Prop::TextColor], Transition::ms(180).ease_out())
+            .transition_of(
+                [Prop::Background, Prop::TextColor],
+                Transition::ms(180).ease_out(),
+            )
             .dyn_style(move |s| {
                 let c = colors();
                 let r = round.get();
                 s.rounded(18.0 + 16.0 * r)
                     .scale(squash.get())
-                    .bg(if on() { c.primary } else { c.surface_container_highest })
+                    .bg(if on() {
+                        c.primary
+                    } else {
+                        c.surface_container_highest
+                    })
                     .text_color(content(&c))
                     .opacity(if available() { 1.0 } else { 0.45 })
             })
@@ -365,8 +406,12 @@ fn tiles() -> Div {
                     },
                     "Bluetooth",
                     move || {
-                        let connected: Vec<String> =
-                            bt.devices().into_iter().filter(|d| d.connected).map(|d| d.name).collect();
+                        let connected: Vec<String> = bt
+                            .devices()
+                            .into_iter()
+                            .filter(|d| d.connected)
+                            .map(|d| d.name)
+                            .collect();
                         match connected.len() {
                             0 if bt.adapter().is_some_and(|a| a.powered) => "On".into(),
                             0 => "Off".into(),
@@ -385,7 +430,13 @@ fn tiles() -> Div {
         .child(
             row()
                 .child(tile(
-                    move || if dark() { icons::DARK_MODE } else { icons::LIGHT_MODE },
+                    move || {
+                        if dark() {
+                            icons::DARK_MODE
+                        } else {
+                            icons::LIGHT_MODE
+                        }
+                    },
                     "Dark theme",
                     move || match settings().with(|s| s.mode) {
                         ThemeMode::Auto => "By time of day".into(),
@@ -395,11 +446,23 @@ fn tiles() -> Div {
                     dark,
                     || true,
                     move || {
-                        settings().update(|s| s.mode = if dark() { ThemeMode::Light } else { ThemeMode::Dark })
+                        settings().update(|s| {
+                            s.mode = if dark() {
+                                ThemeMode::Light
+                            } else {
+                                ThemeMode::Dark
+                            }
+                        })
                     },
                 ))
                 .child(tile(
-                    move || if dnd.get() { icons::NOTIFICATIONS_OFF } else { icons::NOTIFICATIONS },
+                    move || {
+                        if dnd.get() {
+                            icons::NOTIFICATIONS_OFF
+                        } else {
+                            icons::NOTIFICATIONS
+                        }
+                    },
                     "Do not disturb",
                     move || if dnd.get() { "On".into() } else { "Off".into() },
                     move || dnd.get(),
@@ -460,7 +523,13 @@ fn tiles() -> Div {
 fn sliders() -> Div {
     let a = audio();
     let s = session();
-    let style = || SliderStyle::new().track(40.0).corner(14.0).handle_height(52.0).no_stops();
+    let style = || {
+        SliderStyle::new()
+            .track(40.0)
+            .corner(14.0)
+            .handle_height(52.0)
+            .no_stops()
+    };
     let row = |icon: Div, slider: Div| {
         div()
             .flex()
@@ -539,20 +608,36 @@ fn media_card() -> Div {
                 .and_then(|u| u.strip_prefix("file://").map(str::to_owned))
         })
     });
-    let playing = memo(move || current.with(|p| p.as_ref().is_some_and(|p| p.status == PlaybackStatus::Playing)));
+    let playing = memo(move || {
+        current.with(|p| {
+            p.as_ref()
+                .is_some_and(|p| p.status == PlaybackStatus::Playing)
+        })
+    });
     let progress = move || {
         local_time(Every::Second);
         current.with(|p| match p.as_ref() {
             Some(p) => match p.length {
-                Some(len) if !len.is_zero() => (p.position().as_secs_f32() / len.as_secs_f32()).clamp(0.0, 1.0),
+                Some(len) if !len.is_zero() => {
+                    (p.position().as_secs_f32() / len.as_secs_f32()).clamp(0.0, 1.0)
+                }
                 _ => 0.0,
             },
             None => 0.0,
         })
     };
     let has_art = move || art.with(Option::is_some);
-    let fg = move |c: &anti_webui_md3e::ColorScheme| if has_art() { rgb(0xffffff) } else { c.on_secondary_container };
-    let morph = follow(move || if playing.get() { 1.0 } else { 0.0 }, fast_spatial());
+    let fg = move |c: &anti_webui_md3e::ColorScheme| {
+        if has_art() {
+            rgb(0xffffff)
+        } else {
+            c.on_secondary_container
+        }
+    };
+    let morph = follow(
+        move || if playing.get() { 1.0 } else { 0.0 },
+        fast_spatial(),
+    );
     div()
         .relative()
         .flex()
@@ -592,7 +677,9 @@ fn media_card() -> Div {
                         .min_w(0.0)
                         .child(
                             txt(TextStyle::TITLE_MEDIUM, move || {
-                                current.with(|p| p.as_ref().map(|p| p.title.clone()).unwrap_or_default())
+                                current.with(|p| {
+                                    p.as_ref().map(|p| p.title.clone()).unwrap_or_default()
+                                })
                             })
                             .overflow_hidden(),
                         )
@@ -602,7 +689,11 @@ fn media_card() -> Div {
                                     p.as_ref()
                                         .map(|p| {
                                             let who = p.artists.join(", ");
-                                            if who.is_empty() { p.identity.clone() } else { who }
+                                            if who.is_empty() {
+                                                p.identity.clone()
+                                            } else {
+                                                who
+                                            }
                                         })
                                         .unwrap_or_default()
                                 })
@@ -611,45 +702,48 @@ fn media_card() -> Div {
                             .opacity(0.8),
                         ),
                 )
-                .child(
-                    icon_btn(icons::SKIP_PREVIOUS, 40.0, fg).on_click(move |_| {
-                        if let Some(p) = current.get() {
-                            drop(p.previous());
-                        }
-                    }),
-                )
-                .child(
-                    pressable(
-                        div()
-                            .size(52.0)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .flex_none()
-                            .on_click(move |_| {
-                                if let Some(p) = current.get() {
-                                    drop(p.play_pause());
-                                }
-                            })
-                            .dyn_style(move |s| {
-                                let c = colors();
-                                let t = morph.get();
-                                s.rounded(14.0 + 12.0 * t).bg(c.primary).text_color(c.on_primary)
-                            })
-                            .child(dyn_view(move || {
-                                sized_icon(if playing.get() { icons::PAUSE } else { icons::PLAY_ARROW }, 26.0)
-                            })),
-                        26.0,
-                        |c| c.on_primary,
-                    ),
-                )
-                .child(
-                    icon_btn(icons::SKIP_NEXT, 40.0, fg).on_click(move |_| {
-                        if let Some(p) = current.get() {
-                            drop(p.next());
-                        }
-                    }),
-                ),
+                .child(icon_btn(icons::SKIP_PREVIOUS, 40.0, fg).on_click(move |_| {
+                    if let Some(p) = current.get() {
+                        drop(p.previous());
+                    }
+                }))
+                .child(pressable(
+                    div()
+                        .size(52.0)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .flex_none()
+                        .on_click(move |_| {
+                            if let Some(p) = current.get() {
+                                drop(p.play_pause());
+                            }
+                        })
+                        .dyn_style(move |s| {
+                            let c = colors();
+                            let t = morph.get();
+                            s.rounded(14.0 + 12.0 * t)
+                                .bg(c.primary)
+                                .text_color(c.on_primary)
+                        })
+                        .child(dyn_view(move || {
+                            sized_icon(
+                                if playing.get() {
+                                    icons::PAUSE
+                                } else {
+                                    icons::PLAY_ARROW
+                                },
+                                26.0,
+                            )
+                        })),
+                    26.0,
+                    |c| c.on_primary,
+                ))
+                .child(icon_btn(icons::SKIP_NEXT, 40.0, fg).on_click(move |_| {
+                    if let Some(p) = current.get() {
+                        drop(p.next());
+                    }
+                })),
         )
         .child(
             div()
@@ -665,10 +759,7 @@ fn style_section() -> Div {
     for (seed, name) in SEEDS {
         swatches = swatches.child(swatch(Some(seed), name));
     }
-    let from_wallpaper = show(
-        || wallpaper_seed().is_some(),
-        || swatch(None, "Wallpaper"),
-    );
+    let from_wallpaper = show(|| wallpaper_seed().is_some(), || swatch(None, "Wallpaper"));
     let chip = |p: Palette| {
         filter_chip(
             p.label(),
@@ -702,14 +793,77 @@ fn style_section() -> Div {
                 .child(sym(icons::PALETTE, 20.0, |c| c.primary))
                 .child(static_txt(TextStyle::TITLE_SMALL, "Style & color")),
         )
+        .child(wallpapers())
         .child(swatches.child(from_wallpaper))
-        .child(div().flex().flex_col().gap(6.0).child(chips_a).child(chips_b))
+        .child(
+            div()
+                .flex()
+                .flex_col()
+                .gap(6.0)
+                .child(chips_a)
+                .child(chips_b),
+        )
         .child(connected_button_group(
             ["Light", "Auto", "Dark"],
             ButtonStyle::tonal(),
             move |i| settings().with(|s| s.mode == modes[i]),
             move |i| settings().update(|s| s.mode = modes[i]),
         ))
+}
+
+/// The pictures to choose a wallpaper from. Choosing one takes the colors from it too.
+fn wallpapers() -> Div {
+    let pictures = crate::wallpaper::pictures();
+    let mut row = div().flex().flex_row().gap(8.0).pb(4.0).overflow_x_scroll();
+    for path in pictures {
+        let chosen = memo({
+            let path = path.clone();
+            move || settings().with(|s| s.wallpaper.as_ref() == Some(&path))
+        });
+        let round = follow(move || if chosen.get() { 1.0 } else { 0.0 }, fast_spatial());
+        let hovered = signal(false);
+        let lift = follow(
+            move || if hovered.get() { 1.0 } else { 0.0 },
+            fast_spatial(),
+        );
+        let picked = path.clone();
+        row = row.child(
+            div()
+                .w(88.0)
+                .h(56.0)
+                .flex_none()
+                .relative()
+                .on_hover(move |h| hovered.set(h))
+                .on_click(move |_| {
+                    let path = picked.clone();
+                    settings().update(move |s| {
+                        s.wallpaper = Some(path);
+                        s.seed_from_wallpaper = true;
+                    })
+                })
+                .dyn_style(move |s| s.scale(1.0 + 0.05 * lift.get()))
+                .child(
+                    div()
+                        .size_full()
+                        .overflow_hidden()
+                        .dyn_style(move |s| s.rounded(10.0 + 18.0 * round.get()))
+                        .child(img(path).size_full().object_fit(ObjectFit::Cover)),
+                )
+                .child(
+                    div()
+                        .absolute()
+                        .inset(0.0)
+                        .pointer_events_none()
+                        .border(3.0)
+                        .dyn_style(move |s| {
+                            let t = round.get();
+                            s.rounded(10.0 + 18.0 * t)
+                                .border_color(colors().primary.with_alpha(t.clamp(0.0, 1.0)))
+                        }),
+                ),
+        );
+    }
+    row
 }
 
 /// A seed as a circle of its primary color with its two other accents in the middle; the chosen
@@ -722,13 +876,19 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
         })
     });
     let hovered = signal(false);
-    let lift = follow(move || if hovered.get() { 1.0 } else { 0.0 }, fast_spatial());
+    let lift = follow(
+        move || if hovered.get() { 1.0 } else { 0.0 },
+        fast_spatial(),
+    );
     let scheme = memo(move || {
         let s = settings().get();
         let seed = seed.or_else(wallpaper_seed).unwrap_or(s.seed);
         scheme_for(seed, s.palette, crate::theme::is_dark())
     });
-    let check = follow(move || if chosen.get() { 1.0 } else { 0.0 }, default_effects());
+    let check = follow(
+        move || if chosen.get() { 1.0 } else { 0.0 },
+        default_effects(),
+    );
     div()
         .size(38.0)
         .relative()
@@ -747,7 +907,13 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
         .dyn_style(move |s| s.scale(1.0 + 0.1 * lift.get()))
         .child(
             styled_shape(
-                move || if chosen.get() { MaterialShape::Cookie9Sided } else { MaterialShape::Circle },
+                move || {
+                    if chosen.get() {
+                        MaterialShape::Cookie9Sided
+                    } else {
+                        MaterialShape::Circle
+                    }
+                },
                 ShapeStyle::new()
                     .color(move |_| scheme.get().primary)
                     .spring(fast_spatial())
@@ -771,9 +937,21 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
                         .overflow_hidden()
                         .flex()
                         .flex_row()
-                        .dyn_style(move |s| s.opacity(1.0 - check.get()).scale(1.0 - 0.5 * check.get()))
-                        .child(div().w(9.0).h_full().dyn_style(move |s| s.bg(scheme.get().secondary_container)))
-                        .child(div().w(9.0).h_full().dyn_style(move |s| s.bg(scheme.get().tertiary))),
+                        .dyn_style(move |s| {
+                            s.opacity(1.0 - check.get()).scale(1.0 - 0.5 * check.get())
+                        })
+                        .child(
+                            div()
+                                .w(9.0)
+                                .h_full()
+                                .dyn_style(move |s| s.bg(scheme.get().secondary_container)),
+                        )
+                        .child(
+                            div()
+                                .w(9.0)
+                                .h_full()
+                                .dyn_style(move |s| s.bg(scheme.get().tertiary)),
+                        ),
                 )
                 .child(
                     div()
@@ -784,9 +962,18 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
                         .justify_center()
                         .dyn_style(move |s| {
                             let t = check.get();
-                            s.text_color(scheme.get().on_primary).opacity(t).scale(0.4 + 0.6 * t)
+                            s.text_color(scheme.get().on_primary)
+                                .opacity(t)
+                                .scale(0.4 + 0.6 * t)
                         })
-                        .child(sized_icon(if seed.is_some() { icons::CHECK } else { icons::WALLPAPER }, 20.0)),
+                        .child(sized_icon(
+                            if seed.is_some() {
+                                icons::CHECK
+                            } else {
+                                icons::WALLPAPER
+                            },
+                            20.0,
+                        )),
                 ),
         )
 }

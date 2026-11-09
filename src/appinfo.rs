@@ -31,7 +31,8 @@ pub fn bare(id: &str) -> &str {
 /// An installed application by its desktop entry id, with or without `.desktop`.
 pub fn app_by_id(id: &str) -> Option<Application> {
     let all = apps();
-    all.get(id).or_else(|| all.get(&format!("{}.desktop", bare(id))))
+    all.get(id)
+        .or_else(|| all.get(&format!("{}.desktop", bare(id))))
 }
 
 thread_local! {

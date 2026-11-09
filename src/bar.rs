@@ -80,7 +80,16 @@ fn launcher_island(output: Output) -> Div {
         },
         fast_spatial(),
     );
-    let grow = follow(move || if hovered.get() || open.get() { 1.0 } else { 0.0 }, fast_spatial());
+    let grow = follow(
+        move || {
+            if hovered.get() || open.get() {
+                1.0
+            } else {
+                0.0
+            }
+        },
+        fast_spatial(),
+    );
     island()
         .w(40.0)
         .justify_center()
@@ -99,10 +108,20 @@ fn launcher_island(output: Output) -> Div {
                     s.rotate(turn.get())
                         .scale(1.0 + 0.1 * g)
                         .rounded(10.0 + 5.0 * g)
-                        .bg(if open.get() { c.primary } else { c.primary_container })
+                        .bg(if open.get() {
+                            c.primary
+                        } else {
+                            c.primary_container
+                        })
                 })
                 .child(dyn_sym(
-                    move || if open.get() { icons::CLOSE } else { icons::APPS },
+                    move || {
+                        if open.get() {
+                            icons::CLOSE
+                        } else {
+                            icons::APPS
+                        }
+                    },
                     18.0,
                     |c| c.on_primary_container,
                 )),
@@ -156,39 +175,38 @@ fn workspaces_island(output: Output) -> Div {
             let (l, r) = (left.get(), right.get());
             s.left(l).w((r - l).max(28.0)).bg(colors().primary)
         });
-    let slots = for_each(
-        move || list.get(),
-        |w| w.id().to_owned(),
-        move |w| {
-            let id = w.id().to_owned();
-            let me = memo(move || list.with(|l| l.iter().find(|x| x.id() == id).cloned()));
-            let on = memo(move || me.with(|w| w.as_ref().is_some_and(Workspace::is_active)));
-            let empty = memo(move || me.with(|w| w.as_ref().is_none_or(Workspace::is_hidden)));
-            let urgent = memo(move || me.with(|w| w.as_ref().is_some_and(Workspace::is_urgent)));
-            let name = w.name().to_owned();
-            div()
-                .relative()
-                .h(28.0)
-                .flex_none()
-                .transition_of([Prop::Width], emphasized(350))
-                .dyn_style(move |s| s.w(if on.get() { ACTIVE } else { SLOT }))
-                .on_click(move |_| {
-                    w.activate();
-                })
-                // The dot, which gives way to the number.
-                .child(
-                    div()
-                        .absolute()
-                        .inset(0.0)
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .pointer_events_none()
-                        .child(
-                            div()
-                                .rounded(4.0)
-                                .transition(overshoot(350))
-                                .dyn_style(move |s| {
+    let slots =
+        for_each(
+            move || list.get(),
+            |w| w.id().to_owned(),
+            move |w| {
+                let id = w.id().to_owned();
+                let me = memo(move || list.with(|l| l.iter().find(|x| x.id() == id).cloned()));
+                let on = memo(move || me.with(|w| w.as_ref().is_some_and(Workspace::is_active)));
+                let empty = memo(move || me.with(|w| w.as_ref().is_none_or(Workspace::is_hidden)));
+                let urgent =
+                    memo(move || me.with(|w| w.as_ref().is_some_and(Workspace::is_urgent)));
+                let name = w.name().to_owned();
+                div()
+                    .relative()
+                    .h(28.0)
+                    .flex_none()
+                    .transition_of([Prop::Width], emphasized(350))
+                    .dyn_style(move |s| s.w(if on.get() { ACTIVE } else { SLOT }))
+                    .on_click(move |_| {
+                        w.activate();
+                    })
+                    // The dot, which gives way to the number.
+                    .child(
+                        div()
+                            .absolute()
+                            .inset(0.0)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .pointer_events_none()
+                            .child(div().rounded(4.0).transition(overshoot(350)).dyn_style(
+                                move |s| {
                                     let c = colors();
                                     let size = if empty.get() { 6.0 } else { 8.0 };
                                     let color = if urgent.get() {
@@ -201,35 +219,41 @@ fn workspaces_island(output: Output) -> Div {
                                     s.size(size)
                                         .bg(color)
                                         .scale(if on.get() { 0.0 } else { 1.0 })
-                                }),
-                        ),
-                )
-                .child(
-                    TextStyle::LABEL_LARGE
-                        .apply(div())
-                        .absolute()
-                        .inset(0.0)
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .pointer_events_none()
-                        .transition(overshoot(400))
-                        .dyn_style(move |s| {
-                            s.text_color(colors().on_primary)
-                                .opacity(if on.get() { 1.0 } else { 0.0 })
-                                .scale(if on.get() { 1.0 } else { 0.4 })
-                        })
-                        .child(name),
-                )
-        },
-    )
-    .enter(|s| s.opacity(0.0).scale(0.3))
-    .exit(|s| s.opacity(0.0).scale(0.3))
-    .transition(overshoot(300));
+                                },
+                            )),
+                    )
+                    .child(
+                        TextStyle::LABEL_LARGE
+                            .apply(div())
+                            .absolute()
+                            .inset(0.0)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .pointer_events_none()
+                            .transition(overshoot(400))
+                            .dyn_style(move |s| {
+                                s.text_color(colors().on_primary)
+                                    .opacity(if on.get() { 1.0 } else { 0.0 })
+                                    .scale(if on.get() { 1.0 } else { 0.4 })
+                            })
+                            .child(name),
+                    )
+            },
+        )
+        .enter(|s| s.opacity(0.0).scale(0.3))
+        .exit(|s| s.opacity(0.0).scale(0.3))
+        .transition(overshoot(300));
     island()
         .px(6.0)
         .on_scroll(move |e| {
-            let step = if e.delta_y > 0.0 { 1 } else if e.delta_y < 0.0 { -1 } else { 0 };
+            let step = if e.delta_y > 0.0 {
+                1
+            } else if e.delta_y < 0.0 {
+                -1
+            } else {
+                0
+            };
             let all = untrack(|| list.get());
             let next = untrack(|| active.get()) as i32 + step;
             if step != 0
@@ -261,50 +285,59 @@ fn window_island(output: Output) -> Show {
     show(
         move || active.with(Option::is_some),
         move || {
-            island().px(6.0).min_w(0.0).flex_shrink(1.0).overflow_hidden().child(
-                for_each(
-                    move || active.get().into_iter().map(|t| t.id()).collect::<Vec<_>>(),
-                    |id| *id,
-                    move |_| {
-                        let shown = memo(move || active.get());
-                        let icon = memo(move || shown.with(|t| t.as_ref().and_then(|t| window_icon(t, 64))));
-                        div()
-                            .flex()
-                            .flex_row()
-                            .items_center()
-                            .gap(8.0)
-                            .pr(10.0)
-                            .min_w(0.0)
-                            .child(dyn_view(move || match icon.get() {
-                                Some(path) => img(path).size(28.0).flex_none().into_view(),
-                                None => div()
-                                    .size(28.0)
-                                    .rounded(14.0)
-                                    .flex()
-                                    .items_center()
-                                    .justify_center()
-                                    .flex_none()
-                                    .dyn_style(|s| s.bg(colors().secondary_container))
-                                    .child(sym(icons::DESKTOP_WINDOWS, 16.0, |c| c.on_secondary_container))
-                                    .into_view(),
-                            }))
-                            .child(
-                                txt(TextStyle::TITLE_SMALL, move || {
-                                    shown.with(|t| {
-                                        t.as_ref()
-                                            .map(|t| t.title.chars().take(60).collect())
-                                            .unwrap_or_default()
+            island()
+                .px(6.0)
+                .min_w(0.0)
+                .flex_shrink(1.0)
+                .overflow_hidden()
+                .child(
+                    for_each(
+                        move || active.get().into_iter().map(|t| t.id()).collect::<Vec<_>>(),
+                        |id| *id,
+                        move |_| {
+                            let shown = memo(move || active.get());
+                            let icon = memo(move || {
+                                shown.with(|t| t.as_ref().and_then(|t| window_icon(t, 64)))
+                            });
+                            div()
+                                .flex()
+                                .flex_row()
+                                .items_center()
+                                .gap(8.0)
+                                .pr(10.0)
+                                .min_w(0.0)
+                                .child(dyn_view(move || match icon.get() {
+                                    Some(path) => img(path).size(28.0).flex_none().into_view(),
+                                    None => div()
+                                        .size(28.0)
+                                        .rounded(14.0)
+                                        .flex()
+                                        .items_center()
+                                        .justify_center()
+                                        .flex_none()
+                                        .dyn_style(|s| s.bg(colors().secondary_container))
+                                        .child(sym(icons::DESKTOP_WINDOWS, 16.0, |c| {
+                                            c.on_secondary_container
+                                        }))
+                                        .into_view(),
+                                }))
+                                .child(
+                                    txt(TextStyle::TITLE_SMALL, move || {
+                                        shown.with(|t| {
+                                            t.as_ref()
+                                                .map(|t| t.title.chars().take(60).collect())
+                                                .unwrap_or_default()
+                                        })
                                     })
-                                })
-                                .max_w(360.0)
-                                .overflow_hidden(),
-                            )
-                    },
+                                    .max_w(360.0)
+                                    .overflow_hidden(),
+                                )
+                        },
+                    )
+                    .enter(|s| s.opacity(0.0).translate_y(16.0))
+                    .exit(|s| s.opacity(0.0).translate_y(-16.0))
+                    .transition(emphasized(350)),
                 )
-                .enter(|s| s.opacity(0.0).translate_y(16.0))
-                .exit(|s| s.opacity(0.0).translate_y(-16.0))
-                .transition(emphasized(350)),
-            )
         },
     )
     .enter(|s| s.opacity(0.0).scale(0.8))
@@ -316,16 +349,27 @@ fn window_island(output: Output) -> Show {
 /// heavier; a click opens the calendar.
 fn clock_island(output: Output) -> Div {
     let hovered = signal(false);
-    let weight = follow(move || if hovered.get() { 760.0 } else { 520.0 }, fast_spatial());
+    let weight = follow(
+        move || if hovered.get() { 760.0 } else { 520.0 },
+        fast_spatial(),
+    );
     let open = memo({
         let output = output.clone();
         move || is_open(&output, Panel::Calendar)
     });
     let time = move || {
         let s = settings().get();
-        let t = local_time(if s.clock_seconds { Every::Second } else { Every::Minute });
+        let t = local_time(if s.clock_seconds {
+            Every::Second
+        } else {
+            Every::Minute
+        });
         let hm = if s.clock_24h { "%H:%M" } else { "%I:%M" };
-        t.format(&if s.clock_seconds { format!("{hm}:%S") } else { hm.to_owned() })
+        t.format(&if s.clock_seconds {
+            format!("{hm}:%S")
+        } else {
+            hm.to_owned()
+        })
     };
     let size = 18.0;
     let style = TextStyle {
@@ -383,7 +427,10 @@ fn media_island() -> Show {
         move || current.with(|p| p.as_ref().is_some_and(|p| !p.title.is_empty())),
         move || {
             let playing = memo(move || {
-                current.with(|p| p.as_ref().is_some_and(|p| p.status == PlaybackStatus::Playing))
+                current.with(|p| {
+                    p.as_ref()
+                        .is_some_and(|p| p.status == PlaybackStatus::Playing)
+                })
             });
             pressable(
                 island()
@@ -420,9 +467,18 @@ fn media_island() -> Show {
 /// Four bars that dance while `playing` and settle into dots when paused.
 fn equalizer(playing: Memo<bool>) -> Div {
     let t = clock();
-    let mut row = div().flex().flex_row().items_center().gap(2.0).h(16.0).flex_none();
+    let mut row = div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap(2.0)
+        .h(16.0)
+        .flex_none();
     for i in 0..4 {
-        let calm = follow(move || if playing.get() { 1.0 } else { 0.0 }, slow_spatial());
+        let calm = follow(
+            move || if playing.get() { 1.0 } else { 0.0 },
+            slow_spatial(),
+        );
         row = row.child(div().w(3.0).rounded(1.5).dyn_style(move |s| {
             let level = calm.get();
             // Only asks for frames while it moves.
@@ -469,20 +525,22 @@ fn tray_icon(item: TrayItem) -> Div {
             .flex()
             .items_center()
             .justify_center()
-            .child(dyn_view(move || match shown().and_then(|i| i.icon.best(48)) {
-                Some(picture) => bitmap_view(move || Some(picture.clone()))
-                    .size(18.0)
+            .child(dyn_view(move || {
+                match shown().and_then(|i| i.icon.best(48)) {
+                    Some(picture) => bitmap_view(move || Some(picture.clone()))
+                        .size(18.0)
+                        .into_view(),
+                    None => txt(TextStyle::LABEL_MEDIUM, {
+                        let shown = shown.clone();
+                        move || {
+                            shown()
+                                .and_then(|i| i.title.chars().next())
+                                .map(String::from)
+                                .unwrap_or_default()
+                        }
+                    })
                     .into_view(),
-                None => txt(TextStyle::LABEL_MEDIUM, {
-                    let shown = shown.clone();
-                    move || {
-                        shown()
-                            .and_then(|i| i.title.chars().next())
-                            .map(String::from)
-                            .unwrap_or_default()
-                    }
-                })
-                .into_view(),
+                }
             }))
             .on_pointer_down(move |e| match e.button {
                 Some(PointerButton::Secondary) if clicked.has_menu => open.set(true),
@@ -564,8 +622,14 @@ fn status_island(output: Output) -> Div {
                         .flex_row()
                         .items_center()
                         .gap(2.0)
-                        .child(dyn_sym(move || battery_icon(b.percentage(), b.state()), 18.0, color))
-                        .child(txt(TextStyle::LABEL_LARGE, move || format!("{:.0}%", b.percentage())))
+                        .child(dyn_sym(
+                            move || battery_icon(b.percentage(), b.state()),
+                            18.0,
+                            color,
+                        ))
+                        .child(txt(TextStyle::LABEL_LARGE, move || {
+                            format!("{:.0}%", b.percentage())
+                        }))
                 },
             ))
             .dyn_style(move |s| {
@@ -590,8 +654,14 @@ pub fn wifi_icon(strength: u8) -> &'static anti_webui_md3e::icons::Symbol {
     }
 }
 
-pub fn battery_icon(percentage: f64, state: BatteryState) -> &'static anti_webui_md3e::icons::Symbol {
-    let charging = matches!(state, BatteryState::Charging | BatteryState::Full | BatteryState::PendingCharge);
+pub fn battery_icon(
+    percentage: f64,
+    state: BatteryState,
+) -> &'static anti_webui_md3e::icons::Symbol {
+    let charging = matches!(
+        state,
+        BatteryState::Charging | BatteryState::Full | BatteryState::PendingCharge
+    );
     if charging {
         return match percentage as u32 {
             95.. => icons::BATTERY_CHARGING_FULL,

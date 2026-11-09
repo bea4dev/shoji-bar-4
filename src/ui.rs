@@ -120,42 +120,38 @@ pub fn rolling_text(
 ) -> Div {
     let chars = memo(move || f().chars().collect::<Vec<char>>());
     let height = style.line_height;
-    div()
-        .flex()
-        .flex_row()
-        .flex_none()
-        .child(for_each(
-            move || (0..chars.with(|c| c.len())).collect::<Vec<_>>(),
-            |i| *i,
-            move |i| {
-                let ch = memo(move || chars.with(|c| c.get(i).copied().unwrap_or(' ')));
-                div()
-                    .relative()
-                    .h(height)
-                    .flex_none()
-                    .overflow_hidden()
-                    .transition_of([Prop::Width], emphasized(400))
-                    .dyn_style(move |s| s.w(width(ch.get())))
-                    .child(
-                        for_each(
-                            move || vec![ch.get()],
-                            |c| *c,
-                            move |c| {
-                                style.apply(
-                                    div()
-                                        .absolute()
-                                        .inset(0.0)
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .child(c.to_string()),
-                                )
-                            },
-                        )
-                        .enter(move |s| s.translate_y(height * 0.9).opacity(0.0))
-                        .exit(move |s| s.translate_y(-height * 0.9).opacity(0.0))
-                        .transition(emphasized(550)),
+    div().flex().flex_row().flex_none().child(for_each(
+        move || (0..chars.with(|c| c.len())).collect::<Vec<_>>(),
+        |i| *i,
+        move |i| {
+            let ch = memo(move || chars.with(|c| c.get(i).copied().unwrap_or(' ')));
+            div()
+                .relative()
+                .h(height)
+                .flex_none()
+                .overflow_hidden()
+                .transition_of([Prop::Width], emphasized(400))
+                .dyn_style(move |s| s.w(width(ch.get())))
+                .child(
+                    for_each(
+                        move || vec![ch.get()],
+                        |c| *c,
+                        move |c| {
+                            style.apply(
+                                div()
+                                    .absolute()
+                                    .inset(0.0)
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .child(c.to_string()),
+                            )
+                        },
                     )
-            },
-        ))
+                    .enter(move |s| s.translate_y(height * 0.9).opacity(0.0))
+                    .exit(move |s| s.translate_y(-height * 0.9).opacity(0.0))
+                    .transition(emphasized(550)),
+                )
+        },
+    ))
 }

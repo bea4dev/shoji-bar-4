@@ -144,7 +144,9 @@ impl Settings {
         if let Some(m) = str_of("mode").and_then(ThemeMode::from_name) {
             s.mode = m;
         }
-        if let Some(seed) = str_of("seed").and_then(|h| u32::from_str_radix(h.trim_start_matches('#'), 16).ok()) {
+        if let Some(seed) =
+            str_of("seed").and_then(|h| u32::from_str_radix(h.trim_start_matches('#'), 16).ok())
+        {
             s.seed = seed & 0xffffff;
         }
         if let Some(b) = bool_of("seed_from_wallpaper") {
@@ -155,7 +157,10 @@ impl Settings {
         }
         s.wallpaper = str_of("wallpaper").map(PathBuf::from);
         if let Some(list) = v.get("pinned").and_then(Value::as_array) {
-            s.pinned = list.iter().filter_map(|x| x.as_str().map(String::from)).collect();
+            s.pinned = list
+                .iter()
+                .filter_map(|x| x.as_str().map(String::from))
+                .collect();
         }
         if let Some(b) = bool_of("clock_24h") {
             s.clock_24h = b;

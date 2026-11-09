@@ -54,7 +54,10 @@ fn state() -> Signal<Option<(String, Panel)>> {
 }
 
 pub fn is_open(output: &Output, panel: Panel) -> bool {
-    state().with(|s| s.as_ref().is_some_and(|(o, p)| *o == output.name && *p == panel))
+    state().with(|s| {
+        s.as_ref()
+            .is_some_and(|(o, p)| *o == output.name && *p == panel)
+    })
 }
 
 pub fn toggle(output: &Output, panel: Panel) {
@@ -180,13 +183,16 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
     if panel == Panel::Launcher {
         // A veil over the desktop, so that the launcher stands out.
         root = root.child(
-            show(move || wanted.get(), || {
-                div()
-                    .absolute()
-                    .inset(0.0)
-                    .pointer_events_none()
-                    .dyn_style(|s| s.bg(crate::theme::colors().scrim.with_alpha(0.32)))
-            })
+            show(
+                move || wanted.get(),
+                || {
+                    div()
+                        .absolute()
+                        .inset(0.0)
+                        .pointer_events_none()
+                        .dyn_style(|s| s.bg(crate::theme::colors().scrim.with_alpha(0.32)))
+                },
+            )
             .appear()
             .enter(|s| s.opacity(0.0))
             .exit(|s| s.opacity(0.0))
@@ -194,12 +200,10 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         );
     }
     root.child(
-        show(move || wanted.get(), move || {
-            content()
-        })
-        .appear()
-        .enter(enter)
-        .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
-        .transition(crate::ui::overshoot(420)),
+        show(move || wanted.get(), move || content())
+            .appear()
+            .enter(enter)
+            .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
+            .transition(crate::ui::overshoot(420)),
     )
 }

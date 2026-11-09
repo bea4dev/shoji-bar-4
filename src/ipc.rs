@@ -59,9 +59,11 @@ pub fn serve() {
             return;
         }
     };
-    let to_ui = ui_channel(move |(line, answer): (String, std::sync::mpsc::Sender<String>)| {
-        let _ = answer.send(run(&line).map_or_else(|e| e, |()| "ok".into()));
-    });
+    let to_ui = ui_channel(
+        move |(line, answer): (String, std::sync::mpsc::Sender<String>)| {
+            let _ = answer.send(run(&line).map_or_else(|e| e, |()| "ok".into()));
+        },
+    );
     let _ = std::thread::Builder::new()
         .name("shoji-bar-4 ipc".into())
         .spawn(move || {

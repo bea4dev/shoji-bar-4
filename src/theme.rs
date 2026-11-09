@@ -4,8 +4,8 @@
 use crate::settings::{Palette, Settings, ThemeMode, settings};
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
-use anti_webui_md3e::motion::default_effects;
 use anti_webui_md3e::dynamic::seed_colors;
+use anti_webui_md3e::motion::default_effects;
 use anti_webui_md3e::{
     ColorScheme, SchemeOptions, SchemeVariant, set_color_scheme, set_color_scheme_animated,
 };

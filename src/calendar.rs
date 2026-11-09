@@ -88,8 +88,10 @@ fn header() -> Div {
                 ),
         )
         .child(
-            txt(TextStyle::TITLE_MEDIUM, || local_time(Every::Minute).format("%A, %-d %B %Y"))
-                .dyn_style(|s| s.text_color(colors().on_surface_variant)),
+            txt(TextStyle::TITLE_MEDIUM, || {
+                local_time(Every::Minute).format("%A, %-d %B %Y")
+            })
+            .dyn_style(|s| s.text_color(colors().on_surface_variant)),
         )
 }
 
@@ -127,7 +129,11 @@ fn gauges() -> Div {
                     .size(48.0)
                     .relative()
                     .flex_none()
-                    .child(circular_wavy_progress(move || value()).absolute().inset(0.0))
+                    .child(
+                        circular_wavy_progress(move || value())
+                            .absolute()
+                            .inset(0.0),
+                    )
                     .child(
                         div()
                             .absolute()

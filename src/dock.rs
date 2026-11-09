@@ -9,8 +9,8 @@ use crate::theme::{TextStyle, colors, elevation};
 use crate::ui::*;
 use anti_webui::core::geometry::RectI;
 use anti_webui::prelude::*;
-use anti_webui::shell::prelude::*;
 use anti_webui::shell::Toplevel;
+use anti_webui::shell::prelude::*;
 use anti_webui_md3e::components::{MenuItem, MenuStyle, menu_item, styled_menu};
 use anti_webui_md3e::icons;
 use anti_webui_md3e::motion::{default_effects, default_spatial, fast_spatial};
@@ -64,7 +64,9 @@ impl Entry {
     }
 
     fn name(&self) -> String {
-        self.app.as_ref().map_or_else(|| self.app_id.clone(), |a| a.name.clone())
+        self.app
+            .as_ref()
+            .map_or_else(|| self.app_id.clone(), |a| a.name.clone())
     }
 }
 
@@ -112,7 +114,10 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
     // Where the pointer is over the layer, while it is over the dock.
     let pointer = signal(None::<f32>);
     let last_x = signal(0.0f32);
-    let strength = follow(move || if pointer.get().is_some() { 1.0 } else { 0.0 }, default_spatial());
+    let strength = follow(
+        move || if pointer.get().is_some() { 1.0 } else { 0.0 },
+        default_spatial(),
+    );
     let x = follow(move || last_x.get(), Spring::from_ratio(1400.0, 1.0));
     let menu_open = signal(None::<String>);
     let layer_size = signal((0.0f32, 0.0f32));
@@ -163,7 +168,11 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
         move |(key, _)| {
             let index = memo({
                 let key = key.clone();
-                move || list.with(|l| l.iter().position(|(k, _)| *k == key)).unwrap_or(0) + 1
+                move || {
+                    list.with(|l| l.iter().position(|(k, _)| *k == key))
+                        .unwrap_or(0)
+                        + 1
+                }
             });
             item(key, move || growth(index.get()), menu_open)
         },
@@ -212,21 +221,17 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
                     }
                 })
                 .child(launcher_button(launcher_output, move || growth(0)))
-                .child(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_end()
-                        .child(items)
-                        .child(show(move || divider_at.get().is_some(), || {
-                            div()
-                                .w(1.0)
-                                .h(32.0)
-                                .mx(8.0)
-                                .mb(12.0)
-                                .dyn_style(|s| s.bg(colors().outline_variant))
-                        })),
-                ),
+                .child(div().flex().flex_row().items_end().child(items).child(show(
+                    move || divider_at.get().is_some(),
+                    || {
+                        div()
+                            .w(1.0)
+                            .h(32.0)
+                            .mx(8.0)
+                            .mb(12.0)
+                            .dyn_style(|s| s.bg(colors().outline_variant))
+                    },
+                ))),
         )
 }
 
@@ -245,13 +250,20 @@ fn item(
         let lookup = lookup.clone();
         move || {
             let Some(e) = lookup() else { return Vec::new() };
-            toplevels().all().into_iter().filter(|t| e.owns(t)).collect::<Vec<_>>()
+            toplevels()
+                .all()
+                .into_iter()
+                .filter(|t| e.owns(t))
+                .collect::<Vec<_>>()
         }
     });
     let focused = memo(move || windows.with(|w| w.iter().any(|t| t.activated)));
     let hovered = signal(false);
     let pressed = signal(false);
-    let squash = follow(move || if pressed.get() { 0.86 } else { 1.0 }, fast_spatial());
+    let squash = follow(
+        move || if pressed.get() { 0.86 } else { 1.0 },
+        fast_spatial(),
+    );
     // Bounces from the click that starts it until a window of it shows, for at most 4 seconds.
     let launching = signal(None::<Instant>);
     let count = memo(move || windows.with(Vec::len));
@@ -270,7 +282,9 @@ fn item(
             let e = lookup()?;
             match &e.app {
                 Some(app) => app_icon(app, 128),
-                None => icon_file(&e.app_id, 128).or_else(|| icon_file(&e.app_id.to_lowercase(), 128)),
+                None => {
+                    icon_file(&e.app_id, 128).or_else(|| icon_file(&e.app_id.to_lowercase(), 128))
+                }
             }
         }
     });
@@ -373,7 +387,9 @@ fn item(
                         }
                         None => 0.0,
                     };
-                    s.h(ICON * g).translate_y(jump - 4.0 * (g - 1.0)).scale(squash.get())
+                    s.h(ICON * g)
+                        .translate_y(jump - 4.0 * (g - 1.0))
+                        .scale(squash.get())
                 })
                 .child(dyn_view(move || match icon_path.get() {
                     Some(path) => img(path)
@@ -387,11 +403,19 @@ fn item(
                         .justify_center()
                         .dyn_style(move |s| {
                             let c = colors();
-                            s.size(ICON * growth()).bg(c.tertiary_container).text_color(c.on_tertiary_container)
+                            s.size(ICON * growth())
+                                .bg(c.tertiary_container)
+                                .text_color(c.on_tertiary_container)
                         })
-                        .child(TextStyle::TITLE_LARGE.apply(div()).child(
-                            name.get().chars().next().map(|c| c.to_uppercase().to_string()).unwrap_or_default(),
-                        ))
+                        .child(
+                            TextStyle::TITLE_LARGE.apply(div()).child(
+                                name.get()
+                                    .chars()
+                                    .next()
+                                    .map(|c| c.to_uppercase().to_string())
+                                    .unwrap_or_default(),
+                            ),
+                        )
                         .into_view(),
                 })),
         )
@@ -410,7 +434,10 @@ fn item(
                     div()
                         .h(4.0)
                         .rounded(2.0)
-                        .transition_of([Prop::Width, Prop::Background, Prop::Opacity], overshoot(380))
+                        .transition_of(
+                            [Prop::Width, Prop::Background, Prop::Opacity],
+                            overshoot(380),
+                        )
                         .dyn_style(move |s| {
                             let c = colors();
                             let n = count.get();
@@ -422,7 +449,11 @@ fn item(
                             };
                             s.w(w)
                                 .opacity(if n == 0 { 0.0 } else { 1.0 })
-                                .bg(if focused.get() { c.primary } else { c.on_surface_variant })
+                                .bg(if focused.get() {
+                                    c.primary
+                                } else {
+                                    c.on_surface_variant
+                                })
                         }),
                 ),
         )
@@ -434,8 +465,14 @@ fn item(
         ))
 }
 
-fn menu_groups(entry: Option<Entry>, windows: Vec<Toplevel>, launching: Signal<Option<Instant>>) -> Vec<Vec<MenuItem>> {
-    let Some(entry) = entry else { return Vec::new() };
+fn menu_groups(
+    entry: Option<Entry>,
+    windows: Vec<Toplevel>,
+    launching: Signal<Option<Instant>>,
+) -> Vec<Vec<MenuItem>> {
+    let Some(entry) = entry else {
+        return Vec::new();
+    };
     let mut groups = Vec::new();
     if let Some(app) = entry.app.clone() {
         let mut first = vec![menu_item("New window").icon(icons::ADD).on_click({
@@ -458,18 +495,26 @@ fn menu_groups(entry: Option<Entry>, windows: Vec<Toplevel>, launching: Signal<O
                 settings().update(|s| s.pinned.retain(|p| bare(p) != id));
             })
         } else {
-            menu_item("Pin to dock").icon(icons::PUSH_PIN).on_click(move || {
-                settings().update(|s| s.pinned.push(id.clone()));
-            })
+            menu_item("Pin to dock")
+                .icon(icons::PUSH_PIN)
+                .on_click(move || {
+                    settings().update(|s| s.pinned.push(id.clone()));
+                })
         }]);
     }
     if !windows.is_empty() {
-        let label = if windows.len() == 1 { "Close".to_owned() } else { format!("Close {} windows", windows.len()) };
-        groups.push(vec![menu_item(label).icon(icons::CLOSE).on_click(move || {
-            for w in &windows {
-                w.close();
-            }
-        })]);
+        let label = if windows.len() == 1 {
+            "Close".to_owned()
+        } else {
+            format!("Close {} windows", windows.len())
+        };
+        groups.push(vec![menu_item(label).icon(icons::CLOSE).on_click(
+            move || {
+                for w in &windows {
+                    w.close();
+                }
+            },
+        )]);
     }
     groups
 }
@@ -482,9 +527,24 @@ fn launcher_button(output: Output, growth: impl Fn() -> f32 + Copy + 'static) ->
         let output = output.clone();
         move || is_open(&output, Panel::Launcher)
     });
-    let round = follow(move || if hovered.get() || open.get() { 1.0 } else { 0.0 }, fast_spatial());
-    let turn = follow(move || if open.get() { 90.0 } else { 0.0 }, default_spatial());
-    let tint = follow(move || if open.get() { 1.0 } else { 0.0 }, default_effects());
+    let round = follow(
+        move || {
+            if hovered.get() || open.get() {
+                1.0
+            } else {
+                0.0
+            }
+        },
+        fast_spatial(),
+    );
+    let turn = follow(
+        move || if open.get() { 90.0 } else { 0.0 },
+        default_spatial(),
+    );
+    let tint = follow(
+        move || if open.get() { 1.0 } else { 0.0 },
+        default_effects(),
+    );
     div()
         .relative()
         .flex_none()
@@ -522,8 +582,9 @@ fn launcher_button(output: Output, growth: impl Fn() -> f32 + Copy + 'static) ->
                             div()
                                 .dyn_style(move |s| {
                                     let c = colors();
-                                    s.rotate(turn.get() + 45.0 * round.get())
-                                        .text_color(c.on_primary_container.mix(c.on_primary, tint.get()))
+                                    s.rotate(turn.get() + 45.0 * round.get()).text_color(
+                                        c.on_primary_container.mix(c.on_primary, tint.get()),
+                                    )
                                 })
                                 .child(anti_webui_md3e::components::sized_icon(icons::APPS, 24.0)),
                         ),
