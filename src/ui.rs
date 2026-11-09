@@ -58,6 +58,24 @@ pub fn static_txt(style: TextStyle, s: impl Into<String>) -> Div {
     style.apply(div().whitespace_nowrap().child(s.into()))
 }
 
+/// How long after the one before it each part of a panel starts to come in.
+const SETTLE_STEP: u64 = 45;
+
+/// `node` as a part of a panel that comes in `order` steps after the panel does: it falls into
+/// place, growing as it fades in, as the apps of the launcher do.
+pub fn settle_in(order: usize, node: Div) -> Div {
+    let shown = animated(0.0f32);
+    set_timeout(Duration::from_millis(order as u64 * SETTLE_STEP), move || {
+        shown.spring_to(1.0, fast_spatial())
+    });
+    node.dyn_style(move |s| {
+        let t = shown.get();
+        s.opacity(t.clamp(0.0, 1.0))
+            .scale(0.85 + 0.15 * t)
+            .translate_y(-24.0 * (1.0 - t))
+    })
+}
+
 /// A floating container of the bar: a pill on `surface_container`.
 /// How tall an island of the bar is.
 pub const ISLAND: f32 = 32.0;

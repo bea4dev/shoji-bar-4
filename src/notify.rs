@@ -246,8 +246,9 @@ pub fn card(n: Notification, popup: bool) -> Div {
     pressable(body, |c| c.on_surface)
 }
 
-/// The notifications that are kept, for quick settings, with a button that clears them.
-pub fn history() -> Show {
+/// The notifications that are kept, for quick settings, with a button that clears them. They come
+/// in as the `order`th part of the panel.
+pub fn history(order: usize) -> Show {
     let server = server();
     let count = server.clone();
     show(
@@ -255,7 +256,7 @@ pub fn history() -> Show {
         move || {
             let list = server.clone().expect("only shown with a server");
             let clear = list.clone();
-            div()
+            settle_in(order, div())
                 .flex()
                 .flex_col()
                 .gap(8.0)

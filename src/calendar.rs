@@ -20,9 +20,9 @@ pub fn panel() -> Div {
             let c = colors();
             s.bg(c.surface_container).text_color(c.on_surface)
         })
-        .child(header())
+        .child(settle_in(0, header()))
         .child(
-            div()
+            settle_in(1, div())
                 .rounded(20.0)
                 .overflow_hidden()
                 .flex()
@@ -41,7 +41,7 @@ pub fn panel() -> Div {
                     DatePickerStyle::new().no_header(),
                 )),
         )
-        .child(gauges())
+        .child(settle_in(2, gauges()))
 }
 
 /// The time with its seconds rolling, and the day.

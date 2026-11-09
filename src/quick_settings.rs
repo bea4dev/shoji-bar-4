@@ -30,12 +30,15 @@ pub fn panel(output: Output) -> Div {
             let c = colors();
             s.bg(c.surface_container).text_color(c.on_surface)
         })
-        .child(header())
+        .child(settle_in(0, header()))
         .child(tiles())
-        .child(sliders())
-        .child(show(|| media().current().is_some(), media_card))
-        .child(crate::notify::history())
-        .child(style_section())
+        .child(settle_in(4, sliders()))
+        .child(show(
+            || media().current().is_some(),
+            || settle_in(5, media_card()),
+        ))
+        .child(crate::notify::history(6))
+        .child(settle_in(7, style_section()))
 }
 
 /// A section of the panel on a card of its own.
@@ -374,7 +377,7 @@ fn tiles() -> Div {
         .flex_col()
         .gap(8.0)
         .child(
-            row()
+            settle_in(1, row())
                 .child(tile(
                     move || match net.wifi() {
                         Some(ap) => wifi_icon(ap.strength),
@@ -426,7 +429,7 @@ fn tiles() -> Div {
                 )),
         )
         .child(
-            row()
+            settle_in(2, row())
                 .child(tile(
                     move || {
                         if dark() {
@@ -473,7 +476,7 @@ fn tiles() -> Div {
                 )),
         )
         .child(
-            row()
+            settle_in(3, row())
                 .child(tile(
                     move || match p.active().as_str() {
                         "power-saver" => icons::ENERGY_SAVINGS_LEAF,

@@ -28,15 +28,10 @@ impl Panel {
     pub fn from_name(name: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|p| p.name() == name)
     }
-
-    /// How long its closing takes, after which the layer goes.
-    fn exit_time(self) -> Duration {
-        Duration::from_millis(match self {
-            Self::Launcher => 380,
-            _ => 320,
-        })
-    }
 }
+
+/// How long a panel's closing takes, after which the layer goes.
+const EXIT_TIME: Duration = Duration::from_millis(380);
 
 /// Which panel is open on which output, by connector name.
 type Open = Signal<Option<(String, Panel)>>;
@@ -97,7 +92,7 @@ pub fn install(output: Output) {
             if wanted.get() {
                 mounted.set(true);
             } else if mounted.get_untracked() {
-                pending.set(Some(set_timeout(panel.exit_time(), move || {
+                pending.set(Some(set_timeout(EXIT_TIME, move || {
                     if !untrack(|| wanted.get()) {
                         mounted.set(false);
                     }
@@ -152,9 +147,9 @@ const ABOVE_DOCK: f32 = crate::dock::RESERVED as f32 + 16.0;
 type Place = fn(Div) -> Div;
 type Enter = fn(Style) -> Style;
 
-/// Down from well above, fading in.
+/// Down from above, growing as it fades in: the launcher's way in, the other way up.
 fn from_above(s: Style) -> Style {
-    s.opacity(0.0).translate_y(-200.0)
+    s.opacity(0.0).scale(0.7).translate_y(-80.0)
 }
 
 /// All of the output: a catcher of clicks outside the panel, and the panel where it goes.
@@ -227,29 +222,11 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             .transition(Transition::ms(300).ease_out()),
         );
     }
-    if panel == Panel::Launcher {
-        return root.child(
-            show(move || wanted.get(), content)
-                .appear()
-                .enter(enter)
-                .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
-                .transition(crate::ui::overshoot(420)),
-        );
-    }
-    // Coming in takes longer than going: the panel comes in on a show of its own inside the one
-    // that takes it away.
-    let coming = move || {
-        show(|| true, content.clone())
+    root.child(
+        show(move || wanted.get(), content)
             .appear()
             .enter(enter)
-            .transition(Transition::ms(200).cubic_bezier(0.2, 0.0, 0.0, 1.0))
-    };
-    root.child(
-        show(
-            move || wanted.get(),
-            move || div().flex_none().child(coming()),
-        )
-        .exit(|s| s.opacity(0.0).translate_y(-48.0))
-        .transition(Transition::ms(100).cubic_bezier(0.3, 0.0, 0.8, 0.15)),
+            .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
+            .transition(crate::ui::overshoot(420)),
     )
 }
