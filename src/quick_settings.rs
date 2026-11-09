@@ -587,7 +587,7 @@ fn sliders() -> Div {
                         .justify_center()
                         .flex_none()
                         .child(sym(icons::BRIGHTNESS_6, 22.0, |c| c.on_surface_variant)),
-                    styled_slider(brightness.clone(), style()),
+                    styled_slider(brightness, style()),
                 )
             },
         ))
@@ -642,6 +642,8 @@ fn media_card() -> Div {
         .p(16.0)
         .rounded(24.0)
         .overflow_hidden()
+        // Its own stacking context, so that the veil below goes between the art and the text.
+        .z_index(0)
         .dyn_style(move |s| {
             let c = colors();
             let s = s.bg(c.secondary_container).text_color(fg(&c));
@@ -650,11 +652,12 @@ fn media_card() -> Div {
                 None => s,
             }
         })
-        // Keeps the text readable on any art.
+        // Keeps the text readable on any art, under it.
         .child(show(has_art, || {
             div()
                 .absolute()
                 .inset(0.0)
+                .z_index(-1)
                 .pointer_events_none()
                 .bg(rgba(0x000000).with_alpha(0.5))
         }))

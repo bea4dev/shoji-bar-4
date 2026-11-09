@@ -38,12 +38,14 @@ impl Panel {
     }
 }
 
+/// Which panel is open on which output, by connector name.
+type Open = Signal<Option<(String, Panel)>>;
+
 thread_local! {
-    /// Which panel is open on which output, by connector name.
-    static OPEN: Cell<Option<Signal<Option<(String, Panel)>>>> = const { Cell::new(None) };
+    static OPEN: Cell<Option<Open>> = const { Cell::new(None) };
 }
 
-fn state() -> Signal<Option<(String, Panel)>> {
+fn state() -> Open {
     OPEN.with(|o| {
         o.get().unwrap_or_else(|| {
             let (s, _) = create_root(|| signal(None));
@@ -142,6 +144,10 @@ pub fn view(output: Output, panel: Panel) -> Div {
     surface(output, panel, wanted)
 }
 
+/// Where a panel goes on the output, and how it comes in.
+type Place = fn(Div) -> Div;
+type Enter = fn(Style) -> Style;
+
 /// All of the output: a catcher of clicks outside the panel, and the panel where it goes.
 fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
     let content = move || match panel {
@@ -149,7 +155,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         Panel::Calendar => crate::calendar::panel(),
         Panel::Launcher => crate::launcher::panel(output.clone()),
     };
-    let (place, enter): (fn(Div) -> Div, fn(Style) -> Style) = match panel {
+    let (place, enter): (Place, Enter) = match panel {
         Panel::QuickSettings => (
             |d| d.items_end().justify_start().pt(6.0).pr(10.0),
             |s| s.opacity(0.0).scale(0.82).translate_y(-18.0),
@@ -173,8 +179,8 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
                 close();
             }
         })
-        // Behind the panel: what is clicked outside it.
-        .child(div().absolute().inset(0.0).on_click(move |_| {
+        // Behind the panel (`absolute` alone would put it above): what is clicked outside it.
+        .child(div().absolute().inset(0.0).z_index(-1).on_click(move |_| {
             if untrack(|| wanted.get()) {
                 close();
             }
@@ -188,6 +194,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
                 || {
                     div()
                         .absolute()
+                        .z_index(-1)
                         .inset(0.0)
                         .pointer_events_none()
                         .dyn_style(|s| s.bg(crate::theme::colors().scrim.with_alpha(0.32)))
@@ -200,7 +207,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         );
     }
     root.child(
-        show(move || wanted.get(), move || content())
+        show(move || wanted.get(), content)
             .appear()
             .enter(enter)
             .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))

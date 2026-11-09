@@ -13,7 +13,7 @@ use anti_webui::shell::Toplevel;
 use anti_webui::shell::prelude::*;
 use anti_webui_md3e::components::{MenuItem, MenuStyle, menu_item, styled_menu};
 use anti_webui_md3e::icons;
-use anti_webui_md3e::motion::{default_effects, default_spatial, fast_spatial};
+use anti_webui_md3e::motion::{default_spatial, fast_spatial};
 use std::time::{Duration, Instant};
 
 /// The square an icon has, unmagnified.
@@ -274,8 +274,7 @@ fn item(
             launching.set(None);
         }
     });
-    let t = clock();
-    let start = Instant::now();
+    let since_launch = clock_while(move || launching.get().is_some());
     let icon_path = memo({
         let lookup = lookup.clone();
         move || {
@@ -380,12 +379,13 @@ fn item(
                 .transform_origin(0.5, 1.0)
                 .dyn_style(move |s| {
                     let g = growth();
-                    let jump = match launching.get() {
-                        Some(at) => {
-                            let since = (t.get() - at.duration_since(start).as_secs_f32()).max(0.0);
-                            -((since * std::f32::consts::PI * 2.2).sin().abs()) * 16.0
-                        }
-                        None => 0.0,
+                    let jump = if launching.get().is_some() {
+                        -((since_launch.get() * std::f32::consts::PI * 2.2)
+                            .sin()
+                            .abs())
+                            * 16.0
+                    } else {
+                        0.0
                     };
                     s.h(ICON * g)
                         .translate_y(jump - 4.0 * (g - 1.0))
@@ -527,24 +527,6 @@ fn launcher_button(output: Output, growth: impl Fn() -> f32 + Copy + 'static) ->
         let output = output.clone();
         move || is_open(&output, Panel::Launcher)
     });
-    let round = follow(
-        move || {
-            if hovered.get() || open.get() {
-                1.0
-            } else {
-                0.0
-            }
-        },
-        fast_spatial(),
-    );
-    let turn = follow(
-        move || if open.get() { 90.0 } else { 0.0 },
-        default_spatial(),
-    );
-    let tint = follow(
-        move || if open.get() { 1.0 } else { 0.0 },
-        default_effects(),
-    );
     div()
         .relative()
         .flex_none()
@@ -563,31 +545,12 @@ fn launcher_button(output: Output, growth: impl Fn() -> f32 + Copy + 'static) ->
                 .items_end()
                 .pointer_events_none()
                 .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .justify_center()
+                    launcher_glyph(open, hovered, || 24.0)
                         .transform_origin(0.5, 1.0)
                         .dyn_style(move |s| {
                             let g = growth();
-                            let size = ICON * g;
-                            let c = colors();
-                            let bg = c.primary_container.mix(c.primary, tint.get());
-                            s.size(size)
-                                .rounded(size * (0.3 + 0.2 * round.get()))
-                                .translate_y(-4.0 * (g - 1.0))
-                                .bg(bg)
-                        })
-                        .child(
-                            div()
-                                .dyn_style(move |s| {
-                                    let c = colors();
-                                    s.rotate(turn.get() + 45.0 * round.get()).text_color(
-                                        c.on_primary_container.mix(c.on_primary, tint.get()),
-                                    )
-                                })
-                                .child(anti_webui_md3e::components::sized_icon(icons::APPS, 24.0)),
-                        ),
+                            s.size(ICON * g).translate_y(-4.0 * (g - 1.0))
+                        }),
                 ),
         )
 }

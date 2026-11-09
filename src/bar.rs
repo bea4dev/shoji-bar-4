@@ -81,64 +81,12 @@ fn launcher_island(output: Output) -> Div {
         let output = output.clone();
         move || is_open(&output, Panel::Launcher)
     });
-    let turn = follow(
-        move || {
-            if open.get() {
-                135.0
-            } else if hovered.get() {
-                45.0
-            } else {
-                0.0
-            }
-        },
-        fast_spatial(),
-    );
-    let grow = follow(
-        move || {
-            if hovered.get() || open.get() {
-                1.0
-            } else {
-                0.0
-            }
-        },
-        fast_spatial(),
-    );
     island()
         .w(40.0)
         .justify_center()
         .on_hover(move |h| hovered.set(h))
         .on_click(move |_| toggle(&output, Panel::Launcher))
-        .child(
-            div()
-                .size(30.0)
-                .rounded(10.0)
-                .flex()
-                .items_center()
-                .justify_center()
-                .dyn_style(move |s| {
-                    let g = grow.get();
-                    let c = colors();
-                    s.rotate(turn.get())
-                        .scale(1.0 + 0.1 * g)
-                        .rounded(10.0 + 5.0 * g)
-                        .bg(if open.get() {
-                            c.primary
-                        } else {
-                            c.primary_container
-                        })
-                })
-                .child(dyn_sym(
-                    move || {
-                        if open.get() {
-                            icons::CLOSE
-                        } else {
-                            icons::APPS
-                        }
-                    },
-                    18.0,
-                    |c| c.on_primary_container,
-                )),
-        )
+        .child(launcher_glyph(open, hovered, || 18.0).size(32.0))
 }
 
 /// A workspace as the bar shows it.
@@ -493,7 +441,11 @@ fn media_island() -> Show {
 
 /// Four bars that dance while `playing` and settle into dots when paused.
 fn equalizer(playing: Memo<bool>) -> Div {
-    let t = clock();
+    let calming = follow(
+        move || if playing.get() { 1.0 } else { 0.0 },
+        slow_spatial(),
+    );
+    let t = clock_while(move || calming.get() > 0.001);
     let mut row = div()
         .flex()
         .flex_row()
@@ -502,12 +454,8 @@ fn equalizer(playing: Memo<bool>) -> Div {
         .h(16.0)
         .flex_none();
     for i in 0..4 {
-        let calm = follow(
-            move || if playing.get() { 1.0 } else { 0.0 },
-            slow_spatial(),
-        );
         row = row.child(div().w(3.0).rounded(1.5).dyn_style(move |s| {
-            let level = calm.get();
+            let level = calming.get();
             // Only asks for frames while it moves.
             let wave = if level > 0.001 {
                 let x = t.get() * (5.0 + i as f32 * 1.3) + i as f32 * 1.7;

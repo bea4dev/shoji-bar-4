@@ -3,8 +3,9 @@
 use crate::theme::{TextStyle, colors, elevation};
 use anti_webui::prelude::*;
 use anti_webui_md3e::ColorScheme;
-use anti_webui_md3e::components::{Ink, sized_icon};
-use anti_webui_md3e::icons::Symbol;
+use anti_webui_md3e::components::{Ink, MaterialShape, ShapeStyle, sized_icon, styled_shape};
+use anti_webui_md3e::icons::{self, Symbol};
+use anti_webui_md3e::motion::fast_spatial;
 
 /// A color of the scheme, chosen by a function of it.
 pub trait Role: Fn(&ColorScheme) -> Color + Copy + 'static {}
@@ -131,4 +132,87 @@ pub fn rolling_text(
                 )
         },
     ))
+}
+
+/// Seconds since `running` last became true, going on frame by frame only while it stays so: a
+/// [`clock`] that asks for no frames the rest of the time.
+pub fn clock_while(running: impl Fn() -> bool + 'static) -> Signal<f32> {
+    fn tick(time: Signal<f32>, start: std::time::Instant, running: Memo<bool>) {
+        request_frame(move |now| {
+            if time.is_alive() && untrack(|| running.get()) {
+                time.set(now.saturating_duration_since(start).as_secs_f32());
+                tick(time, start, running);
+            }
+        });
+    }
+    let running = memo(running);
+    let time = signal(0.0f32);
+    effect(move || {
+        if running.get() {
+            tick(time, std::time::Instant::now(), running);
+        }
+    });
+    time
+}
+
+/// The mark of the launcher: a four-sided cookie that blooms into a nine-sided one under the
+/// pointer and rounds into a circle with a cross while the launcher is open. It fills its box.
+pub fn launcher_glyph(
+    open: Memo<bool>,
+    hovered: Signal<bool>,
+    icon_size: impl Fn() -> f32 + 'static,
+) -> Div {
+    let turn = follow(move || if open.get() { 90.0 } else { 0.0 }, fast_spatial());
+    styled_shape(
+        move || {
+            if open.get() {
+                MaterialShape::Circle
+            } else if hovered.get() {
+                MaterialShape::Cookie9Sided
+            } else {
+                MaterialShape::Cookie4Sided
+            }
+        },
+        ShapeStyle::new()
+            .color(move |c| {
+                if open.get() {
+                    c.primary
+                } else {
+                    c.primary_container
+                }
+            })
+            .spring(fast_spatial())
+            .rotation(move || {
+                if hovered.get() && !open.get() {
+                    45.0
+                } else {
+                    0.0
+                }
+            }),
+    )
+    .flex()
+    .items_center()
+    .justify_center()
+    .child(
+        div()
+            .dyn_style(move |s| {
+                let c = colors();
+                s.rotate(turn.get()).text_color(if open.get() {
+                    c.on_primary
+                } else {
+                    c.on_primary_container
+                })
+            })
+            .child(dyn_view(move || {
+                let size = icon_size();
+                sized_icon(
+                    if open.get() {
+                        icons::CLOSE
+                    } else {
+                        icons::APPS
+                    },
+                    size,
+                )
+            })),
+    )
 }
