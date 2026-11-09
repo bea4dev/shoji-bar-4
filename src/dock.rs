@@ -1,6 +1,9 @@
 //! The dock along the bottom: a button for the launcher, the pinned apps and the other apps with
 //! windows open. The icons near the pointer grow, an app that is starting bounces until its window
 //! shows, and a dot under an app counts its windows.
+//!
+//! It waits below the edge of the output and comes up when the pointer goes to the bottom edge,
+//! going down again a moment after the pointer leaves it. Windows have all of the output.
 
 use crate::appinfo::{app_by_id, app_for, app_icon, bare, icon_file};
 use crate::panels::{Panel, is_open, toggle};
@@ -29,8 +32,14 @@ const MARGIN: f32 = 12.0;
 /// The body of the dock; what grows reaches above it, into the rest of the layer.
 const BODY: f32 = CELL + 2.0 * PAD;
 const LAYER: i32 = 136;
-/// What the dock keeps for itself at the bottom of the output.
+/// How much of the output the dock covers at the bottom when it is up.
 pub const RESERVED: i32 = (BODY + MARGIN) as i32;
+/// How tall the strip along the bottom edge is that brings the dock up.
+const EDGE: f32 = 2.0;
+/// How far down the dock goes to be out of sight, its shadow too.
+const DROP: f32 = BODY + MARGIN + 28.0;
+/// How long the dock stays after the pointer has left it.
+const STAYS: Duration = Duration::from_millis(600);
 
 pub fn open(output: Output) {
     let region = signal(InputRegion::Empty);
@@ -38,7 +47,6 @@ pub fn open(output: Output) {
         LayerOptions::new()
             .anchor(Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT)
             .height(LAYER)
-            .exclusive(Exclusive::Fixed(RESERVED))
             .output(&output)
             .namespace("shoji-bar-4-dock")
             .input_region(InputRegion::Empty),
@@ -84,7 +92,9 @@ fn entries() -> Vec<Entry> {
             pinned: true,
         })
         .collect();
-    for window in toplevels().all() {
+    // A window without an `app_id` is one on its way (a tab being dragged out, a dialog that
+    // hasn't said whose it is yet): there is nothing to show for it.
+    for window in toplevels().all().into_iter().filter(|w| !w.app_id.is_empty()) {
         let entry = match app_for(&window.app_id) {
             Some(app) => Entry {
                 key: app.id.clone(),
@@ -124,22 +134,58 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
     let menu_open = signal(None::<String>);
     let layer_size = signal((0.0f32, 0.0f32));
     let body_size = signal((0.0f32, 0.0f32));
-    // Clicks go through all of the layer but the dock, unless it is busy.
+    // Whether the pointer is over what of the layer takes it: the edge, or the dock while it is up.
+    let inside = signal(false);
+    let up = signal(false);
+    // Each change of mind counts, so that only the last leaving takes the dock down.
+    let changes = std::rc::Rc::new(std::cell::Cell::new(0u32));
+    effect(move || {
+        let wanted = inside.get() || menu_open.get().is_some();
+        let n = changes.get() + 1;
+        changes.set(n);
+        if wanted {
+            up.set(true);
+        } else if untrack(|| up.get()) {
+            let changes = changes.clone();
+            set_timeout(STAYS, move || {
+                if changes.get() == n {
+                    up.set(false);
+                }
+            });
+        }
+    });
+    let down = animated(1.0f32);
+    effect(move || {
+        if up.get() {
+            down.spring_to(0.0, default_spatial());
+        } else {
+            down.to(1.0, emphasized_accelerate(250));
+        }
+    });
+    // Clicks go through all of the layer but the edge and, while it is up, the dock and what is
+    // below it, unless it is busy.
     effect(move || {
         let (lw, lh) = layer_size.get();
         let (bw, bh) = body_size.get();
         let busy = pointer.get().is_some() || menu_open.get().is_some();
+        let edge = RectI::new(0, (lh - EDGE).floor() as i32, lw.ceil() as i32, EDGE as i32 + 1);
         region.set(if busy {
             InputRegion::Full
-        } else if bw > 0.0 {
-            InputRegion::Rects(vec![RectI::new(
-                ((lw - bw) / 2.0).floor() as i32,
-                (lh - MARGIN - bh).floor() as i32,
-                bw.ceil() as i32 + 1,
-                bh.ceil() as i32 + 1,
-            )])
-        } else {
+        } else if lw <= 0.0 {
             InputRegion::Empty
+        } else if up.get() && bw > 0.0 {
+            let top = (lh - MARGIN - bh).floor() as i32;
+            InputRegion::Rects(vec![
+                RectI::new(
+                    ((lw - bw) / 2.0).floor() as i32,
+                    top,
+                    bw.ceil() as i32 + 1,
+                    lh.ceil() as i32 - top,
+                ),
+                edge,
+            ])
+        } else {
+            InputRegion::Rects(vec![edge])
         });
     });
     // The unmagnified middle of the `i`th cell, in the layer's coordinates.
@@ -164,24 +210,32 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
     };
 
     let launcher_output = output.clone();
-    let items = for_each(
-        move || list.get(),
-        |(key, _)| key.clone(),
-        move |(key, _)| {
-            let index = memo({
-                let key = key.clone();
-                move || {
-                    list.with(|l| l.iter().position(|(k, _)| *k == key))
-                        .unwrap_or(0)
-                        + 1
-                }
-            });
-            item(key, move || growth(index.get()), menu_open)
-        },
-    )
-    .enter(|s| s.opacity(0.0).scale(0.2))
-    .exit(|s| s.opacity(0.0).scale(0.2))
-    .transition(overshoot(420));
+    // The pinned apps, or the others.
+    let items = move |pinned: bool| {
+        for_each(
+            move || {
+                list.get()
+                    .into_iter()
+                    .filter(|(_, p)| *p == pinned)
+                    .collect::<Vec<_>>()
+            },
+            |(key, _)| key.clone(),
+            move |(key, _)| {
+                let index = memo({
+                    let key = key.clone();
+                    move || {
+                        list.with(|l| l.iter().position(|(k, _)| *k == key))
+                            .unwrap_or(0)
+                            + 1
+                    }
+                });
+                item(key, move || growth(index.get()), menu_open)
+            },
+        )
+        .enter(|s| s.opacity(0.0).scale(0.2))
+        .exit(|s| s.opacity(0.0).scale(0.2))
+        .transition(overshoot(420))
+    };
 
     let divider_at = memo(move || {
         list.with(|l| {
@@ -200,6 +254,7 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
         .items_center()
         .pb(MARGIN)
         .on_resized(move |w, h| layer_size.set((w, h)))
+        .on_hover(move |on| inside.set(on))
         .child(
             div()
                 .flex()
@@ -210,7 +265,10 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
                 .py(PAD)
                 .rounded(BODY / 2.0)
                 .shadows(elevation(3))
-                .dyn_style(|s| s.bg(colors().surface_container))
+                .dyn_style(move |s| {
+                    s.bg(colors().surface_container)
+                        .translate_y(down.get() * DROP)
+                })
                 .on_resized(move |w, h| body_size.set((w, h)))
                 .on_pointer_move(move |e| {
                     let scale = window_scale();
@@ -224,17 +282,25 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
                     }
                 })
                 .child(launcher_button(launcher_output, move || growth(0)))
-                .child(div().flex().flex_row().items_end().child(items).child(show(
-                    move || divider_at.get().is_some(),
-                    || {
-                        div()
-                            .w(1.0)
-                            .h(26.0)
-                            .mx(7.0)
-                            .mb(10.0)
-                            .dyn_style(|s| s.bg(colors().outline_variant))
-                    },
-                ))),
+                .child(
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_end()
+                        .child(items(true))
+                        .child(show(
+                            move || divider_at.get().is_some(),
+                            || {
+                                div()
+                                    .w(1.0)
+                                    .h(26.0)
+                                    .mx(7.0)
+                                    .mb(10.0)
+                                    .dyn_style(|s| s.bg(colors().outline_variant))
+                            },
+                        ))
+                        .child(items(false)),
+                ),
         )
 }
 

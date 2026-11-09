@@ -19,6 +19,11 @@ pub fn emphasized(ms: u64) -> Transition {
     Transition::ms(ms).cubic_bezier(0.2, 0.0, 0.0, 1.0)
 }
 
+/// Slow out of the start and quick at the end, for things that leave.
+pub fn emphasized_accelerate(ms: u64) -> Transition {
+    Transition::ms(ms).cubic_bezier(0.3, 0.0, 0.8, 0.15)
+}
+
 /// An easing that goes a little past the end and comes back, for things that pop in.
 pub fn overshoot(ms: u64) -> Transition {
     Transition::ms(ms).cubic_bezier(0.34, 1.45, 0.64, 1.0)
