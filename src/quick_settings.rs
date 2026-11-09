@@ -14,7 +14,7 @@ use anti_webui_md3e::components::{
 use anti_webui_md3e::icons::{self, Symbol};
 use anti_webui_md3e::motion::{default_effects, fast_spatial};
 
-const WIDTH: f32 = 412.0;
+const WIDTH: f32 = 396.0;
 
 pub fn panel(output: Output) -> Div {
     let _ = output;
@@ -22,9 +22,9 @@ pub fn panel(output: Output) -> Div {
         .w(WIDTH)
         .flex()
         .flex_col()
-        .gap(16.0)
-        .p(18.0)
-        .rounded(32.0)
+        .gap(12.0)
+        .p(16.0)
+        .rounded(30.0)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -43,9 +43,9 @@ fn section() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(14.0)
-        .p(18.0)
-        .rounded(24.0)
+        .gap(10.0)
+        .p(14.0)
+        .rounded(22.0)
         .dyn_style(|s| s.bg(colors().surface_container_high))
 }
 
@@ -280,12 +280,12 @@ fn tile(
         div()
             .flex_1()
             .min_w(0.0)
-            .h(60.0)
+            .h(56.0)
             .flex()
             .flex_row()
             .items_center()
-            .gap(12.0)
-            .px(12.0)
+            .gap(10.0)
+            .px(10.0)
             .on_active(move |a| pressed.set(a))
             .on_click(move |_| {
                 if available() {
@@ -367,12 +367,12 @@ fn tiles() -> Div {
         "balanced" => "Balanced".to_owned(),
         other => other.to_owned(),
     };
-    let row = || div().flex().flex_row().gap(10.0);
+    let row = || div().flex().flex_row().gap(8.0);
     let dark = move || crate::theme::is_dark();
     div()
         .flex()
         .flex_col()
-        .gap(10.0)
+        .gap(8.0)
         .child(
             row()
                 .child(tile(
@@ -527,9 +527,10 @@ fn sliders() -> Div {
             .flex()
             .flex_row()
             .items_center()
-            .gap(12.0)
+            .gap(10.0)
+            // The slider takes the pointer 48 high, but needs no more room than its handle.
             .child(icon)
-            .child(slider.flex_1().min_w(0.0))
+            .child(slider.flex_1().min_w(0.0).my(-8.0))
     };
     let volume = Binding::new(
         move || a.default_sink().map_or(0.0, |s| s.volume as f32),
@@ -544,6 +545,8 @@ fn sliders() -> Div {
         move |v| drop(s.set_brightness(v.max(0.02) as f64)),
     );
     section()
+        .py(8.0)
+        .gap(2.0)
         .child(row(
             pressable(
                 div()
