@@ -62,13 +62,26 @@ pub fn static_txt(style: TextStyle, s: impl Into<String>) -> Div {
 const SETTLE_STEP: u64 = 45;
 
 /// `node` as a part of a panel that comes in `order` steps after the panel does: it falls into
-/// place, growing as it fades in, as the apps of the launcher do.
+/// place, growing as it fades in, as the apps of the launcher do. The steps count from when it is
+/// first laid out: a panel's layer is only laid out once the compositor has said how big it is,
+/// and timers set when it is made could be over by then.
 pub fn settle_in(order: usize, node: Div) -> Div {
-    let shown = animated(0.0f32);
-    set_timeout(Duration::from_millis(order as u64 * SETTLE_STEP), move || {
-        shown.spring_to(1.0, fast_spatial())
-    });
-    node.dyn_style(move |s| {
+    let go = signal(false);
+    let shown = follow(move || if go.get() { 1.0f32 } else { 0.0 }, fast_spatial());
+    let started = Cell::new(false);
+    node.on_resized(move |_, _| {
+        if !started.replace(true) {
+            set_timeout(
+                Duration::from_millis(order as u64 * SETTLE_STEP),
+                move || {
+                    if go.is_alive() {
+                        go.set(true);
+                    }
+                },
+            );
+        }
+    })
+    .dyn_style(move |s| {
         let t = shown.get();
         s.opacity(t.clamp(0.0, 1.0))
             .scale(0.85 + 0.15 * t)

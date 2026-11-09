@@ -38,10 +38,13 @@ pub fn panel() -> Div {
                         })
                     },
                     |_| {},
-                    DatePickerStyle::new().no_header(),
+                    DatePickerStyle::new()
+                        .no_header()
+                        .cascade(Duration::from_millis(22)),
                 )),
         )
-        .child(settle_in(2, gauges()))
+        // After the days, which come in over about a quarter of a second.
+        .child(settle_in(6, gauges()))
 }
 
 /// The time with its seconds rolling, and the day.
