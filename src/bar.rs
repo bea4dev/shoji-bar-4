@@ -1,0 +1,612 @@
+//! The bar along the top of every output: the launcher and the workspaces on the left, the window
+//! with the keyboard, the clock in the middle, and what is playing, the tray and the state of the
+//! system on the right. Each group floats in an island of its own.
+
+use crate::appinfo::window_icon;
+use crate::panels::{Panel, is_open, toggle};
+use crate::settings::settings;
+use crate::theme::{TextStyle, colors};
+use crate::ui::*;
+use anti_webui::prelude::*;
+use anti_webui::shell::prelude::*;
+use anti_webui::shell::{BatteryState, Connectivity, Workspace};
+use anti_webui_md3e::icons;
+use anti_webui_md3e::motion::{fast_spatial, slow_spatial};
+use std::cell::Cell;
+
+/// How tall the layer is; the islands are 40 of it.
+pub const HEIGHT: i32 = 56;
+
+pub fn open(output: Output) {
+    open_layer(
+        LayerOptions::bar(Anchor::TOP, HEIGHT).namespace("shoji-bar-4-bar"),
+        move || view(output),
+    );
+}
+
+pub fn view(output: Output) -> Div {
+    div()
+        .size_full()
+        .flex()
+        .flex_row()
+        .items_center()
+        .px(10.0)
+        .gap(8.0)
+        .dyn_style(|s| s.text_color(colors().on_surface))
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap(8.0)
+                .flex_1()
+                .min_w(0.0)
+                .child(launcher_island(output.clone()))
+                .child(workspaces_island(output.clone()))
+                .child(window_island(output.clone())),
+        )
+        .child(clock_island(output.clone()))
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_end()
+                .gap(8.0)
+                .flex_1()
+                .min_w(0.0)
+                .child(media_island())
+                .child(tray_island())
+                .child(status_island(output)),
+        )
+}
+
+/// The button that opens the launcher: an icon on a shape that turns and blooms on hover.
+fn launcher_island(output: Output) -> Div {
+    let hovered = signal(false);
+    let open = memo({
+        let output = output.clone();
+        move || is_open(&output, Panel::Launcher)
+    });
+    let turn = follow(
+        move || {
+            if open.get() {
+                135.0
+            } else if hovered.get() {
+                45.0
+            } else {
+                0.0
+            }
+        },
+        fast_spatial(),
+    );
+    let grow = follow(move || if hovered.get() || open.get() { 1.0 } else { 0.0 }, fast_spatial());
+    island()
+        .w(40.0)
+        .justify_center()
+        .on_hover(move |h| hovered.set(h))
+        .on_click(move |_| toggle(&output, Panel::Launcher))
+        .child(
+            div()
+                .size(30.0)
+                .rounded(10.0)
+                .flex()
+                .items_center()
+                .justify_center()
+                .dyn_style(move |s| {
+                    let g = grow.get();
+                    let c = colors();
+                    s.rotate(turn.get())
+                        .scale(1.0 + 0.1 * g)
+                        .rounded(10.0 + 5.0 * g)
+                        .bg(if open.get() { c.primary } else { c.primary_container })
+                })
+                .child(dyn_sym(
+                    move || if open.get() { icons::CLOSE } else { icons::APPS },
+                    18.0,
+                    |c| c.on_primary_container,
+                )),
+        )
+}
+
+const SLOT: f32 = 20.0;
+const ACTIVE: f32 = 40.0;
+
+/// The workspaces of the output as dots, with a pill under the active one that stretches as it
+/// goes from one to another: its front edge leads on a quick spring, its back follows on a slow
+/// one.
+fn workspaces_island(output: Output) -> Div {
+    let list = memo({
+        let output = output.clone();
+        move || {
+            let mut all = workspaces().on(&output);
+            all.sort_by(|a, b| a.coordinates().cmp(b.coordinates()));
+            all
+        }
+    });
+    let active = memo(move || {
+        list.with(|l| l.iter().position(Workspace::is_active))
+            .unwrap_or(0)
+    });
+    let left = animated(0.0f32);
+    let right = animated(ACTIVE);
+    let first = Cell::new(true);
+    effect(move || {
+        let at = active.get() as f32 * SLOT;
+        let (to_left, to_right) = (at, at + ACTIVE);
+        untrack(|| {
+            if first.replace(false) {
+                left.set(to_left);
+                right.set(to_right);
+            } else if to_left >= left.get_untracked() {
+                right.spring_to(to_right, Spring::from_ratio(900.0, 0.7));
+                left.spring_to(to_left, Spring::from_ratio(260.0, 0.85));
+            } else {
+                left.spring_to(to_left, Spring::from_ratio(900.0, 0.7));
+                right.spring_to(to_right, Spring::from_ratio(260.0, 0.85));
+            }
+        })
+    });
+    let pill = div()
+        .absolute()
+        .top(0.0)
+        .h(28.0)
+        .rounded(14.0)
+        .dyn_style(move |s| {
+            let (l, r) = (left.get(), right.get());
+            s.left(l).w((r - l).max(28.0)).bg(colors().primary)
+        });
+    let slots = for_each(
+        move || list.get(),
+        |w| w.id().to_owned(),
+        move |w| {
+            let id = w.id().to_owned();
+            let me = memo(move || list.with(|l| l.iter().find(|x| x.id() == id).cloned()));
+            let on = memo(move || me.with(|w| w.as_ref().is_some_and(Workspace::is_active)));
+            let empty = memo(move || me.with(|w| w.as_ref().is_none_or(Workspace::is_hidden)));
+            let urgent = memo(move || me.with(|w| w.as_ref().is_some_and(Workspace::is_urgent)));
+            let name = w.name().to_owned();
+            div()
+                .relative()
+                .h(28.0)
+                .flex_none()
+                .transition_of([Prop::Width], emphasized(350))
+                .dyn_style(move |s| s.w(if on.get() { ACTIVE } else { SLOT }))
+                .on_click(move |_| {
+                    w.activate();
+                })
+                // The dot, which gives way to the number.
+                .child(
+                    div()
+                        .absolute()
+                        .inset(0.0)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .pointer_events_none()
+                        .child(
+                            div()
+                                .rounded(4.0)
+                                .transition(overshoot(350))
+                                .dyn_style(move |s| {
+                                    let c = colors();
+                                    let size = if empty.get() { 6.0 } else { 8.0 };
+                                    let color = if urgent.get() {
+                                        c.error
+                                    } else if empty.get() {
+                                        c.outline_variant
+                                    } else {
+                                        c.on_surface_variant
+                                    };
+                                    s.size(size)
+                                        .bg(color)
+                                        .scale(if on.get() { 0.0 } else { 1.0 })
+                                }),
+                        ),
+                )
+                .child(
+                    TextStyle::LABEL_LARGE
+                        .apply(div())
+                        .absolute()
+                        .inset(0.0)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .pointer_events_none()
+                        .transition(overshoot(400))
+                        .dyn_style(move |s| {
+                            s.text_color(colors().on_primary)
+                                .opacity(if on.get() { 1.0 } else { 0.0 })
+                                .scale(if on.get() { 1.0 } else { 0.4 })
+                        })
+                        .child(name),
+                )
+        },
+    )
+    .enter(|s| s.opacity(0.0).scale(0.3))
+    .exit(|s| s.opacity(0.0).scale(0.3))
+    .transition(overshoot(300));
+    island()
+        .px(6.0)
+        .on_scroll(move |e| {
+            let step = if e.delta_y > 0.0 { 1 } else if e.delta_y < 0.0 { -1 } else { 0 };
+            let all = untrack(|| list.get());
+            let next = untrack(|| active.get()) as i32 + step;
+            if step != 0
+                && let Some(w) = usize::try_from(next).ok().and_then(|i| all.get(i))
+            {
+                w.activate();
+            }
+        })
+        .child(
+            div()
+                .relative()
+                .flex()
+                .flex_row()
+                .items_center()
+                .h(28.0)
+                .child(pill)
+                .child(slots),
+        )
+}
+
+/// The window with the keyboard on this output: its icon and title, which slide over when another
+/// window takes the keyboard.
+fn window_island(output: Output) -> Show {
+    let active = memo(move || {
+        toplevels()
+            .active()
+            .filter(|t| t.outputs.is_empty() || t.outputs.contains(&output.name))
+    });
+    show(
+        move || active.with(Option::is_some),
+        move || {
+            island().px(6.0).min_w(0.0).flex_shrink(1.0).overflow_hidden().child(
+                for_each(
+                    move || active.get().into_iter().map(|t| t.id()).collect::<Vec<_>>(),
+                    |id| *id,
+                    move |_| {
+                        let shown = memo(move || active.get());
+                        let icon = memo(move || shown.with(|t| t.as_ref().and_then(|t| window_icon(t, 64))));
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .gap(8.0)
+                            .pr(10.0)
+                            .min_w(0.0)
+                            .child(dyn_view(move || match icon.get() {
+                                Some(path) => img(path).size(28.0).flex_none().into_view(),
+                                None => div()
+                                    .size(28.0)
+                                    .rounded(14.0)
+                                    .flex()
+                                    .items_center()
+                                    .justify_center()
+                                    .flex_none()
+                                    .dyn_style(|s| s.bg(colors().secondary_container))
+                                    .child(sym(icons::DESKTOP_WINDOWS, 16.0, |c| c.on_secondary_container))
+                                    .into_view(),
+                            }))
+                            .child(
+                                txt(TextStyle::TITLE_SMALL, move || {
+                                    shown.with(|t| {
+                                        t.as_ref()
+                                            .map(|t| t.title.chars().take(60).collect())
+                                            .unwrap_or_default()
+                                    })
+                                })
+                                .max_w(360.0)
+                                .overflow_hidden(),
+                            )
+                    },
+                )
+                .enter(|s| s.opacity(0.0).translate_y(16.0))
+                .exit(|s| s.opacity(0.0).translate_y(-16.0))
+                .transition(emphasized(350)),
+            )
+        },
+    )
+    .enter(|s| s.opacity(0.0).scale(0.8))
+    .exit(|s| s.opacity(0.0).scale(0.8))
+    .transition(overshoot(350))
+}
+
+/// The time, its digits rolling over as they change, and the date. Hovering makes the time
+/// heavier; a click opens the calendar.
+fn clock_island(output: Output) -> Div {
+    let hovered = signal(false);
+    let weight = follow(move || if hovered.get() { 760.0 } else { 520.0 }, fast_spatial());
+    let open = memo({
+        let output = output.clone();
+        move || is_open(&output, Panel::Calendar)
+    });
+    let time = move || {
+        let s = settings().get();
+        let t = local_time(if s.clock_seconds { Every::Second } else { Every::Minute });
+        let hm = if s.clock_24h { "%H:%M" } else { "%I:%M" };
+        t.format(&if s.clock_seconds { format!("{hm}:%S") } else { hm.to_owned() })
+    };
+    let size = 18.0;
+    let style = TextStyle {
+        size,
+        line_height: 24.0,
+        letter_spacing: 0.0,
+        weight: 500,
+    };
+    pressable(
+        island()
+            .px(16.0)
+            .gap(10.0)
+            .on_hover(move |h| hovered.set(h))
+            .on_click(move |_| toggle(&output, Panel::Calendar))
+            .dyn_style(move |s| {
+                let c = colors();
+                if open.get() {
+                    s.bg(c.primary_container).text_color(c.on_primary_container)
+                } else {
+                    s
+                }
+            })
+            .child(
+                rolling_text(time, style, move |c| match c {
+                    '0'..='9' => size * 0.6,
+                    ':' => size * 0.32,
+                    _ => size * 0.5,
+                })
+                .dyn_style(move |s| s.font_axis(b"wght", weight.get())),
+            )
+            .child(
+                txt(TextStyle::LABEL_MEDIUM, || {
+                    local_time(Every::Minute).format("%a %-d %b")
+                })
+                .dyn_style(move |s| {
+                    let c = colors();
+                    s.text_color(if open.get() {
+                        c.on_primary_container
+                    } else {
+                        c.on_surface_variant
+                    })
+                }),
+            ),
+        20.0,
+        |c| c.on_surface,
+    )
+}
+
+/// What is playing, while something plays: a little equalizer and the title. A click pauses it or
+/// plays it again.
+fn media_island() -> Show {
+    let m = media();
+    let current = memo(move || m.current());
+    show(
+        move || current.with(|p| p.as_ref().is_some_and(|p| !p.title.is_empty())),
+        move || {
+            let playing = memo(move || {
+                current.with(|p| p.as_ref().is_some_and(|p| p.status == PlaybackStatus::Playing))
+            });
+            pressable(
+                island()
+                    .px(12.0)
+                    .gap(10.0)
+                    .max_w(280.0)
+                    .on_click(move |_| {
+                        if let Some(p) = untrack(|| current.get()) {
+                            p.play_pause();
+                        }
+                    })
+                    .child(equalizer(playing))
+                    .child(
+                        txt(TextStyle::LABEL_LARGE, move || {
+                            current.with(|p| {
+                                p.as_ref()
+                                    .map(|p| p.title.chars().take(40).collect())
+                                    .unwrap_or_default()
+                            })
+                        })
+                        .min_w(0.0)
+                        .overflow_hidden(),
+                    ),
+                20.0,
+                |c| c.on_surface,
+            )
+        },
+    )
+    .enter(|s| s.opacity(0.0).scale(0.6))
+    .exit(|s| s.opacity(0.0).scale(0.6))
+    .transition(overshoot(400))
+}
+
+/// Four bars that dance while `playing` and settle into dots when paused.
+fn equalizer(playing: Memo<bool>) -> Div {
+    let t = clock();
+    let mut row = div().flex().flex_row().items_center().gap(2.0).h(16.0).flex_none();
+    for i in 0..4 {
+        let calm = follow(move || if playing.get() { 1.0 } else { 0.0 }, slow_spatial());
+        row = row.child(div().w(3.0).rounded(1.5).dyn_style(move |s| {
+            let level = calm.get();
+            // Only asks for frames while it moves.
+            let wave = if level > 0.001 {
+                let x = t.get() * (5.0 + i as f32 * 1.3) + i as f32 * 1.7;
+                (x.sin() * 0.5 + 0.5) * 0.7 + 0.3
+            } else {
+                0.0
+            };
+            s.h(3.0 + 13.0 * wave * level).bg(colors().primary)
+        }));
+    }
+    row
+}
+
+/// The icons of the tray.
+fn tray_island() -> Show {
+    show(
+        || !tray().items().is_empty(),
+        || {
+            island().px(8.0).gap(4.0).child(
+                for_each(|| tray().items(), |item| item.key(), tray_icon)
+                    .enter(|s| s.opacity(0.0).scale(0.4))
+                    .exit(|s| s.opacity(0.0).scale(0.4))
+                    .transition(overshoot(300)),
+            )
+        },
+    )
+    .enter(|s| s.opacity(0.0).scale(0.8))
+    .exit(|s| s.opacity(0.0).scale(0.8))
+    .transition(overshoot(300))
+}
+
+fn tray_icon(item: TrayItem) -> Div {
+    let open = signal(false);
+    let key = item.key();
+    let now = move || tray().items().into_iter().find(|i| i.key() == key);
+    let shown = now.clone();
+    let clicked = item.clone();
+    pressable(
+        div()
+            .size(30.0)
+            .rounded(15.0)
+            .flex()
+            .items_center()
+            .justify_center()
+            .child(dyn_view(move || match shown().and_then(|i| i.icon.best(48)) {
+                Some(picture) => bitmap_view(move || Some(picture.clone()))
+                    .size(18.0)
+                    .into_view(),
+                None => txt(TextStyle::LABEL_MEDIUM, {
+                    let shown = shown.clone();
+                    move || {
+                        shown()
+                            .and_then(|i| i.title.chars().next())
+                            .map(String::from)
+                            .unwrap_or_default()
+                    }
+                })
+                .into_view(),
+            }))
+            .on_pointer_down(move |e| match e.button {
+                Some(PointerButton::Secondary) if clicked.has_menu => open.set(true),
+                Some(PointerButton::Primary) if clicked.item_is_menu => open.set(true),
+                Some(PointerButton::Primary) => {
+                    clicked.activate(0, 0);
+                }
+                _ => {}
+            })
+            .child(tray_menu(&item, open)),
+        15.0,
+        |c| c.on_surface,
+    )
+}
+
+/// Network, Bluetooth, sound and battery at a glance; a click opens quick settings.
+fn status_island(output: Output) -> Div {
+    let net = network();
+    let bt = bluetooth();
+    let a = audio();
+    let b = battery();
+    let open = memo({
+        let output = output.clone();
+        move || is_open(&output, Panel::QuickSettings)
+    });
+    let color = move |c: &anti_webui_md3e::ColorScheme| c.on_surface_variant;
+    pressable(
+        island()
+            .px(12.0)
+            .gap(10.0)
+            .on_click(move |_| toggle(&output, Panel::QuickSettings))
+            .dyn_style(move |s| {
+                if open.get() {
+                    s.bg(colors().primary_container)
+                } else {
+                    s
+                }
+            })
+            .child(dyn_sym(
+                move || match net.wifi() {
+                    Some(ap) => wifi_icon(ap.strength),
+                    None if net.wired().is_some_and(|w| w.connected) => icons::LAN,
+                    None if net.connectivity() == Connectivity::None => icons::SIGNAL_WIFI_OFF,
+                    None => icons::WIFI_OFF,
+                },
+                18.0,
+                color,
+            ))
+            .child(show(
+                move || bt.available() && bt.adapter().is_some_and(|a| a.powered),
+                move || {
+                    dyn_sym(
+                        move || {
+                            if bt.devices().iter().any(|d| d.connected) {
+                                icons::BLUETOOTH_CONNECTED
+                            } else {
+                                icons::BLUETOOTH
+                            }
+                        },
+                        18.0,
+                        color,
+                    )
+                },
+            ))
+            .child(dyn_sym(
+                move || match a.default_sink() {
+                    Some(s) if s.muted || s.volume <= 0.001 => icons::VOLUME_OFF,
+                    Some(s) if s.volume < 0.5 => icons::VOLUME_DOWN,
+                    _ => icons::VOLUME_UP,
+                },
+                18.0,
+                color,
+            ))
+            .child(show(
+                move || b.available(),
+                move || {
+                    div()
+                        .flex()
+                        .flex_row()
+                        .items_center()
+                        .gap(2.0)
+                        .child(dyn_sym(move || battery_icon(b.percentage(), b.state()), 18.0, color))
+                        .child(txt(TextStyle::LABEL_LARGE, move || format!("{:.0}%", b.percentage())))
+                },
+            ))
+            .dyn_style(move |s| {
+                if open.get() {
+                    s.text_color(colors().on_primary_container)
+                } else {
+                    s
+                }
+            }),
+        20.0,
+        |c| c.on_surface,
+    )
+}
+
+pub fn wifi_icon(strength: u8) -> &'static anti_webui_md3e::icons::Symbol {
+    match strength {
+        75.. => icons::SIGNAL_WIFI_4_BAR,
+        50.. => icons::NETWORK_WIFI_3_BAR,
+        25.. => icons::NETWORK_WIFI_2_BAR,
+        5.. => icons::NETWORK_WIFI_1_BAR,
+        _ => icons::SIGNAL_WIFI_0_BAR,
+    }
+}
+
+pub fn battery_icon(percentage: f64, state: BatteryState) -> &'static anti_webui_md3e::icons::Symbol {
+    let charging = matches!(state, BatteryState::Charging | BatteryState::Full | BatteryState::PendingCharge);
+    if charging {
+        return match percentage as u32 {
+            95.. => icons::BATTERY_CHARGING_FULL,
+            65.. => icons::BATTERY_CHARGING_80,
+            _ => icons::BATTERY_CHARGING_50,
+        };
+    }
+    match percentage as u32 {
+        95.. => icons::BATTERY_FULL,
+        80.. => icons::BATTERY_6_BAR,
+        65.. => icons::BATTERY_5_BAR,
+        50.. => icons::BATTERY_4_BAR,
+        35.. => icons::BATTERY_3_BAR,
+        20.. => icons::BATTERY_2_BAR,
+        8.. => icons::BATTERY_1_BAR,
+        _ => icons::BATTERY_0_BAR,
+    }
+}
