@@ -2,10 +2,10 @@
 //! working on them:
 //!
 //! `shoji-bar-4 preview <part> <out.png> [--width W] [--height H] [--scale S] [--light]
-//!  [--pointer X,Y] [--click X,Y] [--ms N]`
+//!  [--pointer X,Y] [--click X,Y] [--escape] [--ms N]`
 //!
-//! The pointer and clicks are in logical pixels; `--ms` says how long animations run before the
-//! picture is taken.
+//! The pointer and clicks are in logical pixels, and `--escape` presses Escape after the clicks;
+//! `--ms` says how long animations run before the picture is taken.
 
 use anti_webui::app::headless::write_png;
 use anti_webui::core::Ui;
@@ -166,6 +166,18 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             modifiers: m,
             time: 10,
         });
+        step(&mut ui, &mut now, 20);
+    }
+    if args.iter().any(|a| a == "--escape") {
+        for pressed in [true, false] {
+            ui.handle_event(WindowEvent::Key(anti_webui::core::event::KeyEvent {
+                key: anti_webui::core::event::Key::Named(anti_webui::core::event::NamedKey::Escape),
+                text: None,
+                modifiers: m,
+                pressed,
+                repeat: false,
+            }));
+        }
         step(&mut ui, &mut now, 20);
     }
     if let Some(p) = pointer {

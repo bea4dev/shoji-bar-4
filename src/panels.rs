@@ -173,9 +173,20 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             |s| s.opacity(0.0).scale(0.7).translate_y(80.0),
         ),
     };
+    // Keys go to what has the focus, and with nothing focused not to here but to what holds it: the
+    // panel takes the focus as it opens, for Escape. The launcher gives it to its search instead.
+    let focus = node_ref();
+    if panel != Panel::Launcher {
+        request_frame(move |_| focus.focus());
+    }
     let root = div()
+        .node_ref(focus)
+        .focusable()
         .size_full()
         .relative()
+        // Its own stacking context, so that the catcher below is behind the panel but not behind
+        // this, which would take its clicks.
+        .z_index(0)
         .flex()
         .flex_col()
         .select_none()
