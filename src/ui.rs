@@ -60,7 +60,7 @@ pub fn static_txt(style: TextStyle, s: impl Into<String>) -> Div {
 
 /// A floating container of the bar: a pill on `surface_container`.
 /// How tall an island of the bar is.
-pub const ISLAND: f32 = 28.0;
+pub const ISLAND: f32 = 32.0;
 
 pub fn island() -> Div {
     div()

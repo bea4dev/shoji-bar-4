@@ -33,7 +33,7 @@ impl Panel {
     fn exit_time(self) -> Duration {
         Duration::from_millis(match self {
             Self::Launcher => 380,
-            _ => 450,
+            _ => 320,
         })
     }
 }
@@ -152,10 +152,9 @@ const ABOVE_DOCK: f32 = crate::dock::RESERVED as f32 + 16.0;
 type Place = fn(Div) -> Div;
 type Enter = fn(Style) -> Style;
 
-/// Down from under the bar, fading in, quick at first and settling slowly: Material's emphasized
-/// deceleration.
+/// Down from above the screen, growing out of a blur as it fades in.
 fn from_above(s: Style) -> Style {
-    s.opacity(0.0).scale(0.97).translate_y(-56.0)
+    s.opacity(0.0).scale(0.6).translate_y(-160.0).blur(24.0)
 }
 
 /// All of the output: a catcher of clicks outside the panel, and the panel where it goes.
@@ -228,14 +227,35 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             .transition(Transition::ms(300).ease_out()),
         );
     }
-    let shown = show(move || wanted.get(), content).appear().enter(enter);
-    root.child(if panel == Panel::Launcher {
-        shown
-            .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
-            .transition(crate::ui::overshoot(420))
+    if panel == Panel::Launcher {
+        return root.child(
+            show(move || wanted.get(), content)
+                .appear()
+                .enter(enter)
+                .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
+                .transition(crate::ui::overshoot(420)),
+        );
+    }
+    // Coming in takes longer than going: the panel comes in on a show of its own inside the one
+    // that takes it away.
+    let origin = if panel == Panel::QuickSettings {
+        1.0
     } else {
-        shown
-            .exit(|s| s.opacity(0.0).scale(0.98).translate_y(-32.0))
-            .transition(Transition::ms(450).cubic_bezier(0.05, 0.7, 0.1, 1.0))
-    })
+        0.5
+    };
+    let coming = move || {
+        let content = content.clone();
+        show(|| true, move || content().transform_origin(origin, 0.0))
+            .appear()
+            .enter(enter)
+            .transition(Transition::ms(650).cubic_bezier(0.18, 1.25, 0.3, 1.0))
+    };
+    root.child(
+        show(
+            move || wanted.get(),
+            move || div().flex_none().child(coming()),
+        )
+        .exit(|s| s.opacity(0.0).scale(0.92).translate_y(-48.0).blur(12.0))
+        .transition(Transition::ms(300).cubic_bezier(0.3, 0.0, 0.8, 0.15)),
+    )
 }

@@ -1,7 +1,7 @@
 //! The bar along the top of every output: the launcher and the workspaces on the left, the window
 //! with the keyboard, the clock in the middle, and what is playing, the tray and the state of the
-//! system on the right. Each group floats in an island of its own, on a thin band of frosted glass
-//! that runs between them.
+//! system on the right. Each group floats in an island of its own, on a pane of frosted glass that
+//! is all of the bar.
 
 use crate::appinfo::window_icon;
 use crate::panels::{Panel, is_open, toggle};
@@ -17,10 +17,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 /// How tall the layer is; the islands are [`ISLAND`] of it, with room above and below.
-pub const HEIGHT: i32 = 40;
-/// How tall the band between the islands is. It is translucent, for the compositor to blur what is
-/// behind it.
-const BAND: f32 = 14.0;
+pub const HEIGHT: i32 = 48;
 
 pub fn open(output: Output) {
     open_layer(
@@ -34,7 +31,7 @@ pub fn view(output: Output) -> Div {
         .select_none()
         .size_full()
         .relative()
-        // Its own stacking context, for the band to go behind the islands but not behind this.
+        // Its own stacking context, for the glass to go behind the islands but not behind this.
         .z_index(0)
         .flex()
         .flex_row()
@@ -42,17 +39,15 @@ pub fn view(output: Output) -> Div {
         .px(14.0)
         .gap(10.0)
         .dyn_style(|s| s.text_color(colors().on_surface))
+        // Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
+        // at least a quarter opaque.
         .child(
             div()
                 .absolute()
                 .z_index(-1)
-                .left(14.0 + ISLAND / 2.0)
-                .right(14.0 + ISLAND / 2.0)
-                .top((HEIGHT as f32 - BAND) / 2.0)
-                .h(BAND)
-                .rounded(BAND / 2.0)
+                .inset(0.0)
                 .pointer_events_none()
-                .dyn_style(|s| s.bg(colors().surface_container.with_alpha(0.55))),
+                .dyn_style(|s| s.bg(colors().surface.with_alpha(0.34))),
         )
         .child(
             div()
@@ -106,7 +101,7 @@ fn launcher_island(output: Output) -> Div {
         .justify_center()
         .on_hover(move |h| hovered.set(h))
         .on_click(move |_| toggle(&output, Panel::Launcher))
-        .child(launcher_glyph(open, hovered, || 13.0).size(22.0))
+        .child(launcher_glyph(open, hovered, || 15.0).size(26.0))
 }
 
 /// A workspace as the bar shows it.
@@ -140,7 +135,7 @@ fn workspaces_of(output: Output) -> Memo<Vec<Ws>> {
 const SLOT: f32 = 18.0;
 const ACTIVE: f32 = 32.0;
 /// How tall the pill under the active workspace is.
-const PILL: f32 = 20.0;
+const PILL: f32 = 22.0;
 
 /// The workspaces of the output as dots, with a pill under the active one that stretches as it
 /// goes from one to another: its front edge leads on a quick spring, its back follows on a slow
@@ -306,10 +301,10 @@ fn window_island(output: Output) -> Show {
                                 .pr(9.0)
                                 .min_w(0.0)
                                 .child(dyn_view(move || match icon.get() {
-                                    Some(path) => img(path).size(20.0).flex_none().into_view(),
+                                    Some(path) => img(path).size(22.0).flex_none().into_view(),
                                     None => div()
-                                        .size(20.0)
-                                        .rounded(10.0)
+                                        .size(22.0)
+                                        .rounded(11.0)
                                         .flex()
                                         .items_center()
                                         .justify_center()
@@ -518,8 +513,8 @@ fn tray_icon(item: TrayItem) -> Div {
     let clicked = item.clone();
     pressable(
         div()
-            .size(22.0)
-            .rounded(11.0)
+            .size(24.0)
+            .rounded(12.0)
             .flex()
             .items_center()
             .justify_center()

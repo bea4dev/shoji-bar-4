@@ -2,10 +2,11 @@
 //! working on them:
 //!
 //! `shoji-bar-4 preview <part> <out.png> [--width W] [--height H] [--scale S] [--light]
-//!  [--pointer X,Y] [--click X,Y] [--escape] [--ms N]`
+//!  [--pointer X,Y] [--click X,Y] [--escape] [--late] [--ms N]`
 //!
 //! The pointer and clicks are in logical pixels, and `--escape` presses Escape after the clicks;
-//! `--ms` says how long animations run before the picture is taken.
+//! `--late` opens a panel a second and a half after the start, for pictures of it coming in; `--ms`
+//! says how long animations run before the picture is taken.
 
 use anti_webui::app::headless::write_png;
 use anti_webui::core::Ui;
@@ -50,6 +51,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         (lh as f64 * scale).round() as u32,
     );
     let light = args.iter().any(|a| a == "--light");
+    let late = args.iter().any(|a| a == "--late");
     let pointer = opt("--pointer").and_then(point);
     let clicks: Vec<(f32, f32)> = args
         .iter()
@@ -81,7 +83,14 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             return backdrop.child("no output");
         };
         if let Some(panel) = crate::panels::Panel::from_name(&part) {
-            crate::panels::open(&output.name, panel);
+            let name = output.name.clone();
+            if late {
+                set_timeout(Duration::from_millis(1500), move || {
+                    crate::panels::open(&name, panel)
+                });
+            } else {
+                crate::panels::open(&name, panel);
+            }
         }
         let view = match part.as_str() {
             "bar" => crate::bar::view(output),
