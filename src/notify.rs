@@ -281,7 +281,9 @@ pub fn history(order: usize) -> Show {
                     div()
                         .flex()
                         .flex_col()
-                        .max_h(320.0)
+                        // About two cards, with a little of the next one showing that
+                        // there is more to scroll to.
+                        .max_h(192.0)
                         .overflow_y_scroll()
                         .child(
                             for_each(

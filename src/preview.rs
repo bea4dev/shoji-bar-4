@@ -63,6 +63,8 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     // `--frames N --every MS` writes N pictures, MS apart, after the first, as `<out>-<i>.png`.
     let frames: u32 = opt("--frames").and_then(|s| s.parse().ok()).unwrap_or(0);
     let every: u64 = opt("--every").and_then(|s| s.parse().ok()).unwrap_or(50);
+    // `--click-frames N`: how many frames to step after each click (to catch what it starts).
+    let click_frames: u64 = opt("--click-frames").and_then(|s| s.parse().ok()).unwrap_or(20);
 
     let gpu = Gpu::headless()?;
     let mut renderer = Renderer::new(
@@ -175,7 +177,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             modifiers: m,
             time: 10,
         });
-        step(&mut ui, &mut now, 20);
+        step(&mut ui, &mut now, click_frames);
     }
     if args.iter().any(|a| a == "--escape") {
         for pressed in [true, false] {

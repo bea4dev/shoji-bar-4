@@ -269,7 +269,8 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
 }
 
 /// The window with the keyboard on this output: its icon and title, which slide over when another
-/// window takes the keyboard.
+/// window takes the keyboard. The titles lie over each other as they pass, and the island goes to
+/// the width of the new one with an easing.
 fn window_island(output: Output) -> Show {
     let active = memo(move || {
         toplevels()
@@ -279,64 +280,104 @@ fn window_island(output: Output) -> Show {
     show(
         move || active.with(Option::is_some),
         move || {
+            let width = animated(0.0f32);
+            let sized = Cell::new(false);
+            let fit = Rc::new(move |id, w: f32| {
+                if untrack(|| active.with(|t| t.as_ref().map(|t| t.id()))) != Some(id) {
+                    return;
+                }
+                if sized.replace(true) {
+                    width.to(w, emphasized(350));
+                } else {
+                    width.set(w);
+                }
+            });
             island()
                 .px(5.0)
                 .min_w(0.0)
                 .flex_shrink(1.0)
                 .overflow_hidden()
                 .child(
-                    for_each(
-                        move || active.get().into_iter().map(|t| t.id()).collect::<Vec<_>>(),
-                        |id| *id,
-                        move |_| {
-                            let shown = memo(move || active.get());
-                            let icon = memo(move || {
-                                shown.with(|t| t.as_ref().and_then(|t| window_icon(t, 64)))
-                            });
-                            div()
-                                .flex()
-                                .flex_row()
-                                .items_center()
-                                .gap(8.0)
-                                .pr(9.0)
-                                .min_w(0.0)
-                                .child(dyn_view(move || match icon.get() {
-                                    Some(path) => img(path).size(22.0).flex_none().into_view(),
-                                    None => div()
-                                        .size(22.0)
-                                        .rounded(11.0)
-                                        .flex()
-                                        .items_center()
-                                        .justify_center()
-                                        .flex_none()
-                                        .dyn_style(|s| s.bg(colors().secondary_container))
-                                        .child(sym(icons::DESKTOP_WINDOWS, 13.0, |c| {
-                                            c.on_secondary_container
-                                        }))
-                                        .into_view(),
-                                }))
-                                .child(
-                                    txt(BAR_TEXT, move || {
+                    div()
+                        .relative()
+                        .h_full()
+                        .min_w(0.0)
+                        .dyn_style(move |s| s.w(width.get()))
+                        .child(
+                            for_each(
+                                move || active.get().into_iter().map(|t| t.id()).collect::<Vec<_>>(),
+                                |id| *id,
+                                move |id| {
+                                    // The window this one is about, kept as it was once another
+                                    // has the keyboard, while it goes.
+                                    let shown = signal(untrack(|| active.get()));
+                                    effect(move || {
+                                        if let Some(t) = active.get().filter(|t| t.id() == id) {
+                                            shown.set(Some(t));
+                                        }
+                                    });
+                                    let icon = memo(move || {
                                         shown.with(|t| {
-                                            t.as_ref()
-                                                .map(|t| t.title.chars().take(60).collect())
-                                                .unwrap_or_default()
+                                            t.as_ref().and_then(|t| window_icon(t, 64))
                                         })
-                                    })
-                                    .max_w(320.0)
-                                    .overflow_hidden(),
-                                )
-                        },
-                    )
-                    .enter(|s| s.opacity(0.0).translate_y(16.0))
-                    .exit(|s| s.opacity(0.0).translate_y(-16.0))
-                    .transition(emphasized(350)),
+                                    });
+                                    let fit = fit.clone();
+                                    window_title(icon, shown)
+                                        .absolute()
+                                        .top(0.0)
+                                        .bottom(0.0)
+                                        .left(0.0)
+                                        .on_resized(move |w, _| fit(id, w))
+                                },
+                            )
+                            .enter(|s| s.opacity(0.0).translate_y(16.0))
+                            .exit(|s| s.opacity(0.0).translate_y(-16.0))
+                            .transition(emphasized(350)),
+                        ),
                 )
         },
     )
     .enter(|s| s.opacity(0.0).scale(0.8))
     .exit(|s| s.opacity(0.0).scale(0.8))
     .transition(overshoot(350))
+}
+
+/// A window's icon and title, on one line.
+fn window_title(
+    icon: Memo<Option<std::path::PathBuf>>,
+    shown: Signal<Option<Toplevel>>,
+) -> Div {
+    div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .gap(8.0)
+        .pr(9.0)
+        .child(dyn_view(move || match icon.get() {
+            Some(path) => img(path).size(22.0).flex_none().into_view(),
+            None => div()
+                .size(22.0)
+                .rounded(11.0)
+                .flex()
+                .items_center()
+                .justify_center()
+                .flex_none()
+                .dyn_style(|s| s.bg(colors().secondary_container))
+                .child(sym(icons::DESKTOP_WINDOWS, 13.0, |c| c.on_secondary_container))
+                .into_view(),
+        }))
+        .child(
+            txt(BAR_TEXT, move || {
+                shown.with(|t| {
+                    t.as_ref()
+                        .map(|t| t.title.chars().take(60).collect())
+                        .unwrap_or_default()
+                })
+            })
+            .flex_none()
+            .max_w(320.0)
+            .overflow_hidden(),
+        )
 }
 
 /// The time, its digits rolling over as they change, and the date. Hovering makes the time

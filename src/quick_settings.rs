@@ -167,12 +167,16 @@ fn header() -> Div {
         .map(|c| c.to_uppercase().to_string())
         .unwrap_or_default();
     let power_open = signal(false);
+    // The row of actions opens to its height with an easing, moving what is below it smoothly;
+    // its height is measured once it is laid out.
+    let opened = animated(0.0f32);
+    effect(move || opened.to(if power_open.get() { 1.0 } else { 0.0 }, emphasized(350)));
+    let row_height = signal(64.0f32);
     let b = battery();
     let name = user.clone();
     div()
         .flex()
         .flex_col()
-        .gap(10.0)
         .child(
             div()
                 .flex()
@@ -215,7 +219,11 @@ fn header() -> Div {
                 .child(power_button(power_open)),
         )
         .child(
-            show(
+            div()
+                .overflow_hidden()
+                .flex_none()
+                .dyn_style(move |s| s.h(opened.get() * row_height.get()))
+                .child(show(
                 move || power_open.get(),
                 move || {
                     let s = session();
@@ -225,7 +233,12 @@ fn header() -> Div {
                         (icons::RESTART_ALT, "Restart", Power::Restart),
                         (icons::POWER_SETTINGS_NEW, "Shut down", Power::Off),
                     ];
-                    let mut row = div().flex().flex_row().gap(8.0);
+                    let mut row = div()
+                        .flex()
+                        .flex_row()
+                        .gap(8.0)
+                        .pt(10.0)
+                        .on_resized(move |_, h| row_height.set(h));
                     for (i, (symbol, label, action)) in actions.into_iter().enumerate() {
                         let appear = animated(0.0f32);
                         set_timeout(std::time::Duration::from_millis(40 * i as u64), move || {
@@ -274,9 +287,9 @@ fn header() -> Div {
                     row
                 },
             )
-            .enter(|s| s.opacity(0.0).h(0.0))
-            .exit(|s| s.opacity(0.0).h(0.0))
-            .transition(emphasized(300)),
+            .enter(|s| s.opacity(0.0))
+            .exit(|s| s.opacity(0.0))
+            .transition(emphasized(300))),
         )
 }
 

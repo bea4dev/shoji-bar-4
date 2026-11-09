@@ -123,7 +123,10 @@ scripts/cpu-report.sh --sudo watch     # perf の関数ごとの時間も取る�
 shoji-bar-4 preview dock out.png --pointer 470,110
 shoji-bar-4 preview quick-settings out.png --width 460 --height 900 --scale 1 --light
 shoji-bar-4 preview workspaces out.png --ms 0 --frames 40 --every 30   # out-0.png … out-40.png
+shoji-bar-4 preview quick-settings out.png --click 1548,80 --click-frames 1 --ms 0 --frames 8 --every 40
 ```
+
+`--click-frames` は、クリックのあとに進めるフレーム数です（既定 20）。クリックで始まる動きを、最初から撮るときに小さくします。
 
 対象は `bar`、`dock`、`workspaces`、`quick-settings`、`calendar`、`launcher`、`notifications` です。`preview` は設定を保存しません。
 
