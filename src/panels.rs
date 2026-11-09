@@ -138,16 +138,14 @@ pub fn view(output: Output, panel: Panel) -> Div {
     surface(output, panel, wanted)
 }
 
-/// How far the panels keep from the top and the bottom of the output: they cover all of it, the
-/// bar and the dock included.
+/// How far the panels at the top keep from it: they cover all of the output, the bar included.
 const BELOW_BAR: f32 = crate::bar::HEIGHT as f32 + 6.0;
-const ABOVE_DOCK: f32 = crate::dock::RESERVED as f32 + 16.0;
 
 /// Where a panel goes on the output, and how it comes in.
 type Place = fn(Div) -> Div;
 type Enter = fn(Style) -> Style;
 
-/// Down from above, growing as it fades in: the launcher's way in, the other way up.
+/// Down from above, growing as it fades in.
 fn from_above(s: Style) -> Style {
     s.opacity(0.0).scale(0.7).translate_y(-80.0)
 }
@@ -168,9 +166,10 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             |d| d.items_center().justify_start().pt(BELOW_BAR),
             from_above,
         ),
+        // In the middle of the output, coming up a little as it grows.
         Panel::Launcher => (
-            |d| d.items_center().justify_end().pb(ABOVE_DOCK),
-            |s| s.opacity(0.0).scale(0.7).translate_y(80.0),
+            |d| d.items_center().justify_center(),
+            |s| s.opacity(0.0).scale(0.8).translate_y(40.0),
         ),
     };
     // Keys go to what has the focus, and with nothing focused not to here but to what holds it: the

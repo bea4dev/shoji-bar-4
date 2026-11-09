@@ -1,5 +1,5 @@
 //! The dock along the bottom: a button for the launcher, the pinned apps and the other apps with
-//! windows open. The icons near the pointer grow, an app that is starting bounces until its window
+//! windows open. The icon under the pointer rises a little, an app that is starting bounces until its window
 //! shows, and a dot under an app counts its windows.
 //!
 //! It waits below the edge of the output and comes up when the pointer goes to the bottom edge,
@@ -22,9 +22,8 @@ use std::time::{Duration, Instant};
 /// The square an icon has, unmagnified.
 const CELL: f32 = 46.0;
 const ICON: f32 = 36.0;
-/// How much bigger the icon under the pointer gets, and how far the growth reaches.
-const MAGNIFY: f32 = 0.5;
-const REACH: f32 = 1.6 * CELL;
+/// How far the icon under the pointer rises.
+const RISE: f32 = 6.0;
 const PAD: f32 = 7.0;
 /// How far an icon at rest stands above the bottom of its cell: in its middle.
 const LIFT: f32 = (CELL - ICON) / 2.0;
@@ -32,8 +31,6 @@ const MARGIN: f32 = 12.0;
 /// The body of the dock; what grows reaches above it, into the rest of the layer.
 const BODY: f32 = CELL + 2.0 * PAD;
 const LAYER: i32 = 136;
-/// How much of the output the dock covers at the bottom when it is up.
-pub const RESERVED: i32 = (BODY + MARGIN) as i32;
 /// How tall the strip along the bottom edge is that brings the dock up.
 const EDGE: f32 = 2.0;
 /// How far down the dock goes to be out of sight, its shadow too.
@@ -123,14 +120,6 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
             .map(|e| (e.key.clone(), e.pinned))
             .collect::<Vec<_>>()
     });
-    // Where the pointer is over the layer, while it is over the dock.
-    let pointer = signal(None::<f32>);
-    let last_x = signal(0.0f32);
-    let strength = follow(
-        move || if pointer.get().is_some() { 1.0 } else { 0.0 },
-        default_spatial(),
-    );
-    let x = follow(move || last_x.get(), Spring::from_ratio(1400.0, 1.0));
     let menu_open = signal(None::<String>);
     let layer_size = signal((0.0f32, 0.0f32));
     let body_size = signal((0.0f32, 0.0f32));
@@ -167,7 +156,7 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
     effect(move || {
         let (lw, lh) = layer_size.get();
         let (bw, bh) = body_size.get();
-        let busy = pointer.get().is_some() || menu_open.get().is_some();
+        let busy = menu_open.get().is_some();
         let edge = RectI::new(0, (lh - EDGE).floor() as i32, lw.ceil() as i32, EDGE as i32 + 1);
         region.set(if busy {
             InputRegion::Full
@@ -188,27 +177,6 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
             InputRegion::Rects(vec![edge])
         });
     });
-    // The unmagnified middle of the `i`th cell, in the layer's coordinates.
-    let center_of = move |i: usize| {
-        let n = list.with(Vec::len) as f32 + 1.0;
-        let has_divider = list.with(|l| l.iter().any(|(_, p)| *p) && l.iter().any(|(_, p)| !*p));
-        let width = n * CELL + if has_divider { 17.0 } else { 0.0 };
-        let left = (layer_size.get().0 - width) / 2.0;
-        let mut at = left + (i as f32 + 0.5) * CELL;
-        if has_divider && i > list.with(|l| l.iter().filter(|(_, p)| *p).count()) {
-            at += 17.0;
-        }
-        at
-    };
-    let growth = move |i: usize| {
-        let s = strength.get();
-        if s < 0.001 {
-            return 1.0;
-        }
-        let d = (x.get() - center_of(i)) / REACH;
-        1.0 + MAGNIFY * s * (-d * d).exp()
-    };
-
     let launcher_output = output.clone();
     // The pinned apps, or the others.
     let items = move |pinned: bool| {
@@ -220,17 +188,7 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
                     .collect::<Vec<_>>()
             },
             |(key, _)| key.clone(),
-            move |(key, _)| {
-                let index = memo({
-                    let key = key.clone();
-                    move || {
-                        list.with(|l| l.iter().position(|(k, _)| *k == key))
-                            .unwrap_or(0)
-                            + 1
-                    }
-                });
-                item(key, move || growth(index.get()), menu_open)
-            },
+            move |(key, _)| item(key, menu_open),
         )
         .enter(|s| s.opacity(0.0).scale(0.2))
         .exit(|s| s.opacity(0.0).scale(0.2))
@@ -270,18 +228,7 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
                         .translate_y(down.get() * DROP)
                 })
                 .on_resized(move |w, h| body_size.set((w, h)))
-                .on_pointer_move(move |e| {
-                    let scale = window_scale();
-                    let px = scale.to_logical(e.position.x);
-                    pointer.set(Some(px));
-                    last_x.set(px);
-                })
-                .on_hover(move |on| {
-                    if !on {
-                        pointer.set(None);
-                    }
-                })
-                .child(launcher_button(launcher_output, move || growth(0)))
+                .child(launcher_button(launcher_output))
                 .child(
                     div()
                         .flex()
@@ -304,11 +251,10 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
         )
 }
 
-/// The cell of an app: its icon, bigger near the pointer, its name above it while hovered, and
+/// The cell of an app: its icon, which rises while hovered with its name above it, and
 /// its windows as dots below.
 fn item(
     key: String,
-    growth: impl Fn() -> f32 + Copy + 'static,
     menu_open: Signal<Option<String>>,
 ) -> Div {
     let lookup = {
@@ -328,6 +274,7 @@ fn item(
     });
     let focused = memo(move || windows.with(|w| w.iter().any(|t| t.activated)));
     let hovered = signal(false);
+    let rise = follow(move || if hovered.get() { RISE } else { 0.0 }, fast_spatial());
     let pressed = signal(false);
     let squash = follow(
         move || if pressed.get() { 0.86 } else { 1.0 },
@@ -395,8 +342,8 @@ fn item(
     div()
         .relative()
         .flex_none()
+        .w(CELL)
         .h(CELL)
-        .dyn_style(move |s| s.w(CELL * growth()))
         .on_hover(move |h| hovered.set(h))
         .on_active(move |a| pressed.set(a))
         .on_click(click)
@@ -417,7 +364,7 @@ fn item(
                         .flex()
                         .justify_center()
                         .pointer_events_none()
-                        .dyn_style(move |s| s.bottom(LIFT + ICON * growth() + 10.0))
+                        .dyn_style(move |s| s.bottom(LIFT + ICON + rise.get() + 10.0))
                         .child(
                             txt(TextStyle::LABEL_MEDIUM, move || name.get())
                                 .px(10.0)
@@ -446,8 +393,8 @@ fn item(
                 .justify_center()
                 .pointer_events_none()
                 .transform_origin(0.5, 1.0)
+                .h(ICON)
                 .dyn_style(move |s| {
-                    let g = growth();
                     let jump = if launching.get().is_some() {
                         -((since_launch.get() * std::f32::consts::PI * 2.2)
                             .sin()
@@ -456,14 +403,12 @@ fn item(
                     } else {
                         0.0
                     };
-                    s.h(ICON * g)
-                        .translate_y(jump - 4.0 * (g - 1.0))
-                        .scale(squash.get())
+                    s.translate_y(jump - rise.get()).scale(squash.get())
                 })
                 .child(dyn_view(move || match icon_path.get() {
                     Some(path) => img(path)
                         .object_fit(ObjectFit::Contain)
-                        .dyn_style(move |s| s.size(ICON * growth()))
+                        .size(ICON)
                         .into_view(),
                     None => div()
                         .rounded(11.0)
@@ -472,7 +417,7 @@ fn item(
                         .justify_center()
                         .dyn_style(move |s| {
                             let c = colors();
-                            s.size(ICON * growth())
+                            s.size(ICON)
                                 .bg(c.tertiary_container)
                                 .text_color(c.on_tertiary_container)
                         })
@@ -590,8 +535,9 @@ fn menu_groups(
 
 /// The button that opens the launcher: a square that rounds into a circle and turns its icon when
 /// the pointer is near, and stays a circle while the launcher is open.
-fn launcher_button(output: Output, growth: impl Fn() -> f32 + Copy + 'static) -> Div {
+fn launcher_button(output: Output) -> Div {
     let hovered = signal(false);
+    let rise = follow(move || if hovered.get() { RISE } else { 0.0 }, fast_spatial());
     let open = memo({
         let output = output.clone();
         move || is_open(&output, Panel::Launcher)
@@ -599,8 +545,8 @@ fn launcher_button(output: Output, growth: impl Fn() -> f32 + Copy + 'static) ->
     div()
         .relative()
         .flex_none()
+        .w(CELL)
         .h(CELL)
-        .dyn_style(move |s| s.w(CELL * growth()))
         .on_hover(move |h| hovered.set(h))
         .on_click(move |_| toggle(&output, Panel::Launcher))
         .child(
@@ -615,11 +561,8 @@ fn launcher_button(output: Output, growth: impl Fn() -> f32 + Copy + 'static) ->
                 .pointer_events_none()
                 .child(
                     launcher_glyph(open, hovered, || 19.0)
-                        .transform_origin(0.5, 1.0)
-                        .dyn_style(move |s| {
-                            let g = growth();
-                            s.size(ICON * g).translate_y(-4.0 * (g - 1.0))
-                        }),
+                        .size(ICON)
+                        .dyn_style(move |s| s.translate_y(-rise.get())),
                 ),
         )
 }
