@@ -13,6 +13,8 @@ use anti_webui_md3e::components::{
     sized_icon, styled_button, styled_slider, switch, text_field,
 };
 use anti_webui_md3e::icons::{self, Symbol};
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::Duration;
 
 /// How tall a list of a page gets before it scrolls.
@@ -585,14 +587,20 @@ pub fn bluetooth_page() -> Div {
         failed: signal(None),
     };
     let powered = memo(move || bt.adapter().is_some_and(|a| a.powered));
-    // Looks for devices while the page is open.
-    effect(move || {
-        if powered.get() {
-            drop(bt.set_discovering(true));
+    // Looks for devices while the page is open. The cleanup runs once the page's reactive values
+    // are gone, so whether it looked is kept apart from them.
+    let looking = Rc::new(Cell::new(false));
+    effect({
+        let looking = looking.clone();
+        move || {
+            if powered.get() {
+                looking.set(true);
+                drop(bt.set_discovering(true));
+            }
         }
     });
     on_cleanup(move || {
-        if untrack(|| powered.get()) {
+        if looking.get() {
             drop(bt.set_discovering(false));
         }
     });
