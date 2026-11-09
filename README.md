@@ -74,6 +74,12 @@ function toggleLauncher() {
 COMPOSITOR.key.bind("launcher", "Super+A", toggleLauncher);
 ```
 
+[`~/.config/shojiwm-md3e`](../shojiwm-md3e) は、これを済ませた ShojiWM の設定です。この設定では、ウィンドウの枠もシェルと同じ配色になります。
+
+- shoji-bar-4 は、ShojiWM の IPC ソケット（`$XDG_RUNTIME_DIR/shojiwm-$WAYLAND_DISPLAY.sock`）につながったままにします。
+- そこに配色を `theme.set` で送ります（`src/wm.rs`）。
+- `theme.set` を知らない設定では、何も起きません。
+
 レイヤーの名前空間は `shoji-bar-4-bar`、`-dock`、`-quick-settings`、`-calendar`、`-launcher`、`-notifications`、`-osd`、`-wallpaper` です。ShojiWM のレイヤーエフェクト（ぼかしなど）を当てるときに使えます。
 
 ## 設定

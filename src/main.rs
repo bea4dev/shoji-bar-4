@@ -16,6 +16,7 @@ mod settings;
 mod theme;
 mod ui;
 mod wallpaper;
+mod wm;
 
 use anti_webui::shell::prelude::*;
 
@@ -41,6 +42,7 @@ fn main() {
         .run(|| {
             ipc::serve();
             theme::install();
+            wm::share_theme();
             notify::open_popups();
             osd::install();
             for_each_output(|output| {
