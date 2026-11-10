@@ -98,6 +98,10 @@ pub struct Settings {
     pub clock_seconds: bool,
     /// The user's picture, a copy kept next to this file; `None` for the desktop's.
     pub avatar: Option<PathBuf>,
+    /// The size of the whole interface: 1.0 is the normal size, 0.85 a little smaller. Read once,
+    /// as the shell starts, so a change needs a restart. Needs the patched AntiWebUI (see
+    /// `patches/` and `scripts/apply-antiwebui-patch.sh`); without it the value is ignored.
+    pub ui_scale: f64,
 }
 
 impl Default for Settings {
@@ -121,6 +125,7 @@ impl Default for Settings {
             clock_24h: true,
             clock_seconds: false,
             avatar: None,
+            ui_scale: 1.0,
         }
     }
 }
@@ -137,6 +142,7 @@ impl Settings {
             "clock_24h": self.clock_24h,
             "clock_seconds": self.clock_seconds,
             "avatar": self.avatar.as_ref().map(|p| p.to_string_lossy().into_owned()),
+            "ui_scale": self.ui_scale,
         })
     }
 
@@ -173,6 +179,9 @@ impl Settings {
         if let Some(b) = bool_of("clock_seconds") {
             s.clock_seconds = b;
         }
+        if let Some(z) = v.get("ui_scale").and_then(Value::as_f64) {
+            s.ui_scale = z.clamp(0.5, 2.0);
+        }
         s
     }
 }
@@ -183,6 +192,12 @@ fn path() -> PathBuf {
         .or_else(|| std::env::var_os("HOME").map(|h| PathBuf::from(h).join(".local/state")))
         .unwrap_or_else(|| PathBuf::from("/tmp"));
     state.join("shoji-bar-4").join("settings.json")
+}
+
+/// The interface size the settings file asks for, read straight from disk: this runs before the
+/// shell, and so before the settings signal, exists.
+pub fn stored_ui_scale() -> f64 {
+    load().ui_scale
 }
 
 fn load() -> Settings {
