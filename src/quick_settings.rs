@@ -288,7 +288,7 @@ fn header() -> Div {
                                         .on_click(move |_| {
                                             crate::panels::close();
                                             match action {
-                                                Power::Lock => drop(s.lock()),
+                                                Power::Lock => crate::lock::lock(),
                                                 Power::Sleep => drop(s.suspend()),
                                                 Power::Restart => drop(s.reboot()),
                                                 Power::Off => drop(s.power_off()),
