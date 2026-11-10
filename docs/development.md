@@ -31,7 +31,7 @@ shoji-bar-4 preview quick-settings out.png --click 1548,80 --click-frames 1 --ms
 
 - **Parts**: `bar`, `dock`, `workspaces`, `title`, `quick-settings`, `calendar`, `launcher`, `clipboard`, `media`, `power`, `lock` and `notifications`.
   - In `lock`, the password is `shoji`, and PAM is not used.
-  - `title` is the window island with a made-up window whose title goes between a long one and a short one every `--switch` ms (80 by default), from 1.2 s for a second and a half, and then stays on the one `--end` names (`long` or `short`). With `--windows`, the two titles belong to two windows that take the keyboard in turn.
+  - `title` is the window island with a made-up window whose title goes between a long one and a short one every `--switch` ms (80 by default), from 1.2 s for a second and a half, and then stays on the one `--end` names (`long` or `short`). With `--windows`, the two titles belong to two windows that take the keyboard in turn. With `--spinner`, the title is a terminal's with a spinner in front, as Claude Code's is, which at the end changes to another title.
 - **Settings**: `preview` doesn't save them.
 - **Real services**: the previews act on them.
   - A click on a network, Bluetooth or audio row really changes it.

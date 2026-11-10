@@ -492,24 +492,32 @@ fn window_title(shown: Signal<Option<Focused>>) -> Div {
         .child(changing_title(title))
 }
 
-/// A title that, when it changes, comes up from below as the last one goes up. It is as
-/// wide as the title it has now; one that goes lies over what is beside it until it has gone.
+/// A title that, when it changes, comes up from below as the last one goes up. It is as wide as
+/// the title it has now; one that goes lies over what is beside it until it has gone. A change of
+/// a few characters in one place (a spinner, a counter, a clock) is made where it is, without
+/// coming up.
 fn changing_title(title: Memo<String>) -> Div {
-    let line = |text: String| {
-        txt(BAR_TEXT, move || text.clone())
-            .flex_none()
-            .max_w(320.0)
-            .overflow_hidden()
-    };
     let turn = signal(0u64);
     let lines = signal(vec![(0u64, untrack(|| title.get()))]);
     let seen = RefCell::new(untrack(|| title.get()));
     effect(move || {
         let text = title.get();
-        if *seen.borrow() == text {
+        let small = {
+            let seen = seen.borrow();
+            if *seen == text {
+                return;
+            }
+            small_change(&seen, &text)
+        };
+        seen.replace(text.clone());
+        if small {
+            lines.update(|lines| {
+                if let Some(last) = lines.last_mut() {
+                    last.1 = text;
+                }
+            });
             return;
         }
-        seen.replace(text.clone());
         let gone = untrack(|| turn.get());
         lines.update(|lines| lines.push((gone + 1, text)));
         turn.set(gone + 1);
@@ -531,20 +539,47 @@ fn changing_title(title: Memo<String>) -> Div {
                 .opacity(0.0),
         )
         .child(for_each(
-            move || lines.get(),
-            |(t, _)| *t,
-            move |(t, text)| {
+            move || lines.with(|lines| lines.iter().map(|(t, _)| *t).collect::<Vec<_>>()),
+            |t| *t,
+            move |t| {
                 let place = place_of(t == 0, move || turn.get() == t);
-                line(text)
-                    .absolute()
-                    .top(0.0)
-                    .left(0.0)
-                    .dyn_style(move |s| {
-                        let p = place.get();
-                        s.opacity((1.0 - p.abs()).max(0.0)).translate_y(-16.0 * p)
+                txt(BAR_TEXT, move || {
+                    lines.with(|lines| {
+                        lines
+                            .iter()
+                            .find(|(l, _)| *l == t)
+                            .map(|(_, text)| text.clone())
+                            .unwrap_or_default()
                     })
+                })
+                .flex_none()
+                .max_w(320.0)
+                .overflow_hidden()
+                .absolute()
+                .top(0.0)
+                .left(0.0)
+                .dyn_style(move |s| {
+                    let p = place.get();
+                    s.opacity((1.0 - p.abs()).max(0.0)).translate_y(-16.0 * p)
+                })
             },
         ))
+}
+
+/// Whether `new` is `old` with a few characters changed in one place, and at least twice as many
+/// kept: what a spinner, a counter or a clock in a title does, not a new title.
+fn small_change(old: &str, new: &str) -> bool {
+    let (old, new): (Vec<char>, Vec<char>) = (old.chars().collect(), new.chars().collect());
+    let head = old.iter().zip(&new).take_while(|(a, b)| a == b).count();
+    let tail = old[head..]
+        .iter()
+        .rev()
+        .zip(new[head..].iter().rev())
+        .take_while(|(a, b)| a == b)
+        .count();
+    let kept = head + tail;
+    let changed = old.len().max(new.len()) - kept;
+    changed <= 4 && kept >= 3.max(2 * changed)
 }
 
 /// The time, its digits rolling over as they change, and the date. Hovering makes the time
@@ -962,5 +997,26 @@ pub fn battery_icon(
         20.. => icons::BATTERY_2_BAR,
         8.. => icons::BATTERY_1_BAR,
         _ => icons::BATTERY_0_BAR,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::small_change;
+
+    #[test]
+    fn a_spinner_or_a_counter_is_a_small_change() {
+        assert!(small_change("✳ Claude Code", "✶ Claude Code"));
+        assert!(small_change("Copying 3/10", "Copying 4/10"));
+        assert!(small_change("Downloading 9%", "Downloading 10%"));
+        assert!(small_change("12:59 - clock", "13:00 - clock"));
+    }
+
+    #[test]
+    fn another_title_is_not_a_small_change() {
+        assert!(!small_change("New Tab", "New Tab - Google Chrome"));
+        assert!(!small_change("✳ Claude Code", "✳ Fixing the window title"));
+        assert!(!small_change("", "abc"));
+        assert!(!small_change("ab", "ac"));
     }
 }

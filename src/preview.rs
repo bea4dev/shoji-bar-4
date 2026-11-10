@@ -138,37 +138,48 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             // The title of the window with the keyboard, going between a long and a short one
             // every `--switch` ms (80 by default) for a second and a half from 1.2 s, then staying
             // on the one `--end` names (`long` by default). With `--windows` they are the titles of
-            // two windows that take the keyboard in turn, not two titles of one window.
+            // two windows that take the keyboard in turn, not two titles of one window. With
+            // `--spinner` it is a terminal whose title starts with a spinner, as Claude Code's
+            // does, and at the end says what it is doing.
             "title" => {
                 let switch: u64 = opt("--switch").and_then(|s| s.parse().ok()).unwrap_or(80);
                 let windows = args.iter().any(|a| a == "--windows");
+                let spinner = args.iter().any(|a| a == "--spinner");
                 let end_long = opt("--end").is_none_or(|e| e != "short");
-                let focused = move |long: bool| crate::bar::Focused {
-                    id: if windows && !long { 2 } else { 1 },
-                    title: if long {
-                        "A rather long window title - Google Chrome".into()
-                    } else {
-                        "New Tab".into()
-                    },
-                    app_id: if windows && !long {
-                        "kitty".into()
-                    } else {
-                        "google-chrome".into()
-                    },
+                let focused = move |step: Option<usize>, long: bool| {
+                    let second = windows && !long;
+                    let title = match (spinner, step) {
+                        (true, Some(i)) => {
+                            format!("{} Claude Code", ['·', '✢', '✳', '✶', '✻', '✽'][i % 6])
+                        }
+                        (true, None) => "✳ Fixing the window title island".into(),
+                        (false, _) if long => "A rather long window title - Google Chrome".into(),
+                        (false, _) => "New Tab".into(),
+                    };
+                    crate::bar::Focused {
+                        id: if second { 2 } else { 1 },
+                        title,
+                        app_id: if second || spinner {
+                            "kitty".into()
+                        } else {
+                            "google-chrome".into()
+                        },
+                    }
                 };
-                let shown = signal(Some(focused(false)));
+                let shown = signal(Some(focused(Some(0), false)));
                 // After the preview's own wait at the start.
                 let mut at = 1200;
-                let mut long = true;
+                let mut step = 0;
                 while at < 2700 {
                     at += switch;
+                    step += 1;
+                    let long = step % 2 == 1;
                     set_timeout(Duration::from_millis(at), move || {
-                        shown.set(Some(focused(long)))
+                        shown.set(Some(focused(Some(step), long)))
                     });
-                    long = !long;
                 }
                 set_timeout(Duration::from_millis(at + switch), move || {
-                    shown.set(Some(focused(end_long)))
+                    shown.set(Some(focused(None, end_long)))
                 });
                 div()
                     .p(4.0)
