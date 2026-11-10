@@ -268,57 +268,106 @@ pub fn card(n: Notification, popup: bool) -> Div {
     pressable(body, |c| c.on_surface)
 }
 
-/// The notifications that are kept, for quick settings, with a button that clears them. They come
-/// in as the `order`th part of the panel.
-pub fn history(order: usize) -> Show {
+/// The notifications that are kept, for quick settings, with a button that clears them; with none,
+/// it says so. They come in as the `order`th part of the panel.
+pub fn history(order: usize) -> Div {
     let server = server();
-    let count = server.clone();
-    show(
-        move || count.as_ref().is_some_and(|s| !s.notifications().is_empty()),
-        move || {
-            let list = server.clone().expect("only shown with a server");
-            let clear = list.clone();
-            settle_in(order, div())
+    let any = {
+        let server = server.clone();
+        memo(move || {
+            server
+                .as_ref()
+                .is_some_and(|s| !s.notifications().is_empty())
+        })
+    };
+    let clear = server.clone();
+    let list = server.clone();
+    let elsewhere = server.is_none();
+    settle_in(order, div())
+        .flex()
+        .flex_col()
+        .gap(8.0)
+        .child(
+            div()
                 .flex()
-                .flex_col()
+                .flex_row()
+                .items_center()
                 .gap(8.0)
+                .h(28.0)
+                .px(6.0)
+                .child(sym(icons::NOTIFICATIONS, 18.0, |c| c.primary))
+                .child(static_txt(TextStyle::TITLE_SMALL, "Notifications").flex_1())
                 .child(
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .gap(8.0)
-                        .px(6.0)
-                        .child(sym(icons::NOTIFICATIONS, 18.0, |c| c.primary))
-                        .child(static_txt(TextStyle::TITLE_SMALL, "Notifications").flex_1())
-                        .child(
+                    show(
+                        move || any.get(),
+                        move || {
+                            let clear = clear.clone();
                             styled_button(
                                 "Clear all",
                                 ButtonStyle::text().size(ButtonSize::ExtraSmall),
                             )
-                            .on_click(move |_| clear.clear()),
-                        ),
-                )
+                            .on_click(move |_| {
+                                if let Some(s) = &clear {
+                                    s.clear();
+                                }
+                            })
+                        },
+                    )
+                    .enter(|s| s.opacity(0.0).scale(0.8))
+                    .exit(|s| s.opacity(0.0).scale(0.8))
+                    .transition(overshoot(320)),
+                ),
+        )
+        .child(
+            div()
+                .relative()
+                .flex()
+                .flex_col()
+                // About three cards, with a little of the next one showing that there is more to
+                // scroll to.
+                .max_h(268.0)
+                .overflow_y_scroll()
                 .child(
+                    for_each(
+                        move || list.as_ref().map(|s| s.notifications()).unwrap_or_default(),
+                        |n| n.id,
+                        |n| card(n, false).w_full().mb(8.0),
+                    )
+                    .enter(|s| s.opacity(0.0).scale(0.9))
+                    .exit(|s| s.opacity(0.0).translate_x(120.0))
+                    .moves(emphasized(320))
+                    .transition(emphasized(300)),
+                ),
+        )
+        .child(
+            show(
+                move || !any.get(),
+                move || {
+                    let (symbol, said) = if elsewhere {
+                        (
+                            icons::NOTIFICATIONS_PAUSED,
+                            "Another app shows notifications",
+                        )
+                    } else {
+                        (icons::NOTIFICATIONS_OFF, "No notifications")
+                    };
                     div()
                         .flex()
-                        .flex_col()
-                        // About two cards, with a little of the next one showing that
-                        // there is more to scroll to.
-                        .max_h(192.0)
-                        .overflow_y_scroll()
+                        .flex_row()
+                        .items_center()
+                        .justify_center()
+                        .gap(8.0)
+                        .h(64.0)
+                        .rounded(22.0)
+                        .dyn_style(|s| s.bg(colors().surface_container_high))
+                        .child(sym(symbol, 20.0, |c| c.outline))
                         .child(
-                            for_each(
-                                move || list.notifications(),
-                                |n| n.id,
-                                |n| card(n, false).w_full().mb(8.0),
-                            )
-                            .enter(|s| s.opacity(0.0).scale(0.9))
-                            .exit(|s| s.opacity(0.0).translate_x(120.0))
-                            .moves(emphasized(320))
-                            .transition(emphasized(300)),
-                        ),
-                )
-        },
-    )
+                            static_txt(TextStyle::BODY_MEDIUM, said)
+                                .dyn_style(|s| s.text_color(colors().on_surface_variant)),
+                        )
+                },
+            )
+            .enter(|s| s.opacity(0.0).scale(0.95))
+            .transition(emphasized(300)),
+        )
 }

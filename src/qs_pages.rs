@@ -21,7 +21,7 @@ use std::time::Duration;
 const LIST: f32 = 320.0;
 
 /// The top of a page: the way back, its name, and what goes at the end, like its switch.
-fn header(title: &'static str, end: Div) -> Div {
+pub fn header(title: &'static str, end: Div) -> Div {
     div()
         .flex()
         .flex_row()
@@ -43,7 +43,7 @@ fn busy_line(busy: impl Fn() -> bool + 'static) -> Div {
 }
 
 /// What a list is of, above it.
-fn subheading(text: &'static str) -> Div {
+pub fn subheading(text: &'static str) -> Div {
     static_txt(TextStyle::LABEL_LARGE, text)
         .px(8.0)
         .dyn_style(|s| s.text_color(colors().primary))

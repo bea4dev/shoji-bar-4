@@ -1,19 +1,18 @@
 //! Quick settings: who is here and the power buttons, toggles as tiles, the volume and the
-//! brightness, what is playing, and the colors of the shell. Some tiles lead to a page of their
-//! own (`qs_pages`), which takes the place of all this in the panel.
+//! brightness, the battery, what is playing, and the notifications. Some tiles lead to a page of
+//! their own (`qs_pages`), which takes the place of all this in the panel; the gear leads to the
+//! settings of the shell (`qs_settings`).
 
 use crate::bar::wifi_icon;
-use crate::settings::{Palette, ThemeMode, settings};
-use crate::theme::{SEEDS, TextStyle, colors, elevation, scheme_for, wallpaper_seed};
+use crate::settings::{ThemeMode, settings};
+use crate::theme::{TextStyle, colors, elevation};
 use crate::ui::*;
 use anti_webui::prelude::*;
+use anti_webui::shell::BatteryState;
 use anti_webui::shell::prelude::*;
-use anti_webui_md3e::components::{
-    ButtonStyle, MaterialShape, ShapeStyle, SliderStyle, connected_button_group, filter_chip,
-    sized_icon, styled_shape, styled_slider, wavy_progress,
-};
+use anti_webui_md3e::components::{SliderStyle, sized_icon, styled_slider, wavy_progress};
 use anti_webui_md3e::icons::{self, Symbol};
-use anti_webui_md3e::motion::{default_effects, fast_spatial};
+use anti_webui_md3e::motion::fast_spatial;
 use std::cell::Cell;
 
 const WIDTH: f32 = 396.0;
@@ -25,11 +24,22 @@ pub enum Page {
     Wifi,
     Bluetooth,
     Sound,
+    Settings,
 }
 
 thread_local! {
     /// The page of the panel that is open, if one is.
     static PAGE: Cell<Option<Signal<Page>>> = const { Cell::new(None) };
+    /// The page the panel opens at the next time.
+    static START: Cell<Page> = const { Cell::new(Page::Main) };
+}
+
+/// Opens the panel at a page, on the output where the window with the keyboard is.
+pub fn open_at(page: Page) {
+    START.with(|s| s.set(page));
+    if let Some(output) = crate::ipc::focused_output() {
+        crate::panels::open(&output, crate::panels::Panel::QuickSettings);
+    }
 }
 
 fn page_signal() -> Option<Signal<Page>> {
@@ -61,7 +71,7 @@ pub fn slider_style() -> SliderStyle {
 
 pub fn panel(output: Output) -> Div {
     let _ = output;
-    let page = signal(Page::Main);
+    let page = signal(START.with(|s| s.replace(Page::Main)));
     PAGE.with(|p| p.set(Some(page)));
     // The pages lie over each other, so the panel takes the height of the one shown, going to that
     // of another on a spring as it comes in.
@@ -117,7 +127,12 @@ pub fn panel(output: Output) -> Div {
                     crate::qs_pages::bluetooth_page,
                     56.0,
                 ))
-                .child(page_view(Page::Sound, crate::qs_pages::sound_page, 56.0)),
+                .child(page_view(Page::Sound, crate::qs_pages::sound_page, 56.0))
+                .child(page_view(
+                    Page::Settings,
+                    crate::qs_settings::settings_page,
+                    56.0,
+                )),
         )
 }
 
@@ -131,11 +146,14 @@ fn main_page() -> Div {
         .child(tiles())
         .child(settle_in(4, sliders()))
         .child(show(
-            || media().current().is_some(),
-            || settle_in(5, media_card()),
+            || battery().available(),
+            || settle_in(5, crate::battery_card::card()),
         ))
-        .child(crate::notify::history(6))
-        .child(settle_in(7, style_section()))
+        .child(show(
+            || media().current().is_some(),
+            || settle_in(6, media_card()),
+        ))
+        .child(crate::notify::history(7))
 }
 
 /// A section of the panel on a card of its own.
@@ -160,12 +178,7 @@ fn greeting() -> &'static str {
 
 /// The user, the battery, and the power buttons, which open into a row of what they can do.
 fn header() -> Div {
-    let user = std::env::var("USER").unwrap_or_else(|_| "you".into());
-    let initial = user
-        .chars()
-        .next()
-        .map(|c| c.to_uppercase().to_string())
-        .unwrap_or_default();
+    let user = crate::user::name();
     let power_open = signal(false);
     // The row of actions opens to its height with an easing, moving what is below it smoothly;
     // its height is measured once it is laid out.
@@ -185,7 +198,12 @@ fn header() -> Div {
                 .gap(12.0)
                 .px(4.0)
                 .pt(2.0)
-                .child(avatar(initial))
+                .child(
+                    // To the settings, where it can be changed.
+                    crate::user::avatar(38.0)
+                        .cursor(CursorIcon::Pointer)
+                        .on_click(|_| go(Page::Settings)),
+                )
                 .child(
                     div()
                         .flex()
@@ -201,7 +219,7 @@ fn header() -> Div {
                                 let mut s = t.format("%A, %-d %B");
                                 if b.available() {
                                     s.push_str(&format!(" · {:.0}%", b.percentage()));
-                                    if b.charging() {
+                                    if b.state() == BatteryState::Charging {
                                         s.push_str(" charging");
                                     }
                                 }
@@ -211,10 +229,8 @@ fn header() -> Div {
                         ),
                 )
                 .child(
-                    icon_btn(icons::SETTINGS, 34.0, |c| c.on_surface_variant).on_click(|_| {
-                        let _ = std::process::Command::new("systemsettings").spawn();
-                        crate::panels::close();
-                    }),
+                    icon_btn(icons::SETTINGS, 34.0, |c| c.on_surface_variant)
+                        .on_click(|_| go(Page::Settings)),
                 )
                 .child(power_button(power_open)),
         )
@@ -223,73 +239,77 @@ fn header() -> Div {
                 .overflow_hidden()
                 .flex_none()
                 .dyn_style(move |s| s.h(opened.get() * row_height.get()))
-                .child(show(
-                move || power_open.get(),
-                move || {
-                    let s = session();
-                    let actions: [(&'static Symbol, &str, Power); 4] = [
-                        (icons::LOCK, "Lock", Power::Lock),
-                        (icons::BEDTIME, "Sleep", Power::Sleep),
-                        (icons::RESTART_ALT, "Restart", Power::Restart),
-                        (icons::POWER_SETTINGS_NEW, "Shut down", Power::Off),
-                    ];
-                    let mut row = div()
-                        .flex()
-                        .flex_row()
-                        .gap(8.0)
-                        .pt(10.0)
-                        .on_resized(move |_, h| row_height.set(h));
-                    for (i, (symbol, label, action)) in actions.into_iter().enumerate() {
-                        let appear = animated(0.0f32);
-                        set_timeout(std::time::Duration::from_millis(40 * i as u64), move || {
-                            appear.spring_to(1.0, fast_spatial())
-                        });
-                        row = row.child(pressable(
-                            div()
-                                .flex_1()
+                .child(
+                    show(
+                        move || power_open.get(),
+                        move || {
+                            let s = session();
+                            let actions: [(&'static Symbol, &str, Power); 4] = [
+                                (icons::LOCK, "Lock", Power::Lock),
+                                (icons::BEDTIME, "Sleep", Power::Sleep),
+                                (icons::RESTART_ALT, "Restart", Power::Restart),
+                                (icons::POWER_SETTINGS_NEW, "Shut down", Power::Off),
+                            ];
+                            let mut row = div()
                                 .flex()
-                                .flex_col()
-                                .items_center()
-                                .gap(3.0)
-                                .py(8.0)
-                                .rounded(16.0)
-                                .dyn_style(move |st| {
-                                    let c = colors();
-                                    let a = appear.get();
-                                    let danger = matches!(action, Power::Off | Power::Restart);
-                                    st.bg(if danger {
-                                        c.error_container
-                                    } else {
-                                        c.secondary_container
-                                    })
-                                    .text_color(if danger {
-                                        c.on_error_container
-                                    } else {
-                                        c.on_secondary_container
-                                    })
-                                    .opacity(a.clamp(0.0, 1.0))
-                                    .scale(0.6 + 0.4 * a)
-                                })
-                                .on_click(move |_| {
-                                    crate::panels::close();
-                                    match action {
-                                        Power::Lock => drop(s.lock()),
-                                        Power::Sleep => drop(s.suspend()),
-                                        Power::Restart => drop(s.reboot()),
-                                        Power::Off => drop(s.power_off()),
-                                    }
-                                })
-                                .child(sized_icon(symbol, 18.0))
-                                .child(static_txt(TextStyle::LABEL_MEDIUM, label)),
-                            |c| c.on_secondary_container,
-                        ));
-                    }
-                    row
-                },
-            )
-            .enter(|s| s.opacity(0.0))
-            .exit(|s| s.opacity(0.0))
-            .transition(emphasized(300))),
+                                .flex_row()
+                                .gap(8.0)
+                                .pt(10.0)
+                                .on_resized(move |_, h| row_height.set(h));
+                            for (i, (symbol, label, action)) in actions.into_iter().enumerate() {
+                                let appear = animated(0.0f32);
+                                set_timeout(
+                                    std::time::Duration::from_millis(40 * i as u64),
+                                    move || appear.spring_to(1.0, fast_spatial()),
+                                );
+                                row = row.child(pressable(
+                                    div()
+                                        .flex_1()
+                                        .flex()
+                                        .flex_col()
+                                        .items_center()
+                                        .gap(3.0)
+                                        .py(8.0)
+                                        .rounded(16.0)
+                                        .dyn_style(move |st| {
+                                            let c = colors();
+                                            let a = appear.get();
+                                            let danger =
+                                                matches!(action, Power::Off | Power::Restart);
+                                            st.bg(if danger {
+                                                c.error_container
+                                            } else {
+                                                c.secondary_container
+                                            })
+                                            .text_color(if danger {
+                                                c.on_error_container
+                                            } else {
+                                                c.on_secondary_container
+                                            })
+                                            .opacity(a.clamp(0.0, 1.0))
+                                            .scale(0.6 + 0.4 * a)
+                                        })
+                                        .on_click(move |_| {
+                                            crate::panels::close();
+                                            match action {
+                                                Power::Lock => drop(s.lock()),
+                                                Power::Sleep => drop(s.suspend()),
+                                                Power::Restart => drop(s.reboot()),
+                                                Power::Off => drop(s.power_off()),
+                                            }
+                                        })
+                                        .child(sized_icon(symbol, 18.0))
+                                        .child(static_txt(TextStyle::LABEL_MEDIUM, label)),
+                                    |c| c.on_secondary_container,
+                                ));
+                            }
+                            row
+                        },
+                    )
+                    .enter(|s| s.opacity(0.0))
+                    .exit(|s| s.opacity(0.0))
+                    .transition(emphasized(300)),
+                ),
         )
 }
 
@@ -299,44 +319,6 @@ enum Power {
     Sleep,
     Restart,
     Off,
-}
-
-/// The first letter of the user on a sunny shape that turns when the pointer is on it.
-fn avatar(initial: String) -> Div {
-    let hovered = signal(false);
-    div()
-        .size(38.0)
-        .relative()
-        .flex_none()
-        .on_hover(move |h| hovered.set(h))
-        .child(
-            styled_shape(
-                move || {
-                    if hovered.get() {
-                        MaterialShape::SoftBurst
-                    } else {
-                        MaterialShape::Cookie12Sided
-                    }
-                },
-                ShapeStyle::new()
-                    .color(|c| c.tertiary_container)
-                    .rotation(move || if hovered.get() { 60.0 } else { 0.0 }),
-            )
-            .absolute()
-            .inset(0.0)
-            .size_full(),
-        )
-        .child(
-            TextStyle::TITLE_MEDIUM
-                .apply(div())
-                .absolute()
-                .inset(0.0)
-                .flex()
-                .items_center()
-                .justify_center()
-                .dyn_style(|s| s.text_color(colors().on_tertiary_container))
-                .child(initial),
-        )
 }
 
 /// The power button: it turns into a close button while the actions are shown.
@@ -898,231 +880,5 @@ fn media_card() -> Div {
                 .relative()
                 .child(wavy_progress(progress).w_full())
                 .dyn_style(move |s| s),
-        )
-}
-
-/// The colors: seeds to choose from, how colorful a scheme is made from them, and light or dark.
-fn style_section() -> Div {
-    let mut swatches = div().flex().flex_row().justify_between();
-    for (seed, name) in SEEDS {
-        swatches = swatches.child(swatch(Some(seed), name));
-    }
-    let from_wallpaper = show(|| wallpaper_seed().is_some(), || swatch(None, "Wallpaper"));
-    let chip = |p: Palette| {
-        filter_chip(
-            p.label(),
-            Binding::new(
-                move || settings().with(|s| s.palette == p),
-                move |on| {
-                    if on {
-                        settings().update(|s| s.palette = p)
-                    }
-                },
-            ),
-        )
-    };
-    let mut chips_a = div().flex().flex_row().gap(6.0);
-    let mut chips_b = div().flex().flex_row().gap(6.0);
-    for (i, p) in Palette::ALL.into_iter().enumerate() {
-        if i < 3 {
-            chips_a = chips_a.child(chip(p));
-        } else {
-            chips_b = chips_b.child(chip(p));
-        }
-    }
-    let modes = [ThemeMode::Light, ThemeMode::Auto, ThemeMode::Dark];
-    section()
-        .child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(8.0)
-                .child(sym(icons::PALETTE, 18.0, |c| c.primary))
-                .child(static_txt(TextStyle::TITLE_SMALL, "Style & color")),
-        )
-        .child(wallpapers())
-        .child(swatches.child(from_wallpaper))
-        .child(
-            div()
-                .flex()
-                .flex_col()
-                .gap(6.0)
-                .child(chips_a)
-                .child(chips_b),
-        )
-        .child(connected_button_group(
-            ["Light", "Auto", "Dark"],
-            ButtonStyle::tonal(),
-            move |i| settings().with(|s| s.mode == modes[i]),
-            move |i| settings().update(|s| s.mode = modes[i]),
-        ))
-}
-
-/// The pictures to choose a wallpaper from. Choosing one takes the colors from it too.
-fn wallpapers() -> Div {
-    let pictures = crate::wallpaper::pictures();
-    let mut row = div().flex().flex_row().gap(8.0).pb(4.0).overflow_x_scroll();
-    for path in pictures {
-        let chosen = memo({
-            let path = path.clone();
-            move || settings().with(|s| s.wallpaper.as_ref() == Some(&path))
-        });
-        let round = follow(move || if chosen.get() { 1.0 } else { 0.0 }, fast_spatial());
-        let hovered = signal(false);
-        let lift = follow(
-            move || if hovered.get() { 1.0 } else { 0.0 },
-            fast_spatial(),
-        );
-        let picked = path.clone();
-        row = row.child(
-            div()
-                .w(80.0)
-                .h(50.0)
-                .flex_none()
-                .relative()
-                .on_hover(move |h| hovered.set(h))
-                .on_click(move |_| {
-                    let path = picked.clone();
-                    settings().update(move |s| {
-                        s.wallpaper = Some(path);
-                        s.seed_from_wallpaper = true;
-                    })
-                })
-                .dyn_style(move |s| s.scale(1.0 + 0.05 * lift.get()))
-                .child(
-                    div()
-                        .size_full()
-                        .overflow_hidden()
-                        .dyn_style(move |s| s.rounded(10.0 + 18.0 * round.get()))
-                        .child(img(path).size_full().object_fit(ObjectFit::Cover)),
-                )
-                .child(
-                    div()
-                        .absolute()
-                        .inset(0.0)
-                        .pointer_events_none()
-                        .border(3.0)
-                        .dyn_style(move |s| {
-                            let t = round.get();
-                            s.rounded(10.0 + 18.0 * t)
-                                .border_color(colors().primary.with_alpha(t.clamp(0.0, 1.0)))
-                        }),
-                ),
-        );
-    }
-    row
-}
-
-/// A seed as a circle of its primary color with its two other accents in the middle; the chosen
-/// one blooms into a cookie and shows a check. `None` is the wallpaper's.
-fn swatch(seed: Option<u32>, name: &'static str) -> Div {
-    let chosen = memo(move || {
-        settings().with(|s| match seed {
-            Some(seed) => !s.seed_from_wallpaper && s.seed == seed,
-            None => s.seed_from_wallpaper,
-        })
-    });
-    let hovered = signal(false);
-    let lift = follow(
-        move || if hovered.get() { 1.0 } else { 0.0 },
-        fast_spatial(),
-    );
-    let scheme = memo(move || {
-        let s = settings().get();
-        let seed = seed.or_else(wallpaper_seed).unwrap_or(s.seed);
-        scheme_for(seed, s.palette, crate::theme::is_dark())
-    });
-    let check = follow(
-        move || if chosen.get() { 1.0 } else { 0.0 },
-        default_effects(),
-    );
-    div()
-        .size(30.0)
-        .relative()
-        .flex_none()
-        .on_hover(move |h| hovered.set(h))
-        .on_click(move |_| {
-            settings().update(|s| match seed {
-                Some(seed) => {
-                    s.seed = seed;
-                    s.seed_from_wallpaper = false;
-                }
-                None => s.seed_from_wallpaper = true,
-            })
-        })
-        .access(move |a| a.label(name))
-        .dyn_style(move |s| s.scale(1.0 + 0.1 * lift.get()))
-        .child(
-            styled_shape(
-                move || {
-                    if chosen.get() {
-                        MaterialShape::Cookie9Sided
-                    } else {
-                        MaterialShape::Circle
-                    }
-                },
-                ShapeStyle::new()
-                    .color(move |_| scheme.get().primary)
-                    .spring(fast_spatial())
-                    .rotation(move || if chosen.get() { 40.0 } else { 0.0 }),
-            )
-            .absolute()
-            .inset(0.0)
-            .size_full(),
-        )
-        .child(
-            div()
-                .absolute()
-                .inset(0.0)
-                .flex()
-                .items_center()
-                .justify_center()
-                .pointer_events_none()
-                .child(
-                    div()
-                        .size(14.0)
-                        .rounded(7.0)
-                        .overflow_hidden()
-                        .flex()
-                        .flex_row()
-                        .dyn_style(move |s| {
-                            s.opacity(1.0 - check.get()).scale(1.0 - 0.5 * check.get())
-                        })
-                        .child(
-                            div()
-                                .w(7.0)
-                                .h_full()
-                                .dyn_style(move |s| s.bg(scheme.get().secondary_container)),
-                        )
-                        .child(
-                            div()
-                                .w(7.0)
-                                .h_full()
-                                .dyn_style(move |s| s.bg(scheme.get().tertiary)),
-                        ),
-                )
-                .child(
-                    div()
-                        .absolute()
-                        .inset(0.0)
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .dyn_style(move |s| {
-                            let t = check.get();
-                            s.text_color(scheme.get().on_primary)
-                                .opacity(t)
-                                .scale(0.4 + 0.6 * t)
-                        })
-                        .child(sized_icon(
-                            if seed.is_some() {
-                                icons::CHECK
-                            } else {
-                                icons::WALLPAPER
-                            },
-                            16.0,
-                        )),
-                ),
         )
 }

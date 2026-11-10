@@ -96,6 +96,8 @@ pub struct Settings {
     pub pinned: Vec<String>,
     pub clock_24h: bool,
     pub clock_seconds: bool,
+    /// The user's picture, a copy kept next to this file; `None` for the desktop's.
+    pub avatar: Option<PathBuf>,
 }
 
 impl Default for Settings {
@@ -118,6 +120,7 @@ impl Default for Settings {
             .to_vec(),
             clock_24h: true,
             clock_seconds: false,
+            avatar: None,
         }
     }
 }
@@ -133,6 +136,7 @@ impl Settings {
             "pinned": self.pinned,
             "clock_24h": self.clock_24h,
             "clock_seconds": self.clock_seconds,
+            "avatar": self.avatar.as_ref().map(|p| p.to_string_lossy().into_owned()),
         })
     }
 
@@ -156,6 +160,7 @@ impl Settings {
             s.palette = p;
         }
         s.wallpaper = str_of("wallpaper").map(PathBuf::from);
+        s.avatar = str_of("avatar").map(PathBuf::from);
         if let Some(list) = v.get("pinned").and_then(Value::as_array) {
             s.pinned = list
                 .iter()

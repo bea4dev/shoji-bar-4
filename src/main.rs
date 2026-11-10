@@ -2,6 +2,7 @@
 
 mod appinfo;
 mod bar;
+mod battery_card;
 mod calendar;
 mod clipboard;
 mod dock;
@@ -12,10 +13,12 @@ mod osd;
 mod panels;
 mod preview;
 mod qs_pages;
+mod qs_settings;
 mod quick_settings;
 mod settings;
 mod theme;
 mod ui;
+mod user;
 mod wallpaper;
 mod wm;
 

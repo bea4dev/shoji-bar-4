@@ -115,7 +115,7 @@ fn status() -> String {
 }
 
 /// The output where the window with the keyboard is, else the first.
-fn focused_output() -> Option<String> {
+pub fn focused_output() -> Option<String> {
     toplevels()
         .active()
         .and_then(|t| t.outputs.first().cloned())
