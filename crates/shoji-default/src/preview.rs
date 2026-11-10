@@ -101,7 +101,8 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         let Some(output) = output else {
             return backdrop.child("no output");
         };
-        if let Some(panel) = crate::panels::Panel::from_name(&part) {
+        crate::panels::register_stock();
+        if let Some(panel) = crate::panels::lookup(&part) {
             let name = output.name.clone();
             if late {
                 set_timeout(Duration::from_millis(1500), move || {
@@ -196,7 +197,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             "dock" => crate::dock::view(output, signal(InputRegion::Full)),
             "lock" => crate::lock::view(output),
             "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" | "power" => {
-                let panel = crate::panels::Panel::from_name(&part).unwrap();
+                let panel = crate::panels::lookup(&part).unwrap();
                 crate::panels::view(output, panel)
             }
             _ => div().child("unknown part"),

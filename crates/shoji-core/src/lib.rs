@@ -5,6 +5,7 @@
 
 pub mod appinfo;
 pub mod pam;
+pub mod panels;
 pub mod settings;
 pub mod theme;
 pub mod ui;

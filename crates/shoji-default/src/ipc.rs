@@ -16,7 +16,7 @@
 //!
 //! Without an output, a panel opens where the window with the keyboard is.
 
-use crate::panels::{self, Panel};
+use crate::panels;
 use crate::settings::{ThemeMode, settings};
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
@@ -98,7 +98,7 @@ pub fn serve() {
 /// What could keep the shell busy, on one line, for `scripts/cpu-report.sh`.
 fn status() -> String {
     let panel = panels::current().map_or("none".into(), |(output, panel)| {
-        format!("{panel:?}@{output}")
+        format!("{panel}@{output}")
     });
     let playing = media()
         .current()
@@ -129,7 +129,7 @@ fn run(line: &str) -> Result<String, String> {
     let words: Vec<&str> = line.split_whitespace().collect();
     match words.as_slice() {
         ["toggle" | "open", name, rest @ ..] => {
-            let panel = Panel::from_name(name).ok_or_else(|| format!("no panel called {name}"))?;
+            let panel = panels::lookup(name).ok_or_else(|| format!("no panel called {name}"))?;
             let output = rest
                 .first()
                 .map(|s| s.to_string())
