@@ -385,23 +385,16 @@ fn field(state: State) -> Div {
             .transition(Transition::ms(180).ease_out()),
         )
         .child(
-            div().flex().flex_row().items_center().gap(6.0).child(
+            div().flex().flex_row().items_center().child(
                 for_each(
                     move || (0..count.get().min(SHOWN_DOTS)).collect::<Vec<_>>(),
                     |i| *i,
-                    |i| {
-                        styled_shape(
-                            move || DOTS[i % DOTS.len()],
-                            ShapeStyle::new()
-                                .color(|_| rgb(ON_VEIL))
-                                .rotation(move || (i * 37 % 90) as f32),
-                        )
-                        .size(16.0)
-                    },
+                    dot,
                 )
-                .enter(|s| s.scale(0.0).opacity(0.0))
-                .exit(|s| s.scale(0.0).opacity(0.0))
-                .transition(overshoot(320)),
+                // The place opens and closes, so that the others slide over rather than jump.
+                .enter(|s| s.w(0.0).opacity(0.0))
+                .exit(|s| s.w(0.0).opacity(0.0).scale(0.3))
+                .transition(emphasized(300)),
             ),
         )
         .child(
@@ -420,6 +413,33 @@ fn field(state: State) -> Div {
             .enter(|s| s.opacity(0.0).scale(0.4))
             .exit(|s| s.opacity(0.0).scale(0.4))
             .transition(overshoot(360)),
+        )
+}
+
+/// How wide the place of a shape of the password is, the room between them included.
+const DOT_PLACE: f32 = 22.0;
+
+/// A shape of the password: it springs up from small, turning into place.
+fn dot(i: usize) -> Div {
+    let pop = animated(0.0f32);
+    pop.spring_to(1.0, Spring::from_ratio(520.0, 0.55));
+    let rest = (i * 37 % 90) as f32;
+    div()
+        .w(DOT_PLACE)
+        .h(16.0)
+        .flex_none()
+        .flex()
+        .items_center()
+        .justify_center()
+        .child(
+            styled_shape(
+                move || DOTS[i % DOTS.len()],
+                ShapeStyle::new()
+                    .color(|_| rgb(ON_VEIL))
+                    .rotation(move || rest - 90.0 * (1.0 - pop.get())),
+            )
+            .size(16.0)
+            .dyn_style(move |s| s.scale(pop.get().max(0.0))),
         )
 }
 
