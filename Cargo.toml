@@ -28,3 +28,13 @@ debug = false
 lto = "thin"
 # Function names stay, for `scripts/cpu-report.sh`; the debug info goes.
 strip = "debuginfo"
+
+# For working on an interface of your own: `cargo build --profile fast`. Without LTO, a change in the
+# plugins directory only recompiles and links the small binary crate instead of optimising
+# everything again. The binary is a little slower and bigger; for a shell that idles at 0% CPU
+# that does not show. It lands in target/fast/.
+[profile.fast]
+inherits = "release"
+lto = false
+codegen-units = 16
+incremental = true
