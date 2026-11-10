@@ -12,7 +12,8 @@ use anti_webui_md3e::motion::fast_spatial;
 use std::cell::Cell;
 use std::time::Duration;
 
-const WIDTH: f32 = 360.0;
+/// The panel's, with the card of what is playing inside it.
+const WIDTH: f32 = 392.0;
 /// How far the panel keeps from the sides of the output.
 const EDGE: f32 = 14.0;
 /// How tall the place that takes the pointer around the seek bar is.
@@ -73,27 +74,34 @@ pub fn panel(output: Output) -> Div {
     let center = ANCHOR.with(Cell::get).unwrap_or(width - EDGE - WIDTH / 2.0);
     let left = (center - WIDTH / 2.0).clamp(EDGE, (width - WIDTH - EDGE).max(EDGE));
 
+    // The panel, like the others: the theme's color around a card, which has the cover behind it.
     div()
         .ml(left)
         .w(WIDTH)
-        .relative()
-        .flex()
-        .flex_col()
-        .gap(14.0)
-        .p(18.0)
+        .p(16.0)
         .rounded(30.0)
-        .overflow_hidden()
         .shadows(elevation(3))
-        // Its own stacking context, so that the cover and its veil stay behind the rest.
-        .z_index(0)
-        .dyn_style(move |s| {
-            let c = colors();
-            s.bg(c.secondary_container).text_color(fg(&c))
-        })
-        .child(backdrop(art))
-        .child(about(current, art, fg))
-        .child(seek_bar(current, playing, fg))
-        .child(buttons(current, playing, fg))
+        .dyn_style(|s| s.bg(colors().surface_container))
+        .child(
+            div()
+                .relative()
+                .flex()
+                .flex_col()
+                .gap(14.0)
+                .p(16.0)
+                .rounded(22.0)
+                .overflow_hidden()
+                // Its own stacking context, so that the cover and its veil stay behind the rest.
+                .z_index(0)
+                .dyn_style(move |s| {
+                    let c = colors();
+                    s.bg(c.secondary_container).text_color(fg(&c))
+                })
+                .child(backdrop(art))
+                .child(about(current, art, fg))
+                .child(seek_bar(current, playing, fg))
+                .child(buttons(current, playing, fg)),
+        )
 }
 
 /// The cover over all of the panel, darkened so that what is on it can be read; a new one fades in
