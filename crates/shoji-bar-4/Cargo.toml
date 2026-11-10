@@ -1,0 +1,13 @@
+[package]
+name = "shoji-bar-4"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+license.workspace = true
+
+[dependencies]
+shoji-default.workspace = true
+
+[features]
+## Links AntiWebUI dynamically for faster rebuilds while developing.
+dynamic_linking = ["shoji-default/dynamic_linking"]

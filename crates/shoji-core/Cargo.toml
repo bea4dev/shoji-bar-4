@@ -1,0 +1,15 @@
+[package]
+name = "shoji-core"
+version.workspace = true
+edition.workspace = true
+description = "Shared foundation of the shoji-bar-4 shell: settings, theme and UI helpers"
+license.workspace = true
+
+[dependencies]
+anti-webui.workspace = true
+anti-webui-md3e.workspace = true
+serde_json.workspace = true
+
+[features]
+## Links AntiWebUI dynamically for faster rebuilds while developing.
+dynamic_linking = ["anti-webui/dynamic_linking"]

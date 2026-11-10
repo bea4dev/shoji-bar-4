@@ -1,0 +1,15 @@
+[package]
+name = "shoji-default"
+version.workspace = true
+edition.workspace = true
+description = "The default shoji-bar-4 user interface: bar, dock, panels, lock screen and notifications"
+license.workspace = true
+
+[dependencies]
+shoji-core.workspace = true
+anti-webui.workspace = true
+anti-webui-md3e.workspace = true
+serde_json.workspace = true
+
+[features]
+dynamic_linking = ["shoji-core/dynamic_linking"]
