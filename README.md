@@ -39,6 +39,15 @@
   - Enter かクリックで、もう一度クリップボードに入れて閉じます。Delete（検索中は Shift+Delete）か × で忘れさせると、その行が閉じて下の行が上がってきます。
   - 開くときは、行が順番に落ちてきます。
   - cliphist に `wl-paste --watch cliphist store` で記録させておく必要があります（`~/.config/shojiwm-md3e` は起動します）。
+- **ロック画面**：すべての画面を `ext-session-lock` で覆います。
+  - 壁紙にベールをかけ、転がる大きな時計と日付、ユーザーの絵と名前、パスワードの欄を出します。開くときは順番に入ってきます。
+  - パスワードは打つたびに Material の形（クッキー、クローバー、花…）が弾んで並びます。Enter で確かめる間は、形がローディングインジケーターに変わります。
+  - 違うと欄が揺れて赤くなり、理由が出ます（faillock でアカウントがしばらく止められたときは、PAM の言葉のまま）。合うと全部が大きくなりながら消え、ベールが上がって、同じ壁紙のデスクトップに戻ります。
+  - Esc／Ctrl+U で消去、Backspace で 1 文字戻ります。
+  - パスワードは PAM（`login` サービス、`pam_authenticate` のみ）で別のスレッドで確かめます。
+  - `shoji-bar-4 msg lock`、logind からの Lock（`loginctl lock-session`、クイック設定の電源メニューの Lock）、スリープの前にロックします。外から解除する命令はありません。
+  - シェルがロック中に落ちても、ShojiWM はロックしたままにします。そのときは TTY から別のロッカー（`swaylock` など）を同じセッションで起こすと、ロックを引き継いで解除できます。
+  - Arch の既定の faillock では、15 分のうちに 3 回まちがえると、10 分間ログインできなくなります（正しいパスワードでも）。
 - **通知**：通知デーモンになれたときだけ動きます。
   - 右上のカードが、ばねでスライドして入ってきます。
   - クイック設定に履歴が残ります。
@@ -72,6 +81,7 @@ shoji-bar-4 msg toggle calendar [OUTPUT]
 shoji-bar-4 msg toggle clipboard [OUTPUT]
 shoji-bar-4 msg toggle media [OUTPUT]
 shoji-bar-4 msg close
+shoji-bar-4 msg lock                             # 解除は、パスワードでだけ
 shoji-bar-4 msg theme dark|light|auto|toggle
 shoji-bar-4 msg status                         # 開いているパネル、動いている時計の数など
 shoji-bar-4 msg quit
@@ -153,7 +163,7 @@ shoji-bar-4 preview quick-settings out.png --click 1548,80 --click-frames 1 --ms
 
 `--click-frames` は、クリックのあとに進めるフレーム数です（既定 20）。クリックで始まる動きを、最初から撮るときに小さくします。
 
-対象は `bar`、`dock`、`workspaces`、`quick-settings`、`calendar`、`launcher`、`clipboard`、`media`、`notifications` です。`preview` は設定を保存しません。
+対象は `bar`、`dock`、`workspaces`、`quick-settings`、`calendar`、`launcher`、`clipboard`、`media`、`lock`、`notifications` です（`lock` のパスワードは `shoji`。PAM は使いません）。`preview` は設定を保存しません。
 
 ## AntiWebUI に足したもの
 

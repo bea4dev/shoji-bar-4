@@ -8,9 +8,11 @@ mod clipboard;
 mod dock;
 mod ipc;
 mod launcher;
+mod lock;
 mod media_panel;
 mod notify;
 mod osd;
+mod pam;
 mod panels;
 mod preview;
 mod qs_pages;
@@ -50,6 +52,7 @@ fn main() {
             wm::share_theme();
             notify::open_popups();
             osd::install();
+            lock::install();
             for_each_output(|output| {
                 bar::open(output.clone());
                 dock::open(output.clone());

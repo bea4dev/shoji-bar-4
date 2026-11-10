@@ -8,6 +8,7 @@
 //! shoji-bar-4 msg toggle clipboard [OUTPUT]
 //! shoji-bar-4 msg toggle media [OUTPUT]
 //! shoji-bar-4 msg close
+//! shoji-bar-4 msg lock
 //! shoji-bar-4 msg theme dark|light|auto|toggle
 //! shoji-bar-4 msg quit
 //! shoji-bar-4 msg status
@@ -96,8 +97,9 @@ pub fn serve() {
 
 /// What could keep the shell busy, on one line, for `scripts/cpu-report.sh`.
 fn status() -> String {
-    let panel = panels::current()
-        .map_or("none".into(), |(output, panel)| format!("{panel:?}@{output}"));
+    let panel = panels::current().map_or("none".into(), |(output, panel)| {
+        format!("{panel:?}@{output}")
+    });
     let playing = media()
         .current()
         .map_or("none".into(), |p| format!("{:?}", p.status));
@@ -139,6 +141,11 @@ fn run(line: &str) -> Result<String, String> {
             } else {
                 panels::open(&output, panel);
             }
+            Ok(String::new())
+        }
+        // There is no unlock: only the password does that.
+        ["lock"] => {
+            crate::lock::lock();
             Ok(String::new())
         }
         ["close"] => {
