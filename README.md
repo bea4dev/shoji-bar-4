@@ -24,7 +24,7 @@ ShojiWM's default config starts `~/.config/shoji-bar-4/target/release/shoji-bar-
 
 ## This fork
 
-This is a fork that splits the project into a workspace (`shoji-core`: settings, theme and panel manager; `shoji-default`: the stock interface; `shoji-bar-4`: the binary) so that the interface can be changed or replaced with Rust code in `~/.config/shoji-bar-4/plugins/`. See [Customization](docs/customization.md). With an empty plugins directory it is the same shell.
+This is a fork that splits the project into a workspace (`shoji-core`: settings, theme and panel manager; `shoji-default`: the stock interface; `shoji-bar-4`: the binary) so that the interface can be changed or replaced with Rust code in `plugins/` at the root of the project. See [Customization](docs/customization.md). With an empty plugins directory it is the same shell.
 
 ## Documentation
 

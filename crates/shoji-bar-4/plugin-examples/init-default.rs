@@ -1,4 +1,4 @@
-//! Copy this to `~/.config/shoji-bar-4/plugins/init-default.rs` and run `cargo build --release`.
+//! Copy this to `plugins/init-default.rs` (at the root of the project) and run `cargo build --release`.
 //!
 //! It keeps the stock interface and changes it before it is put on the screen. Delete the file
 //! (and build again) to go back to the stock interface.

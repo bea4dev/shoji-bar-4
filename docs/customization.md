@@ -20,8 +20,9 @@ What the binary shows is decided when it is built, by what the plugins directory
 
 If both files exist, `init.rs` wins and the build prints a warning.
 
-The plugins directory is `$SHOJI_PLUGINS_DIR`, else `$XDG_CONFIG_HOME/shoji-bar-4/plugins`, else
-`~/.config/shoji-bar-4/plugins`. The build creates it if it does not exist.
+The plugins directory is `plugins/` at the root of the project, next to the top-level `Cargo.toml`
+(or `$SHOJI_PLUGINS_DIR`, if you set it). The build creates it if it does not exist. It is yours: the
+project does not track what you put there.
 
 Whatever the interface, `shoji-bar-4 msg ...` and `shoji-bar-4 preview ...` still work. `preview`
 always draws the stock parts.
@@ -45,7 +46,7 @@ compiled as modules of the binary, so you can split your code: `mod helpers;` in
 Your code can use `shoji_core`, `shoji_default`, `anti_webui`, `anti_webui_md3e` and `serde_json`.
 For another crate, add it to `crates/shoji-bar-4/Cargo.toml`.
 
-Examples to start from are in `crates/shoji-bar-4/plugin-examples/`.
+Examples to start from are in `crates/shoji-bar-4/plugin-examples/`; `init-default-commented.rs` changes nothing until you uncomment one of its blocks, one change at a time.
 
 ## `init-default.rs`: change the stock interface
 
