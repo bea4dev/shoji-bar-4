@@ -1,0 +1,82 @@
+# Development
+
+## AntiWebUI
+
+AntiWebUI comes from GitHub's `main`, and `Cargo.lock` pins the commit used. To move to a newer AntiWebUI:
+
+```sh
+cargo update -p anti-webui -p anti-webui-md3e
+```
+
+To work on a local AntiWebUI checkout at the same time, patch it in from an uncommitted `.cargo/config.toml` (it is in `.gitignore`):
+
+```toml
+[patch."https://github.com/bea4dev/AntiWebUI.git"]
+anti-webui = { path = "/path/to/AntiWebUI/src/anti-webui" }
+anti-webui-md3e = { path = "/path/to/AntiWebUI/src/anti-webui-md3e" }
+```
+
+The `dynamic_linking` feature links AntiWebUI dynamically, for faster rebuilds while developing.
+
+## Offscreen previews
+
+Any part of the shell can be drawn to a PNG without a compositor surface, with a simulated pointer and clicks:
+
+```sh
+shoji-bar-4 preview dock out.png --pointer 470,110
+shoji-bar-4 preview quick-settings out.png --width 460 --height 900 --scale 1 --light
+shoji-bar-4 preview workspaces out.png --ms 0 --frames 40 --every 30   # out-0.png … out-40.png
+shoji-bar-4 preview quick-settings out.png --click 1548,80 --click-frames 1 --ms 0 --frames 8 --every 40
+```
+
+- **Parts**: `bar`, `dock`, `workspaces`, `quick-settings`, `calendar`, `launcher`, `clipboard`, `media`, `power`, `lock` and `notifications`.
+  - In `lock`, the password is `shoji`, and PAM is not used.
+- **Settings**: `preview` doesn't save them.
+- **Real services**: the previews act on them.
+  - A click on a network, Bluetooth or audio row really changes it.
+  - Enter and Delete in `clipboard` act on the real cliphist and clipboard.
+- **`--click X,Y`**: a click.
+- **`--right-click X,Y`**: a right click.
+- **`--drag X1,Y1:X2,Y2`**: after the clicks, presses at the first point, moves to the second and lets go.
+- **`--key K`**: after the clicks, presses a key (`ArrowDown`, `ArrowUp`, `Enter`, `Delete`, `Escape`), or types K if it is a character. It can be given more than once.
+- **`--click-frames N`**: how many frames to run after a click (20 by default). Make it small to catch an animation a click starts from its beginning.
+
+## CPU reports
+
+When the shell keeps using CPU:
+
+```sh
+scripts/cpu-report.sh 10               # look for 10 seconds now and write a report
+scripts/cpu-report.sh watch 8 30       # stay running; write a report when CPU is over 8% twice in a row
+scripts/cpu-report.sh --sudo watch     # also record perf's time per function (only perf runs under sudo)
+```
+
+Reports are written to `~/.local/state/shoji-bar-4/reports/`. They cover:
+
+- **CPU and wakeups per thread**: a UI thread waking 60 to 120 times a second is drawing frames all the time.
+- **`msg status`**: whether a clock keeps ticking (`ticking`), and whether the UI thread answers quickly.
+- **perf**: the functions taking the time. Release builds keep function names for this.
+- **D-Bus**: whether a flood of signals is coming in.
+
+The report ends with what these suggest.
+
+## What was added to AntiWebUI for this shell
+
+All of it went in as general features, and is in AntiWebUI's `main`.
+
+- **Layer background**: `WindowOptions::background`; layers are transparent by default.
+- **md3e dynamic color**, ported from material-color-utilities:
+  - `ColorScheme::from_seed` / `from_seed_with`, with 9 variants.
+  - `seed_colors`, which takes colors from an image.
+  - `ColorScheme::lerp` and `set_color_scheme_animated`.
+- **md3e shapes**: `MaterialShape` (34 shapes), `shape` / `styled_shape` (which morph on a spring), and a public `Ink` (state layers and ripples).
+- **md3e components**:
+  - `DatePickerStyle::no_header()`.
+  - `wavy_progress_eased`: a wavy progress bar whose line moves to a new value at a speed you choose, for seek bars.
+  - Menu submenus: `MenuItem::submenu`.
+- **style**: `overflow_x_scroll()`.
+- **Image memory**:
+  - Large photos are decoded one at a time and scaled down while still RGB.
+  - What stays in glibc's heap is returned to the OS.
+  - `images::decode_bitmap` takes the pixels without showing the image.
+- **shell**: `Battery`'s `energy()`, `energy_full()`, `health()` and `charge_cycles()`.
