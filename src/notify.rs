@@ -90,7 +90,7 @@ pub fn popups(server: NotificationServer, region: Signal<InputRegion>) -> Div {
     div()
         .flex()
         .flex_col()
-        .p(14.0)
+        .p(14.0_f32)
         .select_none()
         .on_resized(move |w, h| {
             region.set(if h > 28.5 {
@@ -106,8 +106,8 @@ pub fn popups(server: NotificationServer, region: Signal<InputRegion>) -> Div {
                 |n| card(n, true).mb(10.0),
             )
             .appear()
-            .enter(|s| s.opacity(0.0).translate_x(WIDTH * 0.6).scale(0.9))
-            .exit(|s| s.opacity(0.0).translate_x(WIDTH * 0.6).scale(0.9))
+            .enter(|s| s.opacity(0.0_f32).translate_x(WIDTH * 0.6).scale(0.9_f32))
+            .exit(|s| s.opacity(0.0_f32).translate_x(WIDTH * 0.6).scale(0.9_f32))
             .moves(emphasized(380))
             .transition(overshoot(480)),
         )
@@ -137,7 +137,7 @@ fn icon_of(n: &Notification) -> Div {
                 .and_then(app_by_id)
                 .and_then(|a| app_icon(&a, 64))
         });
-    let frame = div().size(36.0).flex_none().rounded(12.0).overflow_hidden();
+    let frame = div().size(36.0).flex_none().rounded(12.0_f32).overflow_hidden();
     if let Some(picture) = n.image.clone() {
         frame.child(
             bitmap_view(move || Some(picture.clone()))
@@ -166,7 +166,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
     let gone = n.clone();
     let default = n.clone();
     let has_default = n.actions.iter().any(|(k, _)| k == "default");
-    let mut actions = div().flex().flex_row().gap(8.0).pt(4.0);
+    let mut actions = div().flex().flex_row().gap(8.0_f32).pt(4.0_f32);
     let mut any_action = false;
     for (key, label) in n.actions.clone() {
         if key == "default" {
@@ -187,9 +187,9 @@ pub fn card(n: Notification, popup: bool) -> Div {
         .w(WIDTH)
         .flex()
         .flex_col()
-        .gap(6.0)
-        .p(14.0)
-        .rounded(20.0)
+        .gap(6.0_f32)
+        .p(14.0_f32)
+        .rounded(20.0_f32)
         .overflow_hidden()
         .shadows(if popup { elevation(3) } else { Vec::new() })
         .on_hover(move |h| hovered.set(h))
@@ -212,7 +212,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
             div()
                 .flex()
                 .flex_row()
-                .gap(12.0)
+                .gap(12.0_f32)
                 .child(icon_of(&n))
                 .child(
                     div()
@@ -220,7 +220,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
                         .flex_col()
                         .flex_1()
                         .min_w(0.0)
-                        .gap(2.0)
+                        .gap(2.0_f32)
                         .child(
                             txt(TextStyle::LABEL_SMALL, move || {
                                 let ago = when.elapsed().as_secs();
@@ -236,7 +236,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
                                     format!("{app} · {ago}")
                                 }
                             })
-                            .dyn_style(move |s| s.opacity(0.75)),
+                            .dyn_style(move |s| s.opacity(0.75_f32)),
                         )
                         .child(
                             static_txt(TextStyle::TITLE_SMALL, n.summary.clone()).overflow_hidden(),
@@ -246,7 +246,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
                                 .apply(div())
                                 .max_h(48.0)
                                 .overflow_hidden()
-                                .dyn_style(move |s| s.opacity(0.85))
+                                .dyn_style(move |s| s.opacity(0.85_f32))
                                 .child(n.body_text()),
                         ),
                 )
@@ -257,7 +257,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
                             gone.dismiss();
                         })
                         .dyn_style(move |s| {
-                            s.opacity(if hovered.get() || !popup { 1.0 } else { 0.0 })
+                            s.opacity(if hovered.get() || !popup { 1.0 } else { 0.0_f32 })
                         })
                         .transition_of([Prop::Opacity], Transition::ms(150).ease_out()),
                 ),
@@ -286,15 +286,15 @@ pub fn history(order: usize) -> Div {
     settle_in(order, div())
         .flex()
         .flex_col()
-        .gap(8.0)
+        .gap(8.0_f32)
         .child(
             div()
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(8.0)
+                .gap(8.0_f32)
                 .h(28.0)
-                .px(6.0)
+                .px(6.0_f32)
                 .child(sym(icons::NOTIFICATIONS, 18.0, |c| c.primary))
                 .child(static_txt(TextStyle::TITLE_SMALL, "Notifications").flex_1())
                 .child(
@@ -313,8 +313,8 @@ pub fn history(order: usize) -> Div {
                             })
                         },
                     )
-                    .enter(|s| s.opacity(0.0).scale(0.8))
-                    .exit(|s| s.opacity(0.0).scale(0.8))
+                    .enter(|s| s.opacity(0.0_f32).scale(0.8_f32))
+                    .exit(|s| s.opacity(0.0_f32).scale(0.8_f32))
                     .transition(overshoot(320)),
                 ),
         )
@@ -333,8 +333,8 @@ pub fn history(order: usize) -> Div {
                         |n| n.id,
                         |n| card(n, false).w_full().mb(8.0),
                     )
-                    .enter(|s| s.opacity(0.0).scale(0.9))
-                    .exit(|s| s.opacity(0.0).translate_x(120.0))
+                    .enter(|s| s.opacity(0.0_f32).scale(0.9_f32))
+                    .exit(|s| s.opacity(0.0_f32).translate_x(120.0_f32))
                     .moves(emphasized(320))
                     .transition(emphasized(300)),
                 ),
@@ -356,9 +356,9 @@ pub fn history(order: usize) -> Div {
                         .flex_row()
                         .items_center()
                         .justify_center()
-                        .gap(8.0)
+                        .gap(8.0_f32)
                         .h(64.0)
-                        .rounded(22.0)
+                        .rounded(22.0_f32)
                         .dyn_style(|s| s.bg(colors().surface_container_high))
                         .child(sym(symbol, 20.0, |c| c.outline))
                         .child(
@@ -367,7 +367,7 @@ pub fn history(order: usize) -> Div {
                         )
                 },
             )
-            .enter(|s| s.opacity(0.0).scale(0.95))
+            .enter(|s| s.opacity(0.0_f32).scale(0.95_f32))
             .transition(emphasized(300)),
         )
 }

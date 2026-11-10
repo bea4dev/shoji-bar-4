@@ -353,10 +353,10 @@ pub fn panel(output: Output) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap(10.0)
+        .gap(10.0_f32)
         .h(46.0)
-        .px(16.0)
-        .rounded(23.0)
+        .px(16.0_f32)
+        .rounded(23.0_f32)
         .dyn_style(|s| s.bg(colors().surface_container_highest))
         .child(sym(icons::SEARCH, 20.0, |c| c.on_surface_variant))
         .child(
@@ -434,7 +434,7 @@ pub fn panel(output: Output) -> Div {
                 },
             )
             // Goes by closing up, those below it rising into its place.
-            .exit(|s| s.h(0.0).opacity(0.0).translate_x(-24.0))
+            .exit(|s| s.h(0.0).opacity(0.0_f32).translate_x(-24.0_f32))
             .moves(emphasized(380))
             .transition(emphasized(320)),
         );
@@ -443,9 +443,9 @@ pub fn panel(output: Output) -> Div {
         .w(WIDTH)
         .flex()
         .flex_col()
-        .gap(12.0)
-        .p(16.0)
-        .rounded(32.0)
+        .gap(12.0_f32)
+        .p(16.0_f32)
+        .rounded(32.0_f32)
         .shadows(elevation(4))
         .dyn_style(|s| {
             let c = colors();
@@ -469,8 +469,8 @@ pub fn panel(output: Output) -> Div {
                         move || nothing(query, failed),
                     )
                     .appear()
-                    .enter(|s| s.opacity(0.0).scale(0.9))
-                    .exit(|s| s.opacity(0.0))
+                    .enter(|s| s.opacity(0.0_f32).scale(0.9_f32))
+                    .exit(|s| s.opacity(0.0_f32))
                     .transition(overshoot(360)),
                 ),
         )
@@ -493,7 +493,7 @@ fn nothing(query: Signal<String>, failed: Signal<bool>) -> Div {
         .flex_col()
         .items_center()
         .justify_center()
-        .gap(8.0)
+        .gap(8.0_f32)
         .pointer_events_none()
         .child(sym(symbol, 48.0, |c| c.outline))
         .child(
@@ -515,16 +515,16 @@ fn footer(results: Memo<Vec<Entry>>, entries: Signal<Vec<Entry>>, query: Signal<
             .flex()
             .flex_row()
             .items_center()
-            .gap(6.0)
+            .gap(6.0_f32)
             .child(
                 static_txt(TextStyle::LABEL_SMALL, cap)
                     .h(20.0)
                     .min_w(20.0)
-                    .px(6.0)
+                    .px(6.0_f32)
                     .flex()
                     .items_center()
                     .justify_center()
-                    .rounded(6.0)
+                    .rounded(6.0_f32)
                     .dyn_style(|s| {
                         let c = colors();
                         s.bg(c.surface_container_highest)
@@ -540,8 +540,8 @@ fn footer(results: Memo<Vec<Entry>>, entries: Signal<Vec<Entry>>, query: Signal<
         .flex()
         .flex_row()
         .items_center()
-        .gap(14.0)
-        .px(6.0)
+        .gap(14.0_f32)
+        .px(6.0_f32)
         .child(key("↑↓", "Move"))
         .child(key("Enter", "Copy"))
         .child(key("Del", "Forget"))
@@ -624,7 +624,7 @@ fn row(
     };
     let forget_entry = entry.clone();
     let chosen_entry = entry;
-    let mut text = div().flex_1().min_w(0.0).flex().flex_col().gap(2.0).child(
+    let mut text = div().flex_1().min_w(0.0).flex().flex_col().gap(2.0_f32).child(
         title
             .transition_of([Prop::TextColor], Transition::ms(160))
             .dyn_style(chosen_text),
@@ -653,9 +653,9 @@ fn row(
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(14.0)
-                .pl(10.0)
-                .pr(8.0)
+                .gap(14.0_f32)
+                .pl(10.0_f32)
+                .pr(8.0_f32)
                 .on_hover(move |h| {
                     hovered.set(h);
                     if h && let Some(i) = untrack(|| index.get()) {
@@ -737,7 +737,7 @@ fn thumbnail(path: PathBuf, written: Signal<HashSet<u64>>, id: u64) -> Div {
         .h(PICTURE_H - 16.0)
         .flex_none()
         .relative()
-        .rounded(14.0)
+        .rounded(14.0_f32)
         .overflow_hidden()
         .dyn_style(|s| s.bg(colors().surface_container_highest))
         .child(
@@ -756,11 +756,11 @@ fn thumbnail(path: PathBuf, written: Signal<HashSet<u64>>, id: u64) -> Div {
                     img(path.clone())
                         .absolute()
                         .inset(0.0)
-                        .rounded(14.0)
+                        .rounded(14.0_f32)
                         .object_fit(ObjectFit::Cover)
                 },
             )
-            .enter(|s| s.opacity(0.0).scale(1.08))
+            .enter(|s| s.opacity(0.0_f32).scale(1.08_f32))
             .transition(emphasized(400)),
         )
 }

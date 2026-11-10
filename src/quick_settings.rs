@@ -102,14 +102,14 @@ pub fn panel(output: Output) -> Div {
                     .on_resized(move |_, h| fit(which, h))
             },
         )
-        .enter(move |s| s.opacity(0.0).translate_x(from))
-        .exit(move |s| s.opacity(0.0).translate_x(from))
+        .enter(move |s| s.opacity(0.0_f32).translate_x(from))
+        .exit(move |s| s.opacity(0.0_f32).translate_x(from))
         .transition(emphasized(380))
     };
     div()
         .w(WIDTH)
-        .p(16.0)
-        .rounded(30.0)
+        .p(16.0_f32)
+        .rounded(30.0_f32)
         // Pages going out to the side go out of sight at its edge.
         .overflow_hidden()
         .shadows(elevation(3))
@@ -142,7 +142,7 @@ fn main_page() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(12.0)
+        .gap(12.0_f32)
         .child(settle_in(0, header()))
         .child(tiles())
         .child(settle_in(4, sliders()))
@@ -158,9 +158,9 @@ pub fn section() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(10.0)
-        .p(14.0)
-        .rounded(22.0)
+        .gap(10.0_f32)
+        .p(14.0_f32)
+        .rounded(22.0_f32)
         .dyn_style(|s| s.bg(colors().surface_container_high))
 }
 
@@ -192,9 +192,9 @@ fn header() -> Div {
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(12.0)
-                .px(4.0)
-                .pt(2.0)
+                .gap(12.0_f32)
+                .px(4.0_f32)
+                .pt(2.0_f32)
                 .child(
                     // To the settings, where it can be changed.
                     crate::user::avatar(38.0)
@@ -255,8 +255,8 @@ fn header() -> Div {
                             let mut row = div()
                                 .flex()
                                 .flex_row()
-                                .gap(6.0)
-                                .pt(10.0)
+                                .gap(6.0_f32)
+                                .pt(10.0_f32)
                                 .on_resized(move |_, h| row_height.set(h));
                             for (i, (symbol, label, action)) in actions.into_iter().enumerate() {
                                 let appear = animated(0.0f32);
@@ -270,9 +270,9 @@ fn header() -> Div {
                                         .flex()
                                         .flex_col()
                                         .items_center()
-                                        .gap(3.0)
-                                        .py(8.0)
-                                        .rounded(16.0)
+                                        .gap(3.0_f32)
+                                        .py(8.0_f32)
+                                        .rounded(16.0_f32)
                                         .dyn_style(move |st| {
                                             let c = colors();
                                             let a = appear.get();
@@ -311,8 +311,8 @@ fn header() -> Div {
                             row
                         },
                     )
-                    .enter(|s| s.opacity(0.0))
-                    .exit(|s| s.opacity(0.0))
+                    .enter(|s| s.opacity(0.0_f32))
+                    .exit(|s| s.opacity(0.0_f32))
                     .transition(emphasized(300)),
                 ),
         )
@@ -423,8 +423,8 @@ fn tile(
             .flex()
             .flex_row()
             .items_center()
-            .gap(10.0)
-            .px(10.0)
+            .gap(10.0_f32)
+            .px(10.0_f32)
             .on_active(move |a| pressed.set(a))
             .on_click({
                 let click = click.clone();
@@ -449,7 +449,7 @@ fn tile(
                         c.surface_container_highest
                     })
                     .text_color(content(&c))
-                    .opacity(if available() { 1.0 } else { 0.45 })
+                    .opacity(if available() { 1.0 } else { 0.45_f32 })
             })
             .child(bubble)
             .child(
@@ -463,13 +463,13 @@ fn tile(
                     .child(
                         txt(TextStyle::LABEL_SMALL, subtitle)
                             .overflow_hidden()
-                            .dyn_style(move |s| s.opacity(0.8)),
+                            .dyn_style(move |s| s.opacity(0.8_f32)),
                     ),
             )
             .children(details.map(|_| {
                 sized_icon(icons::CHEVRON_RIGHT, 18.0)
                     .flex_none()
-                    .dyn_style(|s| s.opacity(0.7))
+                    .dyn_style(|s| s.opacity(0.7_f32))
             })),
         content,
     )
@@ -492,12 +492,12 @@ fn tiles() -> Div {
         "balanced" => "Balanced".to_owned(),
         other => other.to_owned(),
     };
-    let row = || div().flex().flex_row().gap(8.0);
+    let row = || div().flex().flex_row().gap(8.0_f32);
     let dark = move || crate::theme::is_dark();
     div()
         .flex()
         .flex_col()
-        .gap(8.0)
+        .gap(8.0_f32)
         .child(
             settle_in(1, row())
                 .child(tile(
@@ -658,7 +658,7 @@ fn sliders() -> Div {
             .flex()
             .flex_row()
             .items_center()
-            .gap(10.0)
+            .gap(10.0_f32)
             // The slider takes the pointer 48 high, but needs no more room than its handle.
             .child(icon)
             .child(slider.flex_1().min_w(0.0).my(-8.0))
@@ -676,8 +676,8 @@ fn sliders() -> Div {
         move |v| drop(s.set_brightness(v.max(0.02) as f64)),
     );
     section()
-        .py(8.0)
-        .gap(2.0)
+        .py(8.0_f32)
+        .gap(2.0_f32)
         .child(
             row(
                 pressable(
@@ -687,7 +687,7 @@ fn sliders() -> Div {
                         .items_center()
                         .justify_center()
                         .flex_none()
-                        .rounded(17.0)
+                        .rounded(17.0_f32)
                         .on_click(move |_| {
                             if let Some(sink) = a.default_sink() {
                                 drop(sink.set_muted(!sink.muted));
