@@ -1,7 +1,7 @@
 //! Picks the interface the binary is built with, from the plugins directory.
 //!
-//! The plugins directory is `$SHOJI_PLUGINS_DIR`, else `$XDG_CONFIG_HOME/shoji-bar-4/plugins`,
-//! else `~/.config/shoji-bar-4/plugins`. In it:
+//! The plugins directory is `plugins/` at the root of the project (next to the top-level
+//! `Cargo.toml`), or `$SHOJI_PLUGINS_DIR` when that is set. In it:
 //!
 //! - `init.rs` with `pub fn init()` replaces the stock interface: `init` runs as the root of the
 //!   shell and puts on the screen whatever it wants.
@@ -21,11 +21,13 @@ fn plugins_dir() -> PathBuf {
     if let Some(dir) = env::var_os("SHOJI_PLUGINS_DIR") {
         return PathBuf::from(dir);
     }
-    let config = env::var_os("XDG_CONFIG_HOME")
-        .map(PathBuf::from)
-        .or_else(|| env::var_os("HOME").map(|h| PathBuf::from(h).join(".config")))
-        .expect("neither SHOJI_PLUGINS_DIR, XDG_CONFIG_HOME nor HOME is set");
-    config.join("shoji-bar-4").join("plugins")
+    // This crate is at <root>/crates/shoji-bar-4.
+    let manifest = PathBuf::from(env::var_os("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR"));
+    manifest
+        .parent()
+        .and_then(Path::parent)
+        .expect("the crate is two levels below the project root")
+        .join("plugins")
 }
 
 fn module(name: &str, file: &Path) -> String {
@@ -35,7 +37,6 @@ fn module(name: &str, file: &Path) -> String {
 
 fn main() {
     println!("cargo:rerun-if-env-changed=SHOJI_PLUGINS_DIR");
-    println!("cargo:rerun-if-env-changed=XDG_CONFIG_HOME");
     println!("cargo:rerun-if-changed=build.rs");
 
     let dir = plugins_dir();
