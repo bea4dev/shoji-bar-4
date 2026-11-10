@@ -43,7 +43,8 @@ The icon under the pointer lifts a little and shows its name.
 ## Calendar
 
 - A large clock that rolls down to the seconds.
-- The month's calendar.
+- The month, from Monday, six weeks of it, with the days of the months around it faint. Today stands on a cookie that turns under the pointer.
+  - ‹ and ›, or the mouse wheel, go through the months, which slide over; the month's name goes back to this one.
 - Wavy rings for CPU, memory and temperature.
 
 ## Launcher
