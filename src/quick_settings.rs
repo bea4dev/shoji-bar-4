@@ -4,6 +4,7 @@
 //! settings of the shell (`qs_settings`).
 
 use crate::bar::wifi_icon;
+use crate::power_dialog::Ask;
 use crate::settings::{ThemeMode, settings};
 use crate::theme::{TextStyle, colors, elevation};
 use crate::ui::*;
@@ -240,16 +241,21 @@ fn header() -> Div {
                         move || power_open.get(),
                         move || {
                             let s = session();
-                            let actions: [(&'static Symbol, &str, Power); 4] = [
+                            let actions: [(&'static Symbol, &str, Power); 5] = [
                                 (icons::LOCK, "Lock", Power::Lock),
                                 (icons::BEDTIME, "Sleep", Power::Sleep),
-                                (icons::RESTART_ALT, "Restart", Power::Restart),
-                                (icons::POWER_SETTINGS_NEW, "Shut down", Power::Off),
+                                (icons::LOGOUT, "Log out", Power::Ask(Ask::LogOut)),
+                                (icons::RESTART_ALT, "Restart", Power::Ask(Ask::Restart)),
+                                (
+                                    icons::POWER_SETTINGS_NEW,
+                                    "Shut down",
+                                    Power::Ask(Ask::PowerOff),
+                                ),
                             ];
                             let mut row = div()
                                 .flex()
                                 .flex_row()
-                                .gap(8.0)
+                                .gap(6.0)
                                 .pt(10.0)
                                 .on_resized(move |_, h| row_height.set(h));
                             for (i, (symbol, label, action)) in actions.into_iter().enumerate() {
@@ -270,8 +276,7 @@ fn header() -> Div {
                                         .dyn_style(move |st| {
                                             let c = colors();
                                             let a = appear.get();
-                                            let danger =
-                                                matches!(action, Power::Off | Power::Restart);
+                                            let danger = matches!(action, Power::Ask(_));
                                             st.bg(if danger {
                                                 c.error_container
                                             } else {
@@ -285,25 +290,18 @@ fn header() -> Div {
                                             .opacity(a.clamp(0.0, 1.0))
                                             .scale(0.6 + 0.4 * a)
                                         })
-                                        .on_click(move |_| {
-                                            match action {
-                                                Power::Lock | Power::Sleep => {
-                                                    crate::panels::close()
-                                                }
-                                                // In place of this panel.
-                                                Power::Restart | Power::Off => {}
+                                        .on_click(move |_| match action {
+                                            Power::Lock => {
+                                                crate::panels::close();
+                                                crate::lock::lock();
                                             }
-                                            match action {
-                                                Power::Lock => crate::lock::lock(),
-                                                Power::Sleep => drop(s.suspend()),
-                                                // Asked about first, in a dialog of its own.
-                                                Power::Restart => crate::power_dialog::ask(
-                                                    crate::power_dialog::Ask::Restart,
-                                                ),
-                                                Power::Off => crate::power_dialog::ask(
-                                                    crate::power_dialog::Ask::PowerOff,
-                                                ),
+                                            Power::Sleep => {
+                                                crate::panels::close();
+                                                drop(s.suspend());
                                             }
+                                            // Asked about first, in a dialog in place of this
+                                            // panel.
+                                            Power::Ask(what) => crate::power_dialog::ask(what),
                                         })
                                         .child(sized_icon(symbol, 18.0))
                                         .child(static_txt(TextStyle::LABEL_MEDIUM, label)),
@@ -324,8 +322,8 @@ fn header() -> Div {
 enum Power {
     Lock,
     Sleep,
-    Restart,
-    Off,
+    /// Log out, restart or shut down, which ask first.
+    Ask(Ask),
 }
 
 /// The power button: it turns into a close button while the actions are shown.

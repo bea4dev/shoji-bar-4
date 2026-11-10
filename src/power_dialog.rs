@@ -1,4 +1,4 @@
-//! Asking before restarting or shutting down: a dialog in the middle of the output, over a veil
+//! Asking before logging out, restarting or shutting down: a dialog in the middle of the output, over a veil
 //! like the launcher's. Its icon sits on a shape that spins in as it opens and turns into a sun
 //! while the pointer is on the button that does it. Escape, Cancel and a click outside it keep
 //! everything as it is.
@@ -15,6 +15,8 @@ use std::cell::Cell;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum Ask {
+    /// Ends the session: quits ShojiWM, as Super+Shift+Q does.
+    LogOut,
     Restart,
     PowerOff,
 }
@@ -22,6 +24,7 @@ pub enum Ask {
 impl Ask {
     fn icon(self) -> &'static Symbol {
         match self {
+            Ask::LogOut => icons::LOGOUT,
             Ask::Restart => icons::RESTART_ALT,
             Ask::PowerOff => icons::POWER_SETTINGS_NEW,
         }
@@ -29,6 +32,7 @@ impl Ask {
 
     fn title(self) -> &'static str {
         match self {
+            Ask::LogOut => "Log out?",
             Ask::Restart => "Restart?",
             Ask::PowerOff => "Shut down?",
         }
@@ -36,6 +40,7 @@ impl Ask {
 
     fn text(self) -> &'static str {
         match self {
+            Ask::LogOut => "Open apps will be closed and the session will end.",
             Ask::Restart => "Open apps will be closed and the computer will start again.",
             Ask::PowerOff => "Open apps will be closed and the computer will turn off.",
         }
@@ -43,6 +48,7 @@ impl Ask {
 
     fn action(self) -> &'static str {
         match self {
+            Ask::LogOut => "Log out",
             Ask::Restart => "Restart",
             Ask::PowerOff => "Shut down",
         }
@@ -181,6 +187,7 @@ fn action_button(what: Ask, hovered: Signal<bool>) -> Div {
                 crate::panels::close();
                 let s = session();
                 match what {
+                    Ask::LogOut => log_out(),
                     Ask::Restart => drop(s.reboot()),
                     Ask::PowerOff => drop(s.power_off()),
                 }
@@ -188,4 +195,14 @@ fn action_button(what: Ask, hovered: Signal<bool>) -> Div {
             .child(static_txt(TextStyle::LABEL_LARGE, what.action())),
         |c| c.on_error,
     )
+}
+
+/// Quits the compositor this shell runs in, which ends the session; the socket comes from the
+/// environment ShojiWM started the shell with.
+fn log_out() {
+    match std::process::Command::new("shoji_wm").arg("--quit").spawn() {
+        // Waited for, so that it is not left behind if the compositor stays.
+        Ok(mut child) => drop(std::thread::spawn(move || child.wait())),
+        Err(e) => eprintln!("shoji-bar-4: couldn't log out: {e}"),
+    }
 }
