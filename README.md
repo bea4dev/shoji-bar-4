@@ -22,6 +22,13 @@
   - スタイルと色：壁紙、種の色、配色のバリアント、ライト／自動／ダーク。
 - **カレンダー**：秒まで転がる大きな時計、月のカレンダー、CPU・メモリ・温度の波打つリング。
 - **ランチャー**：画面の真ん中に出ます。検索に合わせて、グリッドが FLIP で並び替わります。開くときは順番に現れます。矢印キー、Enter、Esc で操作できます。
+- **クリップボードの履歴**：cliphist が覚えているものを、新しい順に画面の真ん中に出します。
+  - 文字はアイコン（文・リンク・パス）と最初の 2 行、画像は小さな絵と大きさで表示します。
+  - 検索で絞り込めます。画像は `png` や `image` で探せます。
+  - ↑↓（PageUp／PageDown）で選ぶと、下のハイライトが伸び縮みしながら移り、リストもそこまでばねでスクロールします。
+  - Enter かクリックで、もう一度クリップボードに入れて閉じます。Delete（検索中は Shift+Delete）か × で忘れさせると、その行が閉じて下の行が上がってきます。
+  - 開くときは、行が順番に落ちてきます。
+  - cliphist に `wl-paste --watch cliphist store` で記録させておく必要があります（`~/.config/shojiwm-md3e` は起動します）。
 - **通知**：通知デーモンになれたときだけ動きます。
   - 右上のカードが、ばねでスライドして入ってきます。
   - クイック設定に履歴が残ります。
@@ -52,6 +59,7 @@ AntiWebUI は `../../Documents/development/AntiWebUI` をパスで参照して�
 shoji-bar-4 msg toggle launcher [OUTPUT]       # OUTPUT を省くと、フォーカスのあるウィンドウの画面
 shoji-bar-4 msg toggle quick-settings [OUTPUT]
 shoji-bar-4 msg toggle calendar [OUTPUT]
+shoji-bar-4 msg toggle clipboard [OUTPUT]
 shoji-bar-4 msg close
 shoji-bar-4 msg theme dark|light|auto|toggle
 shoji-bar-4 msg status                         # 開いているパネル、動いている時計の数など
@@ -82,7 +90,7 @@ COMPOSITOR.key.bind("launcher", "Super+A", toggleLauncher);
 - そこに配色を `theme.set` で送ります（`src/wm.rs`）。
 - `theme.set` を知らない設定では、何も起きません。
 
-レイヤーの名前空間は `shoji-bar-4-bar`、`-dock`、`-quick-settings`、`-calendar`、`-launcher`、`-notifications`、`-osd`、`-wallpaper` です。ShojiWM のレイヤーエフェクト（ぼかしなど）を当てるときに使えます。
+レイヤーの名前空間は `shoji-bar-4-bar`、`-dock`、`-quick-settings`、`-calendar`、`-launcher`、`-clipboard`、`-notifications`、`-osd`、`-wallpaper` です。ShojiWM のレイヤーエフェクト（ぼかしなど）を当てるときに使えます。
 
 ## 設定
 
@@ -128,9 +136,11 @@ shoji-bar-4 preview workspaces out.png --ms 0 --frames 40 --every 30   # out-0.p
 shoji-bar-4 preview quick-settings out.png --click 1548,80 --click-frames 1 --ms 0 --frames 8 --every 40
 ```
 
+`--key K` は、クリックのあとにキーを押します（`ArrowDown`、`ArrowUp`、`Enter`、`Delete`、`Escape`、またはその文字を入力）。何度でも書けます。`clipboard` での Enter と Delete は、本物の cliphist とクリップボードに効きます。
+
 `--click-frames` は、クリックのあとに進めるフレーム数です（既定 20）。クリックで始まる動きを、最初から撮るときに小さくします。
 
-対象は `bar`、`dock`、`workspaces`、`quick-settings`、`calendar`、`launcher`、`notifications` です。`preview` は設定を保存しません。
+対象は `bar`、`dock`、`workspaces`、`quick-settings`、`calendar`、`launcher`、`clipboard`、`notifications` です。`preview` は設定を保存しません。
 
 ## AntiWebUI に足したもの
 

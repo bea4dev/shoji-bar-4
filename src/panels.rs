@@ -1,4 +1,5 @@
-//! The panels that open over the desktop: quick settings, the calendar and the launcher. At most
+//! The panels that open over the desktop: quick settings, the calendar, the launcher and the
+//! clipboard's history. At most
 //! one is open on an output. Each is a layer over all of the output that is there from when the
 //! panel starts to open until it has finished closing; a click outside the panel closes it.
 
@@ -12,21 +13,33 @@ pub enum Panel {
     QuickSettings,
     Calendar,
     Launcher,
+    Clipboard,
 }
 
 impl Panel {
-    const ALL: [Panel; 3] = [Self::QuickSettings, Self::Calendar, Self::Launcher];
+    const ALL: [Panel; 4] = [
+        Self::QuickSettings,
+        Self::Calendar,
+        Self::Launcher,
+        Self::Clipboard,
+    ];
 
     fn name(self) -> &'static str {
         match self {
             Self::QuickSettings => "quick-settings",
             Self::Calendar => "calendar",
             Self::Launcher => "launcher",
+            Self::Clipboard => "clipboard",
         }
     }
 
     pub fn from_name(name: &str) -> Option<Self> {
         Self::ALL.into_iter().find(|p| p.name() == name)
+    }
+
+    /// Whether it gives the focus to a field of its own as it opens.
+    fn has_field(self) -> bool {
+        matches!(self, Self::Launcher | Self::Clipboard)
     }
 }
 
@@ -156,6 +169,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         Panel::QuickSettings => crate::quick_settings::panel(output.clone()),
         Panel::Calendar => crate::calendar::panel(),
         Panel::Launcher => crate::launcher::panel(output.clone()),
+        Panel::Clipboard => crate::clipboard::panel(output.clone()),
     };
     let (place, enter): (Place, Enter) = match panel {
         Panel::QuickSettings => (
@@ -167,15 +181,16 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             from_above,
         ),
         // In the middle of the output, coming up a little as it grows.
-        Panel::Launcher => (
+        Panel::Launcher | Panel::Clipboard => (
             |d| d.items_center().justify_center(),
             |s| s.opacity(0.0).scale(0.8).translate_y(40.0),
         ),
     };
     // Keys go to what has the focus, and with nothing focused not to here but to what holds it: the
-    // panel takes the focus as it opens, for Escape. The launcher gives it to its search instead.
+    // panel takes the focus as it opens, for Escape. The launcher and the clipboard give it to their
+    // search instead.
     let focus = node_ref();
-    if panel != Panel::Launcher {
+    if !panel.has_field() {
         request_frame(move |_| focus.focus());
     }
     let root = div()
@@ -204,8 +219,8 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             }
         }));
     let mut root = place(root);
-    if panel == Panel::Launcher {
-        // A veil over the desktop, so that the launcher stands out.
+    if panel.has_field() {
+        // A veil over the desktop, so that the panel in the middle stands out.
         root = root.child(
             show(
                 move || wanted.get(),

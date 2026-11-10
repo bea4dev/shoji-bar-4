@@ -5,6 +5,7 @@
 //! shoji-bar-4 msg toggle launcher [OUTPUT]
 //! shoji-bar-4 msg toggle quick-settings [OUTPUT]
 //! shoji-bar-4 msg toggle calendar [OUTPUT]
+//! shoji-bar-4 msg toggle clipboard [OUTPUT]
 //! shoji-bar-4 msg close
 //! shoji-bar-4 msg theme dark|light|auto|toggle
 //! shoji-bar-4 msg quit

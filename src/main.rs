@@ -3,6 +3,7 @@
 mod appinfo;
 mod bar;
 mod calendar;
+mod clipboard;
 mod dock;
 mod ipc;
 mod launcher;

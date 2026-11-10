@@ -2,7 +2,7 @@
 //! working on them:
 //!
 //! `shoji-bar-4 preview <part> <out.png> [--width W] [--height H] [--scale S] [--light]
-//!  [--pointer X,Y] [--click X,Y] [--escape] [--late] [--ms N]`
+//!  [--pointer X,Y] [--click X,Y] [--escape] [--key K] [--late] [--ms N]`
 //!
 //! The pointer and clicks are in logical pixels, and `--escape` presses Escape after the clicks;
 //! `--late` opens a panel a second and a half after the start, for pictures of it coming in; `--ms`
@@ -37,7 +37,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let (default_w, default_h) = match part.as_str() {
         "bar" => (1600.0, crate::bar::HEIGHT as f32),
         "dock" => (900.0, 136.0),
-        "launcher" | "quick-settings" | "calendar" => (1600.0, 1000.0),
+        "launcher" | "quick-settings" | "calendar" | "clipboard" => (1600.0, 1000.0),
         _ => (800.0, 600.0),
     };
     let lw: f32 = opt("--width")
@@ -64,7 +64,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let frames: u32 = opt("--frames").and_then(|s| s.parse().ok()).unwrap_or(0);
     let every: u64 = opt("--every").and_then(|s| s.parse().ok()).unwrap_or(50);
     // `--click-frames N`: how many frames to step after each click (to catch what it starts).
-    let click_frames: u64 = opt("--click-frames").and_then(|s| s.parse().ok()).unwrap_or(20);
+    let click_frames: u64 = opt("--click-frames")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(20);
 
     let gpu = Gpu::headless()?;
     let mut renderer = Renderer::new(
@@ -123,7 +125,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 None => div().child("not the notification daemon"),
             },
             "dock" => crate::dock::view(output, signal(InputRegion::Full)),
-            "launcher" | "quick-settings" | "calendar" => {
+            "launcher" | "quick-settings" | "calendar" | "clipboard" => {
                 let panel = crate::panels::Panel::from_name(&part).unwrap();
                 crate::panels::view(output, panel)
             }
@@ -191,6 +193,32 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             }));
         }
         step(&mut ui, &mut now, 20);
+    }
+    // `--key K`, any number of times, after the clicks: ArrowDown, ArrowUp, Enter, Delete, Escape,
+    // or a character to type.
+    for (i, _) in args.iter().enumerate().filter(|(_, a)| *a == "--key") {
+        use anti_webui::core::event::{Key, KeyEvent, NamedKey};
+        let Some(name) = args.get(i + 1) else {
+            continue;
+        };
+        let (key, text) = match name.as_str() {
+            "ArrowDown" => (Key::Named(NamedKey::ArrowDown), None),
+            "ArrowUp" => (Key::Named(NamedKey::ArrowUp), None),
+            "Enter" => (Key::Named(NamedKey::Enter), None),
+            "Delete" => (Key::Named(NamedKey::Delete), None),
+            "Escape" => (Key::Named(NamedKey::Escape), None),
+            other => (Key::Character(other.into()), Some(other.to_owned())),
+        };
+        for pressed in [true, false] {
+            ui.handle_event(WindowEvent::Key(KeyEvent {
+                key: key.clone(),
+                text: text.clone().filter(|_| pressed),
+                modifiers: m,
+                pressed,
+                repeat: false,
+            }));
+        }
+        step(&mut ui, &mut now, 4);
     }
     if let Some(p) = pointer {
         ui.handle_event(WindowEvent::PointerMoved {
