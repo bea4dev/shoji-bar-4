@@ -114,7 +114,7 @@ report() {
         echo
         echo "pid $pid, 起動から $(ps -o etime= -p "$pid" | tr -d ' ')、調べた時間 ${secs} 秒"
         echo "shoji-bar-4 $(git -C "$here" rev-parse --short HEAD 2>/dev/null)$(git -C "$here" diff --quiet 2>/dev/null || echo ' (変更あり)')"
-        echo "AntiWebUI   $(git -C "$here/../../Documents/development/AntiWebUI" rev-parse --abbrev-ref HEAD 2>/dev/null) $(git -C "$here/../../Documents/development/AntiWebUI" rev-parse --short HEAD 2>/dev/null)"
+        echo "AntiWebUI   $(grep -m1 -o 'AntiWebUI.git?branch=main#[0-9a-f]\{7\}' "$here/Cargo.lock" 2>/dev/null | sed 's/.*#/main /')"
         echo "$(uname -sr)"
         echo
         echo "## 全体"

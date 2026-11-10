@@ -69,7 +69,19 @@ cargo build --release
 ./target/release/shoji-bar-4
 ```
 
-AntiWebUI は `../../Documents/development/AntiWebUI` をパスで参照しています。
+AntiWebUI は GitHub の `main` を参照していて、使うコミットは `Cargo.lock` で固定されています。新しい AntiWebUI に上げるときは:
+
+```sh
+cargo update -p anti-webui -p anti-webui-md3e
+```
+
+手元の AntiWebUI を直しながら試すときは、コミットしない `.cargo/config.toml` で差し替えられます（`.gitignore` 済み）。
+
+```toml
+[patch."https://github.com/bea4dev/AntiWebUI.git"]
+anti-webui = { path = "/path/to/AntiWebUI/src/anti-webui" }
+anti-webui-md3e = { path = "/path/to/AntiWebUI/src/anti-webui-md3e" }
+```
 
 ## コマンド
 

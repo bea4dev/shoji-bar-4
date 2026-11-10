@@ -39,6 +39,7 @@ dependencies = [
 [[package]]
 name = "anti-webui"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-dylib",
  "anti-webui-internal",
@@ -47,11 +48,15 @@ dependencies = [
 [[package]]
 name = "anti-webui-app"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-core",
+ "anti-webui-macos",
  "anti-webui-wayland",
  "anti-webui-wgpu",
+ "anti-webui-windows",
  "anti-webui-x11",
+ "libc",
  "log",
  "png",
  "raw-window-handle",
@@ -60,6 +65,7 @@ dependencies = [
 [[package]]
 name = "anti-webui-core"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-style",
  "icu_properties",
@@ -80,6 +86,7 @@ dependencies = [
 [[package]]
 name = "anti-webui-dylib"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-internal",
 ]
@@ -87,6 +94,7 @@ dependencies = [
 [[package]]
 name = "anti-webui-internal"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-app",
  "anti-webui-core",
@@ -98,8 +106,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "anti-webui-macos"
+version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
+dependencies = [
+ "anti-webui-core",
+ "dispatch2",
+ "libc",
+ "objc2",
+ "objc2-app-kit",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "objc2-io-surface",
+ "objc2-quartz-core",
+ "raw-window-handle",
+]
+
+[[package]]
 name = "anti-webui-macros"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -109,6 +135,7 @@ dependencies = [
 [[package]]
 name = "anti-webui-md3e"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui",
  "anti-webui-symbols-outlined",
@@ -117,14 +144,17 @@ dependencies = [
 [[package]]
 name = "anti-webui-style"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 
 [[package]]
 name = "anti-webui-symbols-outlined"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 
 [[package]]
 name = "anti-webui-wayland"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-core",
  "raw-window-handle",
@@ -139,6 +169,7 @@ dependencies = [
 [[package]]
 name = "anti-webui-wayland-shell"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-app",
  "anti-webui-core",
@@ -162,6 +193,7 @@ dependencies = [
 [[package]]
 name = "anti-webui-wgpu"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-core",
  "ash",
@@ -171,6 +203,10 @@ dependencies = [
  "libloading",
  "log",
  "naga",
+ "objc2",
+ "objc2-core-foundation",
+ "objc2-io-surface",
+ "objc2-metal",
  "pollster",
  "raw-window-handle",
  "swash",
@@ -180,13 +216,26 @@ dependencies = [
 [[package]]
 name = "anti-webui-widgets"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-core",
 ]
 
 [[package]]
+name = "anti-webui-windows"
+version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
+dependencies = [
+ "anti-webui-core",
+ "raw-window-handle",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
 name = "anti-webui-x11"
 version = "0.1.0"
+source = "git+https://github.com/bea4dev/AntiWebUI.git?branch=main#f2fd04c2f16006c3e8aa95047a506d9cd3db3970"
 dependencies = [
  "anti-webui-core",
  "log",
@@ -1398,6 +1447,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "objc2-app-kit"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d49e936b501e5c5bf01fda3a9452ff86dc3ea98ad5f283e1455153142d97518c"
+dependencies = [
+ "bitflags",
+ "objc2",
+ "objc2-core-foundation",
+ "objc2-foundation",
+ "objc2-quartz-core",
+]
+
+[[package]]
 name = "objc2-core-foundation"
 version = "0.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1454,6 +1516,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "180788110936d59bab6bd83b6060ffdfffb3b922ba1396b312ae795e1de9d81d"
 dependencies = [
  "bitflags",
+ "libc",
  "objc2",
  "objc2-core-foundation",
 ]
@@ -1468,6 +1531,7 @@ dependencies = [
  "block2",
  "objc2",
  "objc2-foundation",
+ "objc2-io-surface",
 ]
 
 [[package]]
