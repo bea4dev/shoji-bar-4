@@ -39,7 +39,7 @@
   - ↑↓（PageUp／PageDown）で選ぶと、下のハイライトが伸び縮みしながら移り、リストもそこまでばねでスクロールします。
   - Enter かクリックで、もう一度クリップボードに入れて閉じます。Delete（検索中は Shift+Delete）か × で忘れさせると、その行が閉じて下の行が上がってきます。
   - 開くときは、行が順番に落ちてきます。
-  - cliphist に `wl-paste --watch cliphist store` で記録させておく必要があります（`~/.config/shojiwm-md3e` は起動します）。
+  - cliphist に `wl-paste --watch cliphist store` で記録させておく必要があります（`~/.config/shojiwm` は起動します）。
 - **ロック画面**：すべての画面を `ext-session-lock` で覆います。
   - 壁紙にベールをかけ、転がる大きな時計と日付、ユーザーの絵と名前、パスワードの欄を出します。開くときは順番に入ってきます。
   - パスワードは打つたびに Material の形（クッキー、クローバー、花…）が弾んで並びます。Enter で確かめる間は、形がローディングインジケーターに変わります。
@@ -118,7 +118,7 @@ function toggleLauncher() {
 COMPOSITOR.key.bind("launcher", "Super+A", toggleLauncher);
 ```
 
-[`~/.config/shojiwm-md3e`](../shojiwm-md3e) は、これを済ませた ShojiWM の設定です。この設定では、ウィンドウの枠もシェルと同じ配色になります。
+[`~/.config/shojiwm`](../shojiwm) は、これを済ませた ShojiWM の設定です。この設定では、ウィンドウの枠もシェルと同じ配色になります。
 
 - shoji-bar-4 は、ShojiWM の IPC ソケット（`$XDG_RUNTIME_DIR/shojiwm-$WAYLAND_DISPLAY.sock`）につながったままにします。
 - そこに配色を `theme.set` で送ります（`src/wm.rs`）。

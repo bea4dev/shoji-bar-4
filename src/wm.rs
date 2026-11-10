@@ -1,5 +1,5 @@
 //! Tells ShojiWM the color scheme, so that the window frames of a config that wants it
-//! (`~/.config/shojiwm-md3e`) are drawn in the same colors as the shell.
+//! (`~/.config/shojiwm`) are drawn in the same colors as the shell.
 //!
 //! It goes over the config's IPC socket (`$XDG_RUNTIME_DIR/shojiwm-$WAYLAND_DISPLAY.sock`) as
 //! `{"method":"theme.set","params":{...}}`, the roles named as in Material 3 (`primary`,
