@@ -54,6 +54,7 @@ pub fn run() {
             notify::open_popups();
             osd::install();
             lock::install();
+            panels::register_stock();
             for_each_output(|output| {
                 bar::open(output.clone());
                 dock::open(output.clone());
