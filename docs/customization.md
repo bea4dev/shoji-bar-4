@@ -18,7 +18,7 @@ What the binary shows is decided when it is built, by what the plugins directory
 | `init-default.rs` | the stock interface, changed by your `patch` function |
 | `init.rs` | only what your `init` function puts on the screen |
 
-If both files exist, `init.rs` wins and the build prints a warning.
+If both files exist, `init.rs` wins and the build prints a warning. A file only counts if it defines its function (`init` or `patch`) outside of comments, so commenting a plugin out entirely brings back the stock interface (with a warning).
 
 The plugins directory is `plugins/` at the root of the project, next to the top-level `Cargo.toml`
 (or `$SHOJI_PLUGINS_DIR`, if you set it). The build creates it if it does not exist. It is yours: the
