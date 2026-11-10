@@ -60,7 +60,11 @@ type Check = fn(&str, String) -> Result<(), Refused>;
 thread_local! {
     static LOCK: RefCell<Option<(SessionLock, Owner)>> = const { RefCell::new(None) };
     static CHECK: Cell<Check> = const { Cell::new(authenticate) };
+    /// Where PAM's answers come. Made once, by `install`, outside every window: one made while a
+    /// panel's button is handled would answer into the panel, which is gone by then.
     static ANSWER: RefCell<Option<UiSender<Result<(), Refused>>>> = const { RefCell::new(None) };
+    /// What the lock screens of the lock there is show.
+    static CURRENT: Cell<Option<State>> = const { Cell::new(None) };
 }
 
 /// Whether it is locked, or locking.
@@ -74,12 +78,8 @@ pub fn lock() {
         return;
     }
     crate::panels::close();
-    let (state, owner) = create_root(|| {
-        let state = State::new();
-        let to_ui = ui_channel(move |result| state.answered(result));
-        ANSWER.with(|a| *a.borrow_mut() = Some(to_ui));
-        state
-    });
+    let (state, owner) = create_root(State::new);
+    CURRENT.with(|c| c.set(Some(state)));
     let session = lock_session(move |output| screen(output, state));
     LOCK.with(|l| *l.borrow_mut() = Some((session.clone(), owner)));
     // The compositor won't lock, as when something else has: nothing to keep.
@@ -97,13 +97,24 @@ pub fn lock() {
 fn finish() {
     if let Some((session, owner)) = LOCK.with(|l| l.borrow_mut().take()) {
         session.unlock();
-        ANSWER.with(|a| a.borrow_mut().take());
+        CURRENT.with(|c| c.set(None));
         owner.dispose();
     }
 }
 
+/// Makes where PAM's answers come, handing each to the lock there is.
+fn answers() {
+    let to_ui = ui_channel(|result: Result<(), Refused>| {
+        if let Some(state) = CURRENT.with(Cell::get) {
+            state.answered(result)
+        }
+    });
+    ANSWER.with(|a| *a.borrow_mut() = Some(to_ui));
+}
+
 /// Locks when logind asks and before the computer sleeps. Call once, from the root.
 pub fn install() {
+    answers();
     let s = session();
     s.on_lock(lock);
     s.on_prepare_for_sleep(|going| {
@@ -128,8 +139,8 @@ pub fn view(output: Output) -> Div {
         })
     });
     let state = State::new();
-    let to_ui = ui_channel(move |result| state.answered(result));
-    ANSWER.with(|a| *a.borrow_mut() = Some(to_ui));
+    CURRENT.with(|c| c.set(Some(state)));
+    answers();
     screen(output, state)
 }
 
