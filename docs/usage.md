@@ -65,5 +65,6 @@ Settings are kept in `$XDG_STATE_HOME/shoji-bar-4/settings.json` (usually `~/.lo
 | `wallpaper` | The wallpaper's path (`null` draws none) |
 | `pinned` | Desktop IDs of the apps pinned to the dock |
 | `clock_24h` / `clock_seconds` | How the clock is shown |
+| `ui_scale` | Size of the whole interface: `1.0` normal, `0.85` smaller (`0.5` to `2.0`). Read at start-up; needs the patched AntiWebUI, see [UI zoom](development.md#ui-zoom) |
 
 Wallpapers to choose from are read from `~/Pictures/wallpapers`.

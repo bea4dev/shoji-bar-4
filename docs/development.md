@@ -1,5 +1,15 @@
 # Development
 
+## Layout
+
+A cargo workspace of three crates:
+
+- `crates/shoji-core`: what every interface needs: settings, the Material theme, UI helpers, the ShojiWM link, PAM, the panel manager (`panels`) and starting the shell (`runtime`).
+- `crates/shoji-default`: the stock interface (bar, dock, panels, lock screen, notifications, OSD), as public modules, plus `Ui`, which describes it as data, and the entry points `run`, `run_with` and `run_custom`.
+- `crates/shoji-bar-4`: the binary. Its `build.rs` picks the interface from the plugins directory; see [Customization](customization.md).
+
+`cargo build --release` builds the binary; `cargo build --profile fast` builds it without LTO for quick rebuilds while working.
+
 ## AntiWebUI
 
 AntiWebUI comes from GitHub's `main`, and `Cargo.lock` pins the commit used. To move to a newer AntiWebUI:
@@ -17,6 +27,10 @@ anti-webui-md3e = { path = "/path/to/AntiWebUI/src/anti-webui-md3e" }
 ```
 
 The `dynamic_linking` feature links AntiWebUI dynamically, for faster rebuilds while developing.
+
+## UI zoom
+
+The `ui_scale` setting needs a small patch to AntiWebUI, in `patches/antiwebui-ui-zoom.patch`. It makes the layer-shell windows lay out and draw at a factor of the compositor's scale, which AntiWebUI has no setting for. `scripts/apply-antiwebui-patch.sh` copies the AntiWebUI revision `Cargo.lock` pins, applies the patch and writes `.cargo/config.toml` to use the copy (the same file as above, so it replaces a local-checkout patch). Cargo then rewrites `Cargo.lock` for that machine: do not commit that change. Without the patch the shell builds and runs, and `ui_scale` does nothing.
 
 ## Offscreen previews
 
