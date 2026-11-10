@@ -10,7 +10,8 @@ use crate::theme::{TextStyle, colors};
 use crate::ui::*;
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
-use anti_webui::shell::{BatteryState, Connectivity};
+use anti_webui::shell::{BatteryState, Connectivity, MenuToggle, TrayMenuItem};
+use anti_webui_md3e::components::{MenuItem, MenuStyle, menu_item, styled_menu};
 use anti_webui_md3e::icons;
 use anti_webui_md3e::motion::{fast_spatial, slow_spatial};
 use std::cell::Cell;
@@ -633,6 +634,60 @@ fn tray_icon(item: TrayItem) -> Div {
             .child(tray_menu(&item, open)),
         |c| c.on_surface,
     )
+}
+
+/// The item's menu, in the theme's menus: the separators part it into groups. It follows the item's
+/// menu as that changes.
+fn tray_menu(item: &TrayItem, open: Signal<bool>) -> View {
+    let item = item.clone();
+    effect({
+        let item = item.clone();
+        move || {
+            if open.get() {
+                // Programs fill some menus only when told they are about to be shown.
+                let _ = item.menu_about_to_show(0);
+            }
+        }
+    });
+    dyn_view(move || {
+        styled_menu(
+            move || open.get(),
+            move || open.set(false),
+            tray_groups(&item, &item.menu()),
+            MenuStyle::new().placement(Placement::BelowCenter),
+        )
+    })
+}
+
+fn tray_groups(item: &TrayItem, list: &[TrayMenuItem]) -> Vec<Vec<MenuItem>> {
+    let mut groups = vec![Vec::new()];
+    for m in list.iter().filter(|m| m.visible) {
+        if m.separator {
+            groups.push(Vec::new());
+            continue;
+        }
+        let mut row = menu_item(m.label.clone());
+        if !m.children.is_empty() {
+            row = row.submenu(tray_groups(item, &m.children));
+        } else {
+            if let Some(MenuToggle::Check(on) | MenuToggle::Radio(on)) = m.toggle {
+                row = row.selected_when(move || on);
+            }
+            let (item, id) = (item.clone(), m.id);
+            row = row.on_click(move || {
+                let _ = item.menu_clicked(id);
+            });
+        }
+        if !m.enabled {
+            row = row.disabled_when(|| true);
+        }
+        if let Some(keys) = &m.shortcut {
+            row = row.trailing(keys.clone());
+        }
+        groups.last_mut().expect("never empty").push(row);
+    }
+    groups.retain(|g| !g.is_empty());
+    groups
 }
 
 /// The size of the words in the bar: smaller than Material's titles, as a bar is.

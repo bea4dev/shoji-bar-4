@@ -2,7 +2,8 @@
 //! working on them:
 //!
 //! `shoji-bar-4 preview <part> <out.png> [--width W] [--height H] [--scale S] [--light]
-//!  [--pointer X,Y] [--click X,Y] [--drag X,Y:X,Y] [--escape] [--key K] [--late] [--ms N]`
+//!  [--pointer X,Y] [--click X,Y] [--right-click X,Y] [--drag X,Y:X,Y] [--escape] [--key K]
+//!  [--late] [--ms N]`
 //!
 //! The pointer and clicks are in logical pixels, and `--escape` presses Escape after the clicks;
 //! `--late` opens a panel a second and a half after the start, for pictures of it coming in; `--ms`
@@ -55,11 +56,16 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let light = args.iter().any(|a| a == "--light");
     let late = args.iter().any(|a| a == "--late");
     let pointer = opt("--pointer").and_then(point);
-    let clicks: Vec<(f32, f32)> = args
+    // In order, with the button they press.
+    let clicks: Vec<((f32, f32), PointerButton)> = args
         .iter()
         .enumerate()
-        .filter(|(_, a)| *a == "--click")
-        .filter_map(|(i, _)| args.get(i + 1).cloned().and_then(point))
+        .filter_map(|(i, a)| match a.as_str() {
+            "--click" => Some((i, PointerButton::Primary)),
+            "--right-click" => Some((i, PointerButton::Secondary)),
+            _ => None,
+        })
+        .filter_map(|(i, button)| Some((args.get(i + 1).cloned().and_then(point)?, button)))
         .collect();
     // `--drag X1,Y1:X2,Y2`: pressed at the first point, moved to the second over a few frames,
     // let go there, after the clicks.
@@ -169,7 +175,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     std::thread::sleep(Duration::from_millis(600));
     step(&mut ui, &mut now, 30);
     let m = Modifiers::default();
-    for c in clicks {
+    for (c, button) in clicks {
         let at = to_physical(c);
         ui.handle_event(WindowEvent::PointerMoved {
             position: at,
@@ -177,14 +183,14 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         });
         ui.handle_event(WindowEvent::PointerButton {
             position: at,
-            button: PointerButton::Primary,
+            button,
             pressed: true,
             modifiers: m,
             time: 0,
         });
         ui.handle_event(WindowEvent::PointerButton {
             position: at,
-            button: PointerButton::Primary,
+            button,
             pressed: false,
             modifiers: m,
             time: 10,
