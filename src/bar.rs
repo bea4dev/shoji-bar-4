@@ -18,7 +18,7 @@ use std::cell::Cell;
 use std::rc::Rc;
 
 /// How tall the layer is; the islands are [`ISLAND`] of it, with room above and below.
-pub const HEIGHT: i32 = 48;
+pub const HEIGHT: i32 = 38;
 
 pub fn open(output: Output) {
     open_layer(
