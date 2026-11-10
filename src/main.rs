@@ -13,6 +13,7 @@ mod media_panel;
 mod notify;
 mod osd;
 mod pam;
+mod power_dialog;
 mod panels;
 mod preview;
 mod qs_pages;

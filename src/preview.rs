@@ -38,7 +38,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let (default_w, default_h) = match part.as_str() {
         "bar" => (1600.0, crate::bar::HEIGHT as f32),
         "dock" => (900.0, 136.0),
-        "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" | "lock" => {
+        "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" | "power" | "lock" => {
             (1600.0, 1000.0)
         }
         _ => (800.0, 600.0),
@@ -140,7 +140,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             },
             "dock" => crate::dock::view(output, signal(InputRegion::Full)),
             "lock" => crate::lock::view(output),
-            "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" => {
+            "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" | "power" => {
                 let panel = crate::panels::Panel::from_name(&part).unwrap();
                 crate::panels::view(output, panel)
             }

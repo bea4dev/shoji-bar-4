@@ -286,12 +286,23 @@ fn header() -> Div {
                                             .scale(0.6 + 0.4 * a)
                                         })
                                         .on_click(move |_| {
-                                            crate::panels::close();
+                                            match action {
+                                                Power::Lock | Power::Sleep => {
+                                                    crate::panels::close()
+                                                }
+                                                // In place of this panel.
+                                                Power::Restart | Power::Off => {}
+                                            }
                                             match action {
                                                 Power::Lock => crate::lock::lock(),
                                                 Power::Sleep => drop(s.suspend()),
-                                                Power::Restart => drop(s.reboot()),
-                                                Power::Off => drop(s.power_off()),
+                                                // Asked about first, in a dialog of its own.
+                                                Power::Restart => crate::power_dialog::ask(
+                                                    crate::power_dialog::Ask::Restart,
+                                                ),
+                                                Power::Off => crate::power_dialog::ask(
+                                                    crate::power_dialog::Ask::PowerOff,
+                                                ),
                                             }
                                         })
                                         .child(sized_icon(symbol, 18.0))

@@ -1,5 +1,5 @@
 //! The panels that open over the desktop: quick settings, the calendar, the launcher, the
-//! clipboard's history and what is playing. At most
+//! clipboard's history, what is playing and the question before shutting down. At most
 //! one is open on an output. Each is a layer over all of the output that is there from when the
 //! panel starts to open until it has finished closing; a click outside the panel closes it.
 
@@ -15,15 +15,17 @@ pub enum Panel {
     Launcher,
     Clipboard,
     Media,
+    Power,
 }
 
 impl Panel {
-    const ALL: [Panel; 5] = [
+    const ALL: [Panel; 6] = [
         Self::QuickSettings,
         Self::Calendar,
         Self::Launcher,
         Self::Clipboard,
         Self::Media,
+        Self::Power,
     ];
 
     fn name(self) -> &'static str {
@@ -33,6 +35,7 @@ impl Panel {
             Self::Launcher => "launcher",
             Self::Clipboard => "clipboard",
             Self::Media => "media",
+            Self::Power => "power",
         }
     }
 
@@ -43,6 +46,12 @@ impl Panel {
     /// Whether it gives the focus to a field of its own as it opens.
     fn has_field(self) -> bool {
         matches!(self, Self::Launcher | Self::Clipboard)
+    }
+
+    /// Whether the desktop around it is veiled (and so blurred by the compositor), for what is in
+    /// the middle of the output.
+    fn veiled(self) -> bool {
+        self.has_field() || self == Self::Power
     }
 }
 
@@ -174,6 +183,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         Panel::Launcher => crate::launcher::panel(output.clone()),
         Panel::Clipboard => crate::clipboard::panel(output.clone()),
         Panel::Media => crate::media_panel::panel(output.clone()),
+        Panel::Power => crate::power_dialog::panel(),
     };
     let (place, enter): (Place, Enter) = match panel {
         Panel::QuickSettings => (
@@ -190,7 +200,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             from_above,
         ),
         // In the middle of the output, coming up a little as it grows.
-        Panel::Launcher | Panel::Clipboard => (
+        Panel::Launcher | Panel::Clipboard | Panel::Power => (
             |d| d.items_center().justify_center(),
             |s| s.opacity(0.0).scale(0.8).translate_y(40.0),
         ),
@@ -228,7 +238,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
             }
         }));
     let mut root = place(root);
-    if panel.has_field() {
+    if panel.veiled() {
         // A veil over the desktop, so that the panel in the middle stands out.
         root = root.child(
             show(
