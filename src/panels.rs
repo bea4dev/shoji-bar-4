@@ -1,5 +1,5 @@
-//! The panels that open over the desktop: quick settings, the calendar, the launcher and the
-//! clipboard's history. At most
+//! The panels that open over the desktop: quick settings, the calendar, the launcher, the
+//! clipboard's history and what is playing. At most
 //! one is open on an output. Each is a layer over all of the output that is there from when the
 //! panel starts to open until it has finished closing; a click outside the panel closes it.
 
@@ -14,14 +14,16 @@ pub enum Panel {
     Calendar,
     Launcher,
     Clipboard,
+    Media,
 }
 
 impl Panel {
-    const ALL: [Panel; 4] = [
+    const ALL: [Panel; 5] = [
         Self::QuickSettings,
         Self::Calendar,
         Self::Launcher,
         Self::Clipboard,
+        Self::Media,
     ];
 
     fn name(self) -> &'static str {
@@ -30,6 +32,7 @@ impl Panel {
             Self::Calendar => "calendar",
             Self::Launcher => "launcher",
             Self::Clipboard => "clipboard",
+            Self::Media => "media",
         }
     }
 
@@ -170,6 +173,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         Panel::Calendar => crate::calendar::panel(),
         Panel::Launcher => crate::launcher::panel(output.clone()),
         Panel::Clipboard => crate::clipboard::panel(output.clone()),
+        Panel::Media => crate::media_panel::panel(output.clone()),
     };
     let (place, enter): (Place, Enter) = match panel {
         Panel::QuickSettings => (
@@ -178,6 +182,11 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         ),
         Panel::Calendar => (
             |d| d.items_center().justify_start().pt(BELOW_BAR),
+            from_above,
+        ),
+        // Under the bar's island of it, which it places itself under.
+        Panel::Media => (
+            |d| d.items_start().justify_start().pt(BELOW_BAR),
             from_above,
         ),
         // In the middle of the output, coming up a little as it grows.

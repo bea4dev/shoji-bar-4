@@ -10,7 +10,7 @@ use crate::ui::*;
 use anti_webui::prelude::*;
 use anti_webui::shell::BatteryState;
 use anti_webui::shell::prelude::*;
-use anti_webui_md3e::components::{SliderStyle, sized_icon, styled_slider, wavy_progress};
+use anti_webui_md3e::components::{SliderStyle, sized_icon, styled_slider};
 use anti_webui_md3e::icons::{self, Symbol};
 use anti_webui_md3e::motion::fast_spatial;
 use std::cell::Cell;
@@ -149,11 +149,7 @@ fn main_page() -> Div {
             || battery().available(),
             || settle_in(5, crate::battery_card::card()),
         ))
-        .child(show(
-            || media().current().is_some(),
-            || settle_in(6, media_card()),
-        ))
-        .child(crate::notify::history(7))
+        .child(crate::notify::history(6))
 }
 
 /// A section of the panel on a card of its own.
@@ -723,162 +719,4 @@ fn sliders() -> Div {
                 .child(div().size(32.0).flex_none())
             },
         ))
-}
-
-/// What is playing: its art behind it, the title, how far along it is on a wave, and the buttons.
-fn media_card() -> Div {
-    let m = media();
-    let current = memo(move || m.current());
-    let art = memo(move || {
-        current.with(|p| {
-            p.as_ref()
-                .and_then(|p| p.art_url.clone())
-                .and_then(|u| u.strip_prefix("file://").map(str::to_owned))
-        })
-    });
-    let playing = memo(move || {
-        current.with(|p| {
-            p.as_ref()
-                .is_some_and(|p| p.status == PlaybackStatus::Playing)
-        })
-    });
-    let progress = move || {
-        local_time(Every::Second);
-        current.with(|p| match p.as_ref() {
-            Some(p) => match p.length {
-                Some(len) if !len.is_zero() => {
-                    (p.position().as_secs_f32() / len.as_secs_f32()).clamp(0.0, 1.0)
-                }
-                _ => 0.0,
-            },
-            None => 0.0,
-        })
-    };
-    let has_art = move || art.with(Option::is_some);
-    let fg = move |c: &anti_webui_md3e::ColorScheme| {
-        if has_art() {
-            rgb(0xffffff)
-        } else {
-            c.on_secondary_container
-        }
-    };
-    let morph = follow(
-        move || if playing.get() { 1.0 } else { 0.0 },
-        fast_spatial(),
-    );
-    div()
-        .relative()
-        .flex()
-        .flex_col()
-        .gap(6.0)
-        .p(14.0)
-        .rounded(20.0)
-        .overflow_hidden()
-        // Its own stacking context, so that the veil below goes between the art and the text.
-        .z_index(0)
-        .dyn_style(move |s| {
-            let c = colors();
-            let s = s.bg(c.secondary_container).text_color(fg(&c));
-            match art.get() {
-                Some(path) => s.bg_image(path).bg_size(BackgroundSize::Cover),
-                None => s,
-            }
-        })
-        // Keeps the text readable on any art, under it.
-        .child(show(has_art, || {
-            div()
-                .absolute()
-                .inset(0.0)
-                .z_index(-1)
-                .pointer_events_none()
-                .bg(rgba(0x000000).with_alpha(0.5))
-        }))
-        .child(
-            div()
-                .relative()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(12.0)
-                .child(
-                    div()
-                        .flex()
-                        .flex_col()
-                        .flex_1()
-                        .min_w(0.0)
-                        .child(
-                            txt(TextStyle::TITLE_SMALL, move || {
-                                current.with(|p| {
-                                    p.as_ref().map(|p| p.title.clone()).unwrap_or_default()
-                                })
-                            })
-                            .overflow_hidden(),
-                        )
-                        .child(
-                            txt(TextStyle::BODY_SMALL, move || {
-                                current.with(|p| {
-                                    p.as_ref()
-                                        .map(|p| {
-                                            let who = p.artists.join(", ");
-                                            if who.is_empty() {
-                                                p.identity.clone()
-                                            } else {
-                                                who
-                                            }
-                                        })
-                                        .unwrap_or_default()
-                                })
-                            })
-                            .overflow_hidden()
-                            .opacity(0.8),
-                        ),
-                )
-                .child(icon_btn(icons::SKIP_PREVIOUS, 34.0, fg).on_click(move |_| {
-                    if let Some(p) = current.get() {
-                        drop(p.previous());
-                    }
-                }))
-                .child(pressable(
-                    div()
-                        .size(44.0)
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .flex_none()
-                        .on_click(move |_| {
-                            if let Some(p) = current.get() {
-                                drop(p.play_pause());
-                            }
-                        })
-                        .dyn_style(move |s| {
-                            let c = colors();
-                            let t = morph.get();
-                            s.rounded(12.0 + 10.0 * t)
-                                .bg(c.primary)
-                                .text_color(c.on_primary)
-                        })
-                        .child(dyn_view(move || {
-                            sized_icon(
-                                if playing.get() {
-                                    icons::PAUSE
-                                } else {
-                                    icons::PLAY_ARROW
-                                },
-                                22.0,
-                            )
-                        })),
-                    |c| c.on_primary,
-                ))
-                .child(icon_btn(icons::SKIP_NEXT, 34.0, fg).on_click(move |_| {
-                    if let Some(p) = current.get() {
-                        drop(p.next());
-                    }
-                })),
-        )
-        .child(
-            div()
-                .relative()
-                .child(wavy_progress(progress).w_full())
-                .dyn_style(move |s| s),
-        )
 }

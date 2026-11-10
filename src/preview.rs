@@ -2,7 +2,7 @@
 //! working on them:
 //!
 //! `shoji-bar-4 preview <part> <out.png> [--width W] [--height H] [--scale S] [--light]
-//!  [--pointer X,Y] [--click X,Y] [--escape] [--key K] [--late] [--ms N]`
+//!  [--pointer X,Y] [--click X,Y] [--drag X,Y:X,Y] [--escape] [--key K] [--late] [--ms N]`
 //!
 //! The pointer and clicks are in logical pixels, and `--escape` presses Escape after the clicks;
 //! `--late` opens a panel a second and a half after the start, for pictures of it coming in; `--ms`
@@ -37,7 +37,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let (default_w, default_h) = match part.as_str() {
         "bar" => (1600.0, crate::bar::HEIGHT as f32),
         "dock" => (900.0, 136.0),
-        "launcher" | "quick-settings" | "calendar" | "clipboard" => (1600.0, 1000.0),
+        "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" => (1600.0, 1000.0),
         _ => (800.0, 600.0),
     };
     let lw: f32 = opt("--width")
@@ -59,6 +59,12 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         .filter(|(_, a)| *a == "--click")
         .filter_map(|(i, _)| args.get(i + 1).cloned().and_then(point))
         .collect();
+    // `--drag X1,Y1:X2,Y2`: pressed at the first point, moved to the second over a few frames,
+    // let go there, after the clicks.
+    let drag: Option<((f32, f32), (f32, f32))> = opt("--drag").and_then(|s| {
+        let (a, b) = s.split_once(':')?;
+        Some((point(a.to_owned())?, point(b.to_owned())?))
+    });
     let ms: u64 = opt("--ms").and_then(|s| s.parse().ok()).unwrap_or(1200);
     // `--frames N --every MS` writes N pictures, MS apart, after the first, as `<out>-<i>.png`.
     let frames: u32 = opt("--frames").and_then(|s| s.parse().ok()).unwrap_or(0);
@@ -125,7 +131,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 None => div().child("not the notification daemon"),
             },
             "dock" => crate::dock::view(output, signal(InputRegion::Full)),
-            "launcher" | "quick-settings" | "calendar" | "clipboard" => {
+            "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" => {
                 let panel = crate::panels::Panel::from_name(&part).unwrap();
                 crate::panels::view(output, panel)
             }
@@ -193,6 +199,34 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             }));
         }
         step(&mut ui, &mut now, 20);
+    }
+    if let Some((from, to)) = drag {
+        let button = |ui: &mut Ui, at: PointF, pressed: bool| {
+            ui.handle_event(WindowEvent::PointerButton {
+                position: at,
+                button: PointerButton::Primary,
+                pressed,
+                modifiers: m,
+                time: 0,
+            });
+        };
+        let start = to_physical(from);
+        ui.handle_event(WindowEvent::PointerMoved {
+            position: start,
+            modifiers: m,
+        });
+        button(&mut ui, start, true);
+        for i in 1..=10 {
+            let t = i as f32 / 10.0;
+            let at = to_physical((from.0 + (to.0 - from.0) * t, from.1 + (to.1 - from.1) * t));
+            ui.handle_event(WindowEvent::PointerMoved {
+                position: at,
+                modifiers: m,
+            });
+            step(&mut ui, &mut now, 1);
+        }
+        button(&mut ui, to_physical(to), false);
+        step(&mut ui, &mut now, click_frames);
     }
     // `--key K`, any number of times, after the clicks: ArrowDown, ArrowUp, Enter, Delete, Escape,
     // or a character to type.

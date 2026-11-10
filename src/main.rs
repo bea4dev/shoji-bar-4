@@ -8,6 +8,7 @@ mod clipboard;
 mod dock;
 mod ipc;
 mod launcher;
+mod media_panel;
 mod notify;
 mod osd;
 mod panels;

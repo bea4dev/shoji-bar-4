@@ -83,7 +83,7 @@ pub fn view(output: Output) -> Div {
                 .gap(10.0)
                 .flex_1()
                 .min_w(0.0)
-                .child(media_island())
+                .child(media_island(output.clone()))
                 .child(tray_island())
                 .child(status_island(output)),
         )
@@ -475,28 +475,51 @@ fn clock_island(output: Output) -> Div {
     )
 }
 
-/// What is playing, while something plays: a little equalizer and the title. A click pauses it or
-/// plays it again.
-fn media_island() -> Show {
+/// What is playing, while something plays: a little equalizer and the title. A click opens the
+/// player under it; the middle button pauses it or plays it again.
+fn media_island(output: Output) -> Show {
     let m = media();
     let current = memo(move || m.current());
+    let open = memo({
+        let output = output.clone();
+        move || is_open(&output, Panel::Media)
+    });
     show(
         move || current.with(|p| p.as_ref().is_some_and(|p| !p.title.is_empty())),
         move || {
+            let output = output.clone();
             let playing = memo(move || {
                 current.with(|p| {
                     p.as_ref()
                         .is_some_and(|p| p.status == PlaybackStatus::Playing)
                 })
             });
+            let here = node_ref();
             pressable(
                 island()
+                    .node_ref(here)
                     .px(12.0)
                     .gap(8.0)
                     .max_w(260.0)
                     .on_click(move |_| {
-                        if let Some(p) = untrack(|| current.get()) {
+                        if let Some(r) = here.logical_rect() {
+                            crate::media_panel::anchor(r.x + r.width / 2.0);
+                        }
+                        toggle(&output, Panel::Media);
+                    })
+                    .on_aux_click(move |e| {
+                        if e.button == Some(PointerButton::Middle)
+                            && let Some(p) = untrack(|| current.get())
+                        {
                             p.play_pause();
+                        }
+                    })
+                    .dyn_style(move |s| {
+                        let c = colors();
+                        if open.get() {
+                            s.bg(c.primary_container).text_color(c.on_primary_container)
+                        } else {
+                            s
                         }
                     })
                     .child(equalizer(playing))
