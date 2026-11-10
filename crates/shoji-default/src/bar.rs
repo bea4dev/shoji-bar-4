@@ -18,17 +18,164 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
-/// How tall the layer is; the islands are [`ISLAND`] of it, with room above and below.
+/// How tall the layer of the stock bar is; the islands are [`ISLAND`] of it, with room above and
+/// below.
 pub const HEIGHT: i32 = 38;
 
+thread_local! {
+    static BAR_HEIGHT: Cell<i32> = const { Cell::new(HEIGHT) };
+}
+
+/// How tall the bar that is open is. What hangs under the bar (the panels at the top) keeps clear of
+/// this much.
+pub fn height() -> i32 {
+    BAR_HEIGHT.with(Cell::get)
+}
+
+/// One thing that floats on the bar, in an island of its own.
+#[derive(Clone)]
+pub struct Island {
+    /// What the island is called, for finding it again in a [`BarLayout`].
+    pub id: &'static str,
+    build: Rc<dyn Fn(Output) -> View>,
+}
+
+impl Island {
+    /// An island called `id` that shows what `build` makes for the output the bar is on.
+    pub fn new<V: IntoView>(id: &'static str, build: impl Fn(Output) -> V + 'static) -> Self {
+        Self {
+            id,
+            build: Rc::new(move |output| build(output).into_view()),
+        }
+    }
+}
+
+/// What is on the bar and how tall it is: three groups of islands, left to right.
+///
+/// The left group and the right one share the room the middle one leaves; the middle group stays
+/// in the middle of the bar.
+#[derive(Clone)]
+pub struct BarLayout {
+    /// How tall the layer is. The stock islands are drawn for [`HEIGHT`].
+    pub height: i32,
+    pub left: Vec<Island>,
+    pub center: Vec<Island>,
+    pub right: Vec<Island>,
+}
+
+impl BarLayout {
+    /// The stock bar: the launcher, the workspaces and the window with the keyboard; the clock;
+    /// what is playing, the tray and the state of the system.
+    pub fn stock() -> Self {
+        Self {
+            height: HEIGHT,
+            left: vec![
+                Island::new("launcher", launcher_island),
+                Island::new("workspaces", workspaces_stock),
+                Island::new("window", window_island),
+            ],
+            center: vec![Island::new("clock", clock_island)],
+            right: vec![
+                Island::new("media", media_island),
+                Island::new("tray", |_| tray_island()),
+                Island::new("status", status_island),
+            ],
+        }
+    }
+
+    fn groups_mut(&mut self) -> [&mut Vec<Island>; 3] {
+        [&mut self.left, &mut self.center, &mut self.right]
+    }
+
+    /// Takes the island called `id` off the bar, wherever it is. Whether there was one.
+    pub fn remove(&mut self, id: &str) -> bool {
+        let mut found = false;
+        for group in self.groups_mut() {
+            let before = group.len();
+            group.retain(|i| i.id != id);
+            found |= group.len() != before;
+        }
+        found
+    }
+
+    /// Puts `island` in the place of the one called `id`. Whether there was one.
+    pub fn replace(&mut self, id: &str, island: Island) -> bool {
+        for group in self.groups_mut() {
+            if let Some(slot) = group.iter_mut().find(|i| i.id == id) {
+                *slot = island;
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Puts `island` right after the one called `id`. Whether there was one.
+    pub fn insert_after(&mut self, id: &str, island: Island) -> bool {
+        for group in self.groups_mut() {
+            if let Some(at) = group.iter().position(|i| i.id == id) {
+                group.insert(at + 1, island);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Puts `island` right before the one called `id`. Whether there was one.
+    pub fn insert_before(&mut self, id: &str, island: Island) -> bool {
+        for group in self.groups_mut() {
+            if let Some(at) = group.iter().position(|i| i.id == id) {
+                group.insert(at, island);
+                return true;
+            }
+        }
+        false
+    }
+}
+
+/// Opens the stock bar on `output`.
 pub fn open(output: Output) {
+    open_with(output, &BarLayout::stock());
+}
+
+/// Opens a bar laid out as `layout` on `output`.
+pub fn open_with(output: Output, layout: &BarLayout) {
+    BAR_HEIGHT.with(|h| h.set(layout.height));
+    let layout = layout.clone();
     open_layer(
-        LayerOptions::bar(Anchor::TOP, HEIGHT).namespace("shoji-bar-4-bar"),
-        move || view(output),
+        LayerOptions::bar(Anchor::TOP, layout.height).namespace("shoji-bar-4-bar"),
+        move || view_with(output, &layout),
     );
 }
 
+/// The stock bar, as it is drawn.
 pub fn view(output: Output) -> Div {
+    view_with(output, &BarLayout::stock())
+}
+
+/// The workspaces island of the stock bar: the workspaces of the output, and a click on one
+/// activates it.
+fn workspaces_stock(output: Output) -> Div {
+    workspaces_island(
+        workspaces_of(output.clone()),
+        Rc::new({
+            let output = output.clone();
+            move |id: &str| {
+                if let Some(w) = workspaces().on(&output).into_iter().find(|w| w.id() == id) {
+                    w.activate();
+                }
+            }
+        }),
+    )
+}
+
+/// A bar laid out as `layout`.
+pub fn view_with(output: Output, layout: &BarLayout) -> Div {
+    let group = |islands: &[Island]| {
+        islands
+            .iter()
+            .map(|i| (i.build)(output.clone()))
+            .collect::<Vec<_>>()
+    };
     div()
         .select_none()
         .size_full()
@@ -59,23 +206,9 @@ pub fn view(output: Output) -> Div {
                 .gap(10.0)
                 .flex_1()
                 .min_w(0.0)
-                .child(launcher_island(output.clone()))
-                .child(workspaces_island(
-                    workspaces_of(output.clone()),
-                    Rc::new({
-                        let output = output.clone();
-                        move |id: &str| {
-                            if let Some(w) =
-                                workspaces().on(&output).into_iter().find(|w| w.id() == id)
-                            {
-                                w.activate();
-                            }
-                        }
-                    }),
-                ))
-                .child(window_island(output.clone())),
+                .children(group(&layout.left)),
         )
-        .child(clock_island(output.clone()))
+        .children(group(&layout.center))
         .child(
             div()
                 .flex()
@@ -85,9 +218,7 @@ pub fn view(output: Output) -> Div {
                 .gap(10.0)
                 .flex_1()
                 .min_w(0.0)
-                .child(media_island(output.clone()))
-                .child(tray_island())
-                .child(status_island(output)),
+                .children(group(&layout.right)),
         )
 }
 
