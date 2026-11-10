@@ -1,0 +1,103 @@
+diff --color -ru a/src/anti-webui-wayland/src/layer.rs b/src/anti-webui-wayland/src/layer.rs
+--- a/src/anti-webui-wayland/src/layer.rs	2026-11-10 23:58:52.796243536 +0100
++++ b/src/anti-webui-wayland/src/layer.rs	2026-11-10 23:58:52.797917729 +0100
+@@ -147,9 +147,9 @@
+     /// What is asked for along an axis: 0 lets the compositor stretch it.
+     fn along(size: LayerSize, content: i32) -> u32 {
+         match size {
+-            LayerSize::Fixed(n) => n.max(1) as u32,
++            LayerSize::Fixed(n) => zoomed(n).max(1) as u32,
+             LayerSize::Stretch => 0,
+-            LayerSize::Content => content.max(1) as u32,
++            LayerSize::Content => zoomed(content).max(1) as u32,
+         }
+     }
+ 
+@@ -186,7 +186,10 @@
+ 
+     /// The exclusive zone for the size the surface has, if it changed.
+     fn send_zone(&mut self, size: (i32, i32)) {
+-        let zone = self.spec.exclusive_zone(size.0, size.1);
++        let mut zone = self.spec.exclusive_zone(size.0, size.1);
++        if matches!(self.spec.exclusive, anti_webui_core::layer::Exclusive::Fixed(_)) {
++            zone = zoomed(zone);
++        }
+         if zone != self.zone {
+             self.zone = zone;
+             self.object.set_exclusive_zone(zone);
+@@ -232,7 +235,7 @@
+         match &change {
+             LayerChange::Size(..) => role.send_size(),
+             LayerChange::Anchor(a) => role.object.set_anchor(anchor(*a)),
+-            LayerChange::Margin(m) => role.object.set_margin(m.top, m.right, m.bottom, m.left),
++            LayerChange::Margin(m) => role.object.set_margin(zoomed(m.top), zoomed(m.right), zoomed(m.bottom), zoomed(m.left)),
+             LayerChange::Exclusive(_) => {}
+             LayerChange::Keyboard(_) => role.send_keyboard(),
+             LayerChange::Layer(l) => {
+@@ -273,7 +276,7 @@
+                 let r = self.compositor.create_region(&self.qh, ());
+                 if let InputRegion::Rects(rects) = region {
+                     for rect in rects {
+-                        r.add(rect.x, rect.y, rect.width, rect.height);
++                        r.add(zoomed(rect.x), zoomed(rect.y), zoomed(rect.width), zoomed(rect.height));
+                     }
+                 }
+                 self.surface.set_input_region(Some(&r));
+@@ -321,3 +324,21 @@
+ }
+ 
+ wayland_client::delegate_noop!(State: ignore zwlr_layer_shell_v1::ZwlrLayerShellV1);
++
++/// UI zoom (`ANTIWEBUI_UI_ZOOM`, e.g. 0.85): the UI is laid out and drawn at this factor of its
++/// normal size. Sizes the UI asks of the compositor are multiplied by it; the scale the UI renders
++/// with is multiplied too (see `State::ui_scale`).
++pub fn ui_zoom() -> f64 {
++    static Z: std::sync::OnceLock<f64> = std::sync::OnceLock::new();
++    *Z.get_or_init(|| {
++        std::env::var("ANTIWEBUI_UI_ZOOM")
++            .ok()
++            .and_then(|v| v.parse::<f64>().ok())
++            .filter(|z| (0.3..=3.0).contains(z))
++            .unwrap_or(1.0)
++    })
++}
++
++pub(crate) fn zoomed(n: i32) -> i32 {
++    (n as f64 * ui_zoom()).round() as i32
++}
+diff --color -ru a/src/anti-webui-wayland/src/lib.rs b/src/anti-webui-wayland/src/lib.rs
+--- a/src/anti-webui-wayland/src/lib.rs	2026-11-10 23:58:52.802737114 +0100
++++ b/src/anti-webui-wayland/src/lib.rs	2026-11-10 23:58:52.803401253 +0100
+@@ -266,7 +266,7 @@
+     }
+ 
+     pub fn scale(&self) -> Scale {
+-        self.state.scale
++        self.state.ui_scale()
+     }
+ 
+     /// What dmabufs the compositor accepts, if it supports linux-dmabuf v4.
+diff --color -ru a/src/anti-webui-wayland/src/state.rs b/src/anti-webui-wayland/src/state.rs
+--- a/src/anti-webui-wayland/src/state.rs	2026-11-10 23:58:52.799560699 +0100
++++ b/src/anti-webui-wayland/src/state.rs	2026-11-10 23:58:52.801162083 +0100
+@@ -388,6 +388,11 @@
+         }
+     }
+ 
++    /// The scale the UI lays out and draws with: the compositor's, times the UI zoom.
++    pub fn ui_scale(&self) -> Scale {
++        Scale(((self.scale.0 as f64) * crate::layer::ui_zoom()).round().max(1.0) as u32)
++    }
++
+     /// Recomputes the buffer size (R3) and announces size/scale changes.
+     pub fn update_size(&mut self) {
+         let (w, h) = self.logical_size;
+@@ -409,7 +414,7 @@
+             self.size_announced = Some((size, self.scale));
+             self.events.push(WindowEvent::Resized {
+                 size,
+-                scale: self.scale,
++                scale: self.ui_scale(),
+             });
+             self.redraw_requested = true;
+         }
