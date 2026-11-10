@@ -37,6 +37,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
     let scale: f64 = opt("--scale").and_then(|s| s.parse().ok()).unwrap_or(1.8);
     let (default_w, default_h) = match part.as_str() {
         "bar" => (1600.0, crate::bar::HEIGHT as f32),
+        "title" => (480.0, crate::bar::HEIGHT as f32),
         "dock" => (900.0, 136.0),
         "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" | "power" | "lock" => {
             (1600.0, 1000.0)
@@ -133,6 +134,49 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                     memo(move || list.get()),
                     std::rc::Rc::new(|_: &str| {}),
                 ))
+            }
+            // The title of the window with the keyboard, going between a long and a short one
+            // every `--switch` ms (80 by default) for a second and a half from 1.2 s, then staying
+            // on the one `--end` names (`long` by default). With `--windows` they are the titles of
+            // two windows that take the keyboard in turn, not two titles of one window.
+            "title" => {
+                let switch: u64 = opt("--switch").and_then(|s| s.parse().ok()).unwrap_or(80);
+                let windows = args.iter().any(|a| a == "--windows");
+                let end_long = opt("--end").is_none_or(|e| e != "short");
+                let focused = move |long: bool| crate::bar::Focused {
+                    id: if windows && !long { 2 } else { 1 },
+                    title: if long {
+                        "A rather long window title - Google Chrome".into()
+                    } else {
+                        "New Tab".into()
+                    },
+                    app_id: if windows && !long {
+                        "kitty".into()
+                    } else {
+                        "google-chrome".into()
+                    },
+                };
+                let shown = signal(Some(focused(false)));
+                // After the preview's own wait at the start.
+                let mut at = 1200;
+                let mut long = true;
+                while at < 2700 {
+                    at += switch;
+                    set_timeout(Duration::from_millis(at), move || {
+                        shown.set(Some(focused(long)))
+                    });
+                    long = !long;
+                }
+                set_timeout(Duration::from_millis(at + switch), move || {
+                    shown.set(Some(focused(end_long)))
+                });
+                div()
+                    .p(4.0)
+                    .h(crate::bar::HEIGHT as f32)
+                    .flex()
+                    .items_center()
+                    .dyn_style(|s| s.text_color(crate::theme::colors().on_surface))
+                    .child(crate::bar::focused_island(memo(move || shown.get())))
             }
             "notifications" => match crate::notify::server() {
                 Some(server) => crate::notify::popups(server, signal(InputRegion::Empty)),

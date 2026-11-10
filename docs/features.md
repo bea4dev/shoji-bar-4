@@ -6,7 +6,7 @@ A row of floating islands.
 
 - **Launcher button**: its Material Shape morphs (Cookie4 → Cookie9 → Circle).
 - **Workspaces**: a marker that stretches as it moves, its leading edge on a fast spring and its trailing edge on a slow one. The mouse wheel switches workspaces too. When workspaces come and go, their places open and close and the island's width follows.
-- **Active window**: its icon and title.
+- **Active window**: its icon and title. A new window, or a new title, comes up from below as the last one goes up, and the island follows its width on a spring, however fast they change. A title wider than the island for the moment fades out at its edge.
 - **Clock**: the digits roll as they change, and hovering changes Roboto Flex's weight.
 - **Now playing** (a dancing equalizer): a click opens the player panel under it, a middle click pauses or plays.
 - **Tray**, network, Bluetooth, volume and battery.

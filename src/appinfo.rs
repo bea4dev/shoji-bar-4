@@ -1,7 +1,7 @@
 //! Which installed application a window belongs to, and the icons of both.
 
+use anti_webui::shell::icon_path;
 use anti_webui::shell::prelude::*;
-use anti_webui::shell::{Toplevel, icon_path};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -55,10 +55,10 @@ pub fn app_icon(app: &Application, size: u32) -> Option<PathBuf> {
     icon_file(app.icon.as_deref()?, size)
 }
 
-/// The icon of a window: its application's, else one named like its `app_id`.
-pub fn window_icon(window: &Toplevel, size: u32) -> Option<PathBuf> {
-    app_for(&window.app_id)
+/// The icon of a window with this `app_id`: its application's, else one named like the `app_id`.
+pub fn app_id_icon(app_id: &str, size: u32) -> Option<PathBuf> {
+    app_for(app_id)
         .and_then(|a| app_icon(&a, size))
-        .or_else(|| icon_file(&window.app_id, size))
-        .or_else(|| icon_file(&window.app_id.to_lowercase(), size))
+        .or_else(|| icon_file(app_id, size))
+        .or_else(|| icon_file(&app_id.to_lowercase(), size))
 }
