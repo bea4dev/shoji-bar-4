@@ -1,6 +1,9 @@
-//! shoji-bar-4: a Material 3 Expressive desktop shell for ShojiWM.
+//! The default shoji-bar-4 user interface: the bar, the dock, the panels, the lock screen, the
+//! notifications and the OSD, built on the foundation in [`shoji_core`].
 
-mod appinfo;
+// The foundation lives in `shoji_core`; these keep `crate::theme::...` style paths working.
+pub use shoji_core::{appinfo, pam, settings, theme, ui, wm};
+
 mod bar;
 mod battery_card;
 mod calendar;
@@ -12,23 +15,20 @@ mod lock;
 mod media_panel;
 mod notify;
 mod osd;
-mod pam;
 mod power_dialog;
 mod panels;
 mod preview;
 mod qs_pages;
 mod qs_settings;
 mod quick_settings;
-mod settings;
-mod theme;
-mod ui;
 mod user;
 mod wallpaper;
-mod wm;
 
 use anti_webui::shell::prelude::*;
 
-fn main() {
+/// Runs the shell the way the stock `shoji-bar-4` binary does: handles the `msg` and `preview`
+/// subcommands, otherwise starts the shell with the default interface.
+pub fn run() {
     let args: Vec<String> = std::env::args().skip(1).collect();
     if args.first().map(String::as_str) == Some("msg") {
         if let Err(e) = ipc::send(&args[1..]) {
