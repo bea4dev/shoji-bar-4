@@ -53,6 +53,27 @@ pub fn scheme_for(seed: u32, palette: Palette, dark: bool) -> ColorScheme {
 thread_local! {
     static DARK: Cell<Option<Memo<bool>>> = const { Cell::new(None) };
     static WALLPAPER_SEED: Cell<Option<Signal<Option<u32>>>> = const { Cell::new(None) };
+    static OVERRIDE: Cell<Option<Signal<Option<ColorScheme>>>> = const { Cell::new(None) };
+    static FADE: Cell<Option<Spring>> = const { Cell::new(None) };
+}
+
+/// The motion a change of colours goes through (the default one if this is never called).
+pub fn set_scheme_fade(spring: Spring) {
+    FADE.with(|f| f.set(Some(spring)));
+}
+
+/// Puts a scheme of your own in place of the one made from the settings, until it is taken off
+/// with `None`. The change is animated like any other. Only works once [`install`] has run (from
+/// [`Ui::on_start`](crate::Ui) on, say); before that it does nothing.
+pub fn set_scheme_override(scheme: Option<ColorScheme>) {
+    if let Some(signal) = OVERRIDE.with(|o| o.get()) {
+        signal.set(scheme);
+    }
+}
+
+/// The scheme put in place of the settings', if there is one.
+pub fn scheme_override() -> Option<ColorScheme> {
+    OVERRIDE.with(|o| o.get()).and_then(|s| s.get())
 }
 
 /// Whether the scheme is dark now.
@@ -97,14 +118,16 @@ pub fn install() {
         task(move || seed_of_image(&path)).then(move |seed| wallpaper_seed.set(seed));
     });
 
+    OVERRIDE.with(|o| o.set(Some(signal(None::<ColorScheme>))));
     let first = Cell::new(true);
     effect(move || {
         let s = settings().get();
-        let scheme = scheme_for(current_seed(&s), s.palette, dark.get());
+        let scheme = scheme_override()
+            .unwrap_or_else(|| scheme_for(current_seed(&s), s.palette, dark.get()));
         if first.replace(false) {
             set_color_scheme(scheme);
         } else {
-            set_color_scheme_animated(scheme, default_effects());
+            set_color_scheme_animated(scheme, FADE.with(|f| f.get()).unwrap_or_else(default_effects));
         }
     });
 }

@@ -29,6 +29,12 @@ pub fn anchor(center: f32) {
     ANCHOR.with(|a| a.set(Some(center)));
 }
 
+/// Where the middle of the bar's island of this was when it was clicked, from the left of the
+/// output, for a panel of your own that replaces this one to open under it as well.
+pub fn anchor_center() -> Option<f32> {
+    ANCHOR.with(Cell::get)
+}
+
 /// `1:05`, `1:02:03`.
 fn clock(d: Duration) -> String {
     let s = d.as_secs();

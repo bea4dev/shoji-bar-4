@@ -22,6 +22,13 @@ cargo build --release
 
 ShojiWM's default config starts `~/.config/shoji-bar-4/target/release/shoji-bar-4` with the session, binds its keys (`Super` for the launcher, `Super+N` quick settings, `Super+C` calendar, `Super+V` clipboard, `Super+L` lock) and draws the window frames in the shell's colors. With another config, see [Using it with ShojiWM](docs/usage.md#using-it-with-shojiwm).
 
+## Customization
+
+The project is a workspace (`shoji-core`, `shoji-default`, `shoji-bar-4`) and the interface can be
+changed or replaced with Rust code in a `plugins/` directory: `init-default.rs` patches the stock
+interface, `init.rs` replaces it. With an empty plugins directory it is the same shell. See
+[Customization](docs/customization.md).
+
 ## Documentation
 
 - [Features](docs/features.md): everything the shell does, part by part.

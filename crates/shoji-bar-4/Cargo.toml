@@ -1,0 +1,20 @@
+[package]
+name = "shoji-bar-4"
+version.workspace = true
+edition.workspace = true
+description.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[dependencies]
+shoji-default.workspace = true
+# Not used by this crate itself: they are here so that the code in the plugins directory can
+# `use` them. See `plugin-examples/`.
+shoji-core.workspace = true
+anti-webui.workspace = true
+anti-webui-md3e.workspace = true
+serde_json.workspace = true
+
+[features]
+## Links AntiWebUI dynamically for faster rebuilds while developing.
+dynamic_linking = ["shoji-default/dynamic_linking"]

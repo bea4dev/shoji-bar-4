@@ -2012,11 +2012,32 @@ checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
 
 [[package]]
 name = "shoji-bar-4"
-version = "0.1.0"
+version = "0.3.0"
 dependencies = [
  "anti-webui",
  "anti-webui-md3e",
  "serde_json",
+ "shoji-core",
+ "shoji-default",
+]
+
+[[package]]
+name = "shoji-core"
+version = "0.3.0"
+dependencies = [
+ "anti-webui",
+ "anti-webui-md3e",
+ "serde_json",
+]
+
+[[package]]
+name = "shoji-default"
+version = "0.3.0"
+dependencies = [
+ "anti-webui",
+ "anti-webui-md3e",
+ "serde_json",
+ "shoji-core",
 ]
 
 [[package]]

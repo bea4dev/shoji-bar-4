@@ -62,7 +62,7 @@ fn spinner() -> Div {
 
 /// A line of a list on a page: `icon` in a round of its own, a name, how it is, and `end`. While
 /// `on`, the round takes the primary colors, for what is in use.
-fn item(
+pub fn item(
     icon: impl Fn() -> &'static Symbol + 'static,
     name: impl Fn() -> String + 'static,
     status: impl Fn() -> String + 'static,
@@ -122,7 +122,7 @@ fn item(
 }
 
 /// A list that scrolls once it is taller than [`LIST`].
-fn scrolling(list: impl IntoView) -> Div {
+pub fn scrolling(list: impl IntoView) -> Div {
     div()
         .flex()
         .flex_col()

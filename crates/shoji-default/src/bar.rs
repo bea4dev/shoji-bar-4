@@ -18,17 +18,167 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
-/// How tall the layer is; the islands are [`ISLAND`] of it, with room above and below.
+/// How tall the layer of the stock bar is; the islands are [`ISLAND`] of it, with room above and
+/// below.
 pub const HEIGHT: i32 = 38;
 
+thread_local! {
+    static BAR_HEIGHT: Cell<i32> = const { Cell::new(HEIGHT) };
+}
+
+/// How tall the bar that is open is. What hangs under the bar (the panels at the top) keeps clear of
+/// this much.
+pub fn height() -> i32 {
+    BAR_HEIGHT.with(Cell::get)
+}
+
+/// One thing that floats on the bar, in an island of its own.
+#[derive(Clone)]
+pub struct Island {
+    /// What the island is called, for finding it again in a [`BarLayout`].
+    pub id: &'static str,
+    build: Rc<dyn Fn(Output) -> View>,
+}
+
+impl Island {
+    /// An island called `id` that shows what `build` makes for the output the bar is on.
+    pub fn new<V: IntoView>(id: &'static str, build: impl Fn(Output) -> V + 'static) -> Self {
+        Self {
+            id,
+            build: Rc::new(move |output| build(output).into_view()),
+        }
+    }
+}
+
+/// What is on the bar and how tall it is: three groups of islands, left to right.
+///
+/// The left group and the right one share the room the middle one leaves; the middle group stays
+/// in the middle of the bar.
+#[derive(Clone)]
+pub struct BarLayout {
+    /// How tall the layer is. The stock islands are drawn for [`HEIGHT`].
+    pub height: i32,
+    /// Something to draw behind all the islands, across the whole bar (a pane, a glass...).
+    pub background: Option<Rc<dyn Fn(Output) -> Div>>,
+    pub left: Vec<Island>,
+    pub center: Vec<Island>,
+    pub right: Vec<Island>,
+}
+
+impl BarLayout {
+    /// The stock bar: the launcher, the workspaces and the window with the keyboard; the clock;
+    /// what is playing, the tray and the state of the system.
+    pub fn stock() -> Self {
+        Self {
+            height: HEIGHT,
+            background: None,
+            left: vec![
+                Island::new("launcher", launcher_island),
+                Island::new("workspaces", workspaces_stock),
+                Island::new("window", window_island),
+            ],
+            center: vec![Island::new("clock", clock_island)],
+            right: vec![
+                Island::new("media", media_island),
+                Island::new("tray", |_| tray_island()),
+                Island::new("status", status_island),
+            ],
+        }
+    }
+
+    fn groups_mut(&mut self) -> [&mut Vec<Island>; 3] {
+        [&mut self.left, &mut self.center, &mut self.right]
+    }
+
+    /// Takes the island called `id` off the bar, wherever it is. Whether there was one.
+    pub fn remove(&mut self, id: &str) -> bool {
+        let mut found = false;
+        for group in self.groups_mut() {
+            let before = group.len();
+            group.retain(|i| i.id != id);
+            found |= group.len() != before;
+        }
+        found
+    }
+
+    /// Puts `island` in the place of the one called `id`. Whether there was one.
+    pub fn replace(&mut self, id: &str, island: Island) -> bool {
+        for group in self.groups_mut() {
+            if let Some(slot) = group.iter_mut().find(|i| i.id == id) {
+                *slot = island;
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Puts `island` right after the one called `id`. Whether there was one.
+    pub fn insert_after(&mut self, id: &str, island: Island) -> bool {
+        for group in self.groups_mut() {
+            if let Some(at) = group.iter().position(|i| i.id == id) {
+                group.insert(at + 1, island);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Puts `island` right before the one called `id`. Whether there was one.
+    pub fn insert_before(&mut self, id: &str, island: Island) -> bool {
+        for group in self.groups_mut() {
+            if let Some(at) = group.iter().position(|i| i.id == id) {
+                group.insert(at, island);
+                return true;
+            }
+        }
+        false
+    }
+}
+
+/// Opens the stock bar on `output`.
 pub fn open(output: Output) {
+    open_with(output, &BarLayout::stock());
+}
+
+/// Opens a bar laid out as `layout` on `output`.
+pub fn open_with(output: Output, layout: &BarLayout) {
+    BAR_HEIGHT.with(|h| h.set(layout.height));
+    let layout = layout.clone();
     open_layer(
-        LayerOptions::bar(Anchor::TOP, HEIGHT).namespace("shoji-bar-4-bar"),
-        move || view(output),
+        LayerOptions::bar(Anchor::TOP, layout.height).namespace("shoji-bar-4-bar"),
+        move || view_with(output, &layout),
     );
 }
 
+/// The stock bar, as it is drawn.
 pub fn view(output: Output) -> Div {
+    view_with(output, &BarLayout::stock())
+}
+
+/// The workspaces island of the stock bar: the workspaces of the output, and a click on one
+/// activates it.
+fn workspaces_stock(output: Output) -> Div {
+    workspaces_island(
+        workspaces_of(output.clone()),
+        Rc::new({
+            let output = output.clone();
+            move |id: &str| {
+                if let Some(w) = workspaces().on(&output).into_iter().find(|w| w.id() == id) {
+                    w.activate();
+                }
+            }
+        }),
+    )
+}
+
+/// A bar laid out as `layout`.
+pub fn view_with(output: Output, layout: &BarLayout) -> Div {
+    let group = |islands: &[Island]| {
+        islands
+            .iter()
+            .map(|i| (i.build)(output.clone()))
+            .collect::<Vec<_>>()
+    };
     div()
         .select_none()
         .size_full()
@@ -41,15 +191,15 @@ pub fn view(output: Output) -> Div {
         .px(14.0_f32)
         .gap(10.0_f32)
         .dyn_style(|s| s.text_color(colors().on_surface))
-        // Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
-        // at least a quarter opaque.
+        // In a box of its own that takes no room in the row: a child of the row, even an empty
+        // one, would add a gap of its own and push the islands over.
         .child(
             div()
                 .absolute()
-                .z_index(-1)
                 .inset(0.0)
+                .z_index(-1)
                 .pointer_events_none()
-                .dyn_style(|s| s.bg(colors().surface.with_alpha(0.34))),
+                .children(layout.background.iter().map(|b| b(output.clone()))),
         )
         .child(
             div()
@@ -59,23 +209,9 @@ pub fn view(output: Output) -> Div {
                 .gap(10.0_f32)
                 .flex_1()
                 .min_w(0.0)
-                .child(launcher_island(output.clone()))
-                .child(workspaces_island(
-                    workspaces_of(output.clone()),
-                    Rc::new({
-                        let output = output.clone();
-                        move |id: &str| {
-                            if let Some(w) =
-                                workspaces().on(&output).into_iter().find(|w| w.id() == id)
-                            {
-                                w.activate();
-                            }
-                        }
-                    }),
-                ))
-                .child(window_island(output.clone())),
+                .children(group(&layout.left)),
         )
-        .child(clock_island(output.clone()))
+        .children(group(&layout.center))
         .child(
             div()
                 .flex()
@@ -85,9 +221,7 @@ pub fn view(output: Output) -> Div {
                 .gap(10.0_f32)
                 .flex_1()
                 .min_w(0.0)
-                .child(media_island(output.clone()))
-                .child(tray_island())
-                .child(status_island(output)),
+                .children(group(&layout.right)),
         )
 }
 
@@ -120,17 +254,37 @@ pub struct Ws {
 /// The workspaces of an output, in order.
 fn workspaces_of(output: Output) -> Memo<Vec<Ws>> {
     memo(move || {
-        let mut all = workspaces().on(&output);
-        all.sort_by(|a, b| a.coordinates().cmp(b.coordinates()));
-        all.iter()
+        // A special workspace (the scratchpad kind) is not one of the row: it shows, as an `S`,
+        // only while it is open, and goes when it is put away.
+        let mut all: Vec<_> = workspaces()
+            .on(&output)
+            .into_iter()
+            .filter(|w| !w.is_hidden() || w.is_active())
+            .collect();
+        all.sort_by(|a, b| {
+            (a.is_hidden(), a.coordinates()).cmp(&(b.is_hidden(), b.coordinates()))
+        });
+        let mut row: Vec<Ws> = all
+            .iter()
             .map(|w| Ws {
                 id: w.id().to_owned(),
-                name: w.name().to_owned(),
+                name: if w.is_hidden() {
+                    "S".to_owned()
+                } else {
+                    w.name().to_owned()
+                },
                 active: w.is_active(),
                 empty: w.is_hidden(),
                 urgent: w.is_urgent(),
             })
-            .collect()
+            .collect();
+        // An open special workspace is drawn over the one under it: it alone has the pill.
+        if all.iter().any(|w| w.is_hidden() && w.is_active()) {
+            for (ws, w) in row.iter_mut().zip(&all) {
+                ws.active = w.is_hidden();
+            }
+        }
+        row
     })
 }
 
@@ -399,7 +553,6 @@ pub fn focused_island(active: Memo<Option<Focused>>) -> Show {
                             },
                         )),
                 )
-                .child(edge_fade())
         },
     )
     .enter(|s| s.opacity(0.0_f32).scale(0.8_f32))
@@ -434,34 +587,6 @@ fn place_of(first: bool, here: impl Fn() -> bool + 'static) -> Animated<f32> {
         }
     });
     place
-}
-
-/// The end of the window island fading into it, over a title that is wider than it is for now.
-/// It is drawn in the island's own round end, which it would otherwise stick out of.
-fn edge_fade() -> Svg {
-    svg()
-        .absolute()
-        .top(0.0)
-        .right(0.0)
-        .w(EDGE)
-        .h(ISLAND)
-        .pointer_events_none()
-        .dyn_style(|s| {
-            let c = colors().surface_container;
-            s.fill(
-                Gradient::linear(0.0, 0.0, EDGE, 0.0)
-                    .units(GradientUnits::UserSpace)
-                    .stop(0.0, c.with_alpha(0.0))
-                    .stop(1.0, c),
-            )
-        })
-        .child(svg::rounded_rect(
-            (EDGE - ISLAND) as f64,
-            0.0,
-            ISLAND as f64,
-            ISLAND as f64,
-            (ISLAND / 2.0) as f64,
-        ))
 }
 
 /// A window's icon and title, on one line.
