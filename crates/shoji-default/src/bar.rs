@@ -58,9 +58,8 @@ impl Island {
 pub struct BarLayout {
     /// How tall the layer is. The stock islands are drawn for [`HEIGHT`].
     pub height: i32,
-    /// Room kept free under the islands, inside [`height`](Self::height): the islands sit at the
-    /// top and the pane behind them goes on a little below them.
-    pub bottom_margin: f32,
+    /// Something to draw behind all the islands, across the whole bar (a pane, a glass...).
+    pub background: Option<Rc<dyn Fn(Output) -> Div>>,
     pub left: Vec<Island>,
     pub center: Vec<Island>,
     pub right: Vec<Island>,
@@ -72,7 +71,7 @@ impl BarLayout {
     pub fn stock() -> Self {
         Self {
             height: HEIGHT,
-            bottom_margin: 0.0,
+            background: None,
             left: vec![
                 Island::new("launcher", launcher_island),
                 Island::new("workspaces", workspaces_stock),
@@ -190,7 +189,6 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
         .flex_row()
         .items_center()
         .px(14.0)
-        .pb(layout.bottom_margin)
         .gap(10.0)
         .dyn_style(|s| s.text_color(colors().on_surface))
         // In a box of its own that takes no room in the row: a child of the row, even an empty
@@ -201,7 +199,7 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
                 .inset(0.0)
                 .z_index(-1)
                 .pointer_events_none()
-                .child(stock_pane()),
+                .children(layout.background.iter().map(|b| b(output.clone()))),
         )
         .child(
             div()
@@ -589,85 +587,6 @@ fn place_of(first: bool, here: impl Fn() -> bool + 'static) -> Animated<f32> {
         }
     });
     place
-}
-
-/// Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
-/// at least a quarter opaque.
-fn stock_pane() -> Div {
-    use crate::theme::{BarPane, bar_pane};
-    let on = || matches!(bar_pane(), BarPane::Stock);
-    // How far it has spread from the middle island to the sides, and how white it is (a see-through
-    // scheme goes through white on its way in and out).
-    let spread = animated(if on() { 1.0_f32 } else { 0.0 });
-    let white = animated(0.0_f32);
-    let turn = Rc::new(Cell::new(0u32));
-    let first = Cell::new(true);
-    effect({
-        let turn = turn.clone();
-        move || {
-            let now = on();
-            if first.replace(false) {
-                return;
-            }
-            let id = turn.get() + 1;
-            turn.set(id);
-            let glass = colors().surface.a < 0.95;
-            let (spreading, fading) = (Transition::ms(600), Transition::ms(550));
-            let later = {
-                let turn = turn.clone();
-                move |ms: u64, f: Box<dyn FnOnce()>| {
-                    drop(set_timeout(Duration::from_millis(ms), move || {
-                        if turn.get() == id {
-                            f()
-                        }
-                    }))
-                }
-            };
-            if now {
-                if glass {
-                    white.set(1.0);
-                }
-                spread.to(1.0, spreading);
-                if glass {
-                    later(650, Box::new(move || white.to(0.0, fading)));
-                }
-            } else if glass {
-                white.to(1.0, Transition::ms(450));
-                later(450, Box::new(move || spread.to(0.0, spreading)));
-            } else {
-                spread.to(0.0, spreading);
-            }
-        }
-    });
-    // The pane of the scheme in use: faint, and where the scheme is see-through its glass. The one
-    // goes into the other as the scheme's opacity does, so that a change of palette is a plain fade.
-    let faint = |c: Color| c.with_alpha(c.a * 0.34);
-    let light = {
-        let s = settings().get_untracked();
-        faint(crate::theme::scheme_for(crate::theme::current_seed(&s), s.palette, false).surface)
-    };
-    let layer = || div().absolute().inset(0.0).pointer_events_none();
-    div()
-        .absolute()
-        .z_index(-1)
-        .inset(0.0)
-        .pointer_events_none()
-        .dyn_style(move |s| {
-            let k = spread.get();
-            s.scale_x(k).opacity((k * 4.0).min(1.0))
-        })
-        .child(layer().dyn_style(move |s| {
-            let c = colors();
-            let glass = c.surface_container;
-            let glass = glass.with_alpha(glass.a.max(0.04));
-            let t = ((1.0 - c.surface.a) / 0.97).clamp(0.0, 1.0);
-            let mix = Color::from_components({
-                let (a, b) = (faint(c.surface).to_components(), glass.to_components());
-                std::array::from_fn(|i| a[i] + (b[i] - a[i]) * t)
-            });
-            s.bg(mix).opacity(1.0 - white.get())
-        }))
-        .child(layer().dyn_style(move |s| s.bg(light).opacity(white.get())))
 }
 
 /// A window's icon and title, on one line.

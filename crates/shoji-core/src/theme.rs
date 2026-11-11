@@ -5,6 +5,7 @@ use crate::settings::{Palette, Settings, ThemeMode, settings};
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
 use anti_webui_md3e::dynamic::seed_colors;
+use anti_webui_md3e::motion::default_effects;
 use anti_webui_md3e::{
     ColorScheme, SchemeOptions, SchemeVariant, set_color_scheme, set_color_scheme_animated,
 };
@@ -53,29 +54,12 @@ thread_local! {
     static DARK: Cell<Option<Memo<bool>>> = const { Cell::new(None) };
     static WALLPAPER_SEED: Cell<Option<Signal<Option<u32>>>> = const { Cell::new(None) };
     static OVERRIDE: Cell<Option<Signal<Option<ColorScheme>>>> = const { Cell::new(None) };
-    static BAR_PANE: Cell<Option<Signal<BarPane>>> = const { Cell::new(None) };
+    static FADE: Cell<Option<Spring>> = const { Cell::new(None) };
 }
 
-/// What is behind the islands of the bar, across all of it.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum BarPane {
-    /// The faint pane of the stock bar, which the compositor blurs what is behind.
-    #[default]
-    Stock,
-    /// Nothing: only the islands float.
-    None,
-}
-
-/// What the bar has behind its islands.
-pub fn bar_pane() -> BarPane {
-    BAR_PANE.with(|b| b.get()).map_or(BarPane::Stock, |s| s.get())
-}
-
-/// Sets [`bar_pane`]. Only works once [`install`] has run.
-pub fn set_bar_pane(pane: BarPane) {
-    if let Some(signal) = BAR_PANE.with(|b| b.get()) {
-        signal.set(pane);
-    }
+/// The motion a change of colours goes through (the default one if this is never called).
+pub fn set_scheme_fade(spring: Spring) {
+    FADE.with(|f| f.set(Some(spring)));
 }
 
 /// Puts a scheme of your own in place of the one made from the settings, until it is taken off
@@ -135,7 +119,6 @@ pub fn install() {
     });
 
     OVERRIDE.with(|o| o.set(Some(signal(None::<ColorScheme>))));
-    BAR_PANE.with(|b| b.set(Some(signal(BarPane::Stock))));
     let first = Cell::new(true);
     effect(move || {
         let s = settings().get();
@@ -144,15 +127,9 @@ pub fn install() {
         if first.replace(false) {
             set_color_scheme(scheme);
         } else {
-            set_color_scheme_animated(scheme, fade());
+            set_color_scheme_animated(scheme, FADE.with(|f| f.get()).unwrap_or_else(default_effects));
         }
     });
-}
-
-/// The motion every change of colours goes through: a fade of about 0.6 s, from the colours that
-/// were on screen to the new ones (it starts from wherever a fade still running had got to).
-pub fn fade() -> Spring {
-    Spring::from_ratio(110.0, 1.0)
 }
 
 /// The best seed in a picture, read from a small copy of it.
