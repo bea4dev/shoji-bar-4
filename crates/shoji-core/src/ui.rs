@@ -168,8 +168,8 @@ pub fn rolling_text(
                             )
                         },
                     )
-                    .enter(move |s| s.translate_y(height * 0.9).opacity(0.0))
-                    .exit(move |s| s.translate_y(-height * 0.9).opacity(0.0))
+                    .enter(move |s| s.translate_y(height * 0.9).opacity(0.0_f32))
+                    .exit(move |s| s.translate_y(-height * 0.9).opacity(0.0_f32))
                     .transition(emphasized(550)),
                 )
         },

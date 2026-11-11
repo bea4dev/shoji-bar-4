@@ -194,8 +194,8 @@ pub fn avatar(size: f32) -> Div {
                     }
                 },
             )
-            .enter(|s| s.opacity(0.0).scale(0.6))
-            .exit(|s| s.opacity(0.0).scale(1.2))
+            .enter(|s| s.opacity(0.0_f32).scale(0.6_f32))
+            .exit(|s| s.opacity(0.0_f32).scale(1.2_f32))
             .transition(crate::ui::overshoot(480)),
         )
 }
