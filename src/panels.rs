@@ -172,7 +172,7 @@ type Enter = fn(Style) -> Style;
 
 /// Down from above, growing as it fades in.
 fn from_above(s: Style) -> Style {
-    s.opacity(0.0).scale(0.7).translate_y(-80.0)
+    s.opacity(0.0_f32).scale(0.7_f32).translate_y(-80.0_f32)
 }
 
 /// All of the output: a catcher of clicks outside the panel, and the panel where it goes.
@@ -187,7 +187,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
     };
     let (place, enter): (Place, Enter) = match panel {
         Panel::QuickSettings => (
-            |d| d.items_end().justify_start().pt(BELOW_BAR).pr(14.0),
+            |d| d.items_end().justify_start().pt(BELOW_BAR).pr(14.0_f32),
             from_above,
         ),
         Panel::Calendar => (
@@ -202,7 +202,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         // In the middle of the output, coming up a little as it grows.
         Panel::Launcher | Panel::Clipboard | Panel::Power => (
             |d| d.items_center().justify_center(),
-            |s| s.opacity(0.0).scale(0.8).translate_y(40.0),
+            |s| s.opacity(0.0_f32).scale(0.8_f32).translate_y(40.0_f32),
         ),
     };
     // Keys go to what has the focus, and with nothing focused not to here but to what holds it: the
@@ -253,8 +253,8 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
                 },
             )
             .appear()
-            .enter(|s| s.opacity(0.0))
-            .exit(|s| s.opacity(0.0))
+            .enter(|s| s.opacity(0.0_f32))
+            .exit(|s| s.opacity(0.0_f32))
             .transition(Transition::ms(300).ease_out()),
         );
     }
@@ -262,7 +262,7 @@ fn surface(output: Output, panel: Panel, wanted: Memo<bool>) -> Div {
         show(move || wanted.get(), content)
             .appear()
             .enter(enter)
-            .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
+            .exit(|s| s.opacity(0.0_f32).scale(0.9_f32).translate_y(-8.0_f32))
             .transition(crate::ui::overshoot(420)),
     )
 }

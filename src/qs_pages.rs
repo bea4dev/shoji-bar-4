@@ -26,7 +26,7 @@ pub fn header(title: &'static str, end: Div) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap(6.0)
+        .gap(6.0_f32)
         .child(icon_btn(icons::ARROW_BACK, 38.0, |c| c.on_surface).on_click(|_| go(Page::Main)))
         .child(static_txt(TextStyle::TITLE_LARGE, title).flex_1())
         .child(end)
@@ -36,8 +36,8 @@ pub fn header(title: &'static str, end: Div) -> Div {
 fn busy_line(busy: impl Fn() -> bool + 'static) -> Div {
     div().h(4.0).flex().flex_col().child(
         show(busy, || indeterminate_linear_progress().w_full())
-            .enter(|s| s.opacity(0.0))
-            .exit(|s| s.opacity(0.0))
+            .enter(|s| s.opacity(0.0_f32))
+            .exit(|s| s.opacity(0.0_f32))
             .transition(Transition::ms(200).ease_out()),
     )
 }
@@ -45,7 +45,7 @@ fn busy_line(busy: impl Fn() -> bool + 'static) -> Div {
 /// What a list is of, above it.
 pub fn subheading(text: &'static str) -> Div {
     static_txt(TextStyle::LABEL_LARGE, text)
-        .px(8.0)
+        .px(8.0_f32)
         .dyn_style(|s| s.text_color(colors().primary))
 }
 
@@ -57,7 +57,7 @@ fn spinner() -> Div {
         .items_center()
         .justify_center()
         .flex_none()
-        .child(indeterminate_circular_progress().flex_none().scale(0.55))
+        .child(indeterminate_circular_progress().flex_none().scale(0.55_f32))
 }
 
 /// A line of a list on a page: `icon` in a round of its own, a name, how it is, and `end`. While
@@ -74,15 +74,15 @@ fn item(
             .flex()
             .flex_row()
             .items_center()
-            .gap(12.0)
+            .gap(12.0_f32)
             .min_h(52.0)
-            .px(8.0)
-            .py(6.0)
-            .rounded(18.0)
+            .px(8.0_f32)
+            .py(6.0_f32)
+            .rounded(18.0_f32)
             .child(
                 div()
                     .size(36.0)
-                    .rounded(18.0)
+                    .rounded(18.0_f32)
                     .flex()
                     .items_center()
                     .justify_center()
@@ -126,7 +126,7 @@ fn scrolling(list: impl IntoView) -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(2.0)
+        .gap(2.0_f32)
         .max_h(LIST)
         .overflow_y_scroll()
         .child(list)
@@ -138,8 +138,8 @@ fn nothing(symbol: &'static Symbol, text: impl Fn() -> String + 'static) -> Div 
         .flex()
         .flex_col()
         .items_center()
-        .gap(8.0)
-        .py(18.0)
+        .gap(8.0_f32)
+        .py(18.0_f32)
         .child(sym(symbol, 32.0, |c| c.on_surface_variant))
         .child(
             txt(TextStyle::BODY_MEDIUM, text)
@@ -291,14 +291,14 @@ pub fn wifi_page() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(10.0)
+        .gap(10.0_f32)
         .child(header(
             "Wi-Fi",
             div()
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(4.0)
+                .gap(4.0_f32)
                 .child(show(
                     move || on.get(),
                     move || {
@@ -378,8 +378,8 @@ pub fn wifi_page() -> Div {
                                     |s| s.clone(),
                                     move |ssid| network_row(w, ssid),
                                 )
-                                .enter(|s| s.opacity(0.0).translate_y(-8.0))
-                                .exit(|s| s.opacity(0.0))
+                                .enter(|s| s.opacity(0.0_f32).translate_y(-8.0_f32))
+                                .exit(|s| s.opacity(0.0_f32))
                                 .moves(emphasized(300))
                                 .transition(emphasized(300)),
                             )
@@ -457,10 +457,10 @@ fn network_row(w: Wifi, ssid: String) -> Div {
                     div()
                         .flex()
                         .flex_col()
-                        .gap(8.0)
-                        .px(8.0)
-                        .pt(4.0)
-                        .pb(8.0)
+                        .gap(8.0_f32)
+                        .px(8.0_f32)
+                        .pt(4.0_f32)
+                        .pb(8.0_f32)
                         .child(
                             text_field(
                                 w.password,
@@ -477,7 +477,7 @@ fn network_row(w: Wifi, ssid: String) -> Div {
                                 .flex()
                                 .flex_row()
                                 .justify_end()
-                                .gap(8.0)
+                                .gap(8.0_f32)
                                 .child(
                                     styled_button("Cancel", ButtonStyle::text())
                                         .on_click(move |_| w.asking.set(None)),
@@ -489,8 +489,8 @@ fn network_row(w: Wifi, ssid: String) -> Div {
                         )
                 },
             )
-            .enter(|s| s.opacity(0.0).translate_y(-8.0))
-            .exit(|s| s.opacity(0.0))
+            .enter(|s| s.opacity(0.0_f32).translate_y(-8.0_f32))
+            .exit(|s| s.opacity(0.0_f32))
             .transition(emphasized(250)),
         )
 }
@@ -623,8 +623,8 @@ pub fn bluetooth_page() -> Div {
                 |a| a.clone(),
                 move |address| device_row(b, address),
             )
-            .enter(|s| s.opacity(0.0).translate_y(-8.0))
-            .exit(|s| s.opacity(0.0))
+            .enter(|s| s.opacity(0.0_f32).translate_y(-8.0_f32))
+            .exit(|s| s.opacity(0.0_f32))
             .moves(emphasized(300))
             .transition(emphasized(300)),
         )
@@ -632,7 +632,7 @@ pub fn bluetooth_page() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(10.0)
+        .gap(10.0_f32)
         .child(header("Bluetooth", switch(enabled).mr(4.0)))
         .child(busy_line(move || {
             powered.get() && bt.adapter().is_some_and(|a| a.discovering)
@@ -840,11 +840,11 @@ pub fn sound_page() -> Div {
             .flex()
             .flex_row()
             .items_center()
-            .gap(10.0)
+            .gap(10.0_f32)
             .child(pressable(
                 div()
                     .size(36.0)
-                    .rounded(18.0)
+                    .rounded(18.0_f32)
                     .flex()
                     .items_center()
                     .justify_center()
@@ -883,7 +883,7 @@ pub fn sound_page() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(10.0)
+        .gap(10.0_f32)
         .child(header("Sound", div()))
         .child(
             section()
@@ -936,9 +936,9 @@ fn stream_row(id: u32) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap(12.0)
-        .px(8.0)
-        .py(4.0)
+        .gap(12.0_f32)
+        .px(8.0_f32)
+        .py(4.0_f32)
         .child(dyn_view(move || match icon.get() {
             Some(path) => img(path).size(28.0).flex_none().into_view(),
             None => sym(icons::GRAPHIC_EQ, 22.0, |c| c.on_surface_variant)

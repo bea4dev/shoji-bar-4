@@ -89,7 +89,7 @@ pub fn card() -> Div {
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(14.0)
+                .gap(14.0_f32)
                 .child(glyph(level, charging, low))
                 .child(
                     div()
@@ -104,8 +104,8 @@ pub fn card() -> Div {
                         ))
                         .child(
                             static_txt(TextStyle::TITLE_MEDIUM, "%")
-                                .pb(4.0)
-                                .pl(2.0)
+                                .pb(4.0_f32)
+                                .pl(2.0_f32)
                                 .dyn_style(|s| s.text_color(colors().on_surface_variant)),
                         ),
                 )
@@ -113,7 +113,7 @@ pub fn card() -> Div {
         )
         .child(
             txt(TextStyle::BODY_MEDIUM, move || estimate(b))
-                .px(2.0)
+                .px(2.0_f32)
                 .dyn_style(|s| s.text_color(colors().on_surface_variant)),
         )
         .child(stats(b))
@@ -139,16 +139,16 @@ fn glyph(level: Animated<f32>, charging: Memo<bool>, low: Memo<bool>) -> Div {
             div()
                 .w(W)
                 .h(H)
-                .p(2.0)
-                .rounded(9.0)
-                .border(2.0)
+                .p(2.0_f32)
+                .rounded(9.0_f32)
+                .border(2.0_f32)
                 .dyn_style(|s| s.border_color(colors().outline))
                 .child(
                     div()
                         .h_full()
                         .relative()
                         .overflow_hidden()
-                        .rounded(5.0)
+                        .rounded(5.0_f32)
                         .transition_of([Prop::Background], Transition::ms(300).ease_out())
                         .dyn_style(move |s| {
                             let c = colors();
@@ -176,7 +176,7 @@ fn glyph(level: Animated<f32>, charging: Memo<bool>, low: Memo<bool>) -> Div {
                 .w(3.0)
                 .h(10.0)
                 .ml(1.0)
-                .rounded(1.5)
+                .rounded(1.5_f32)
                 .dyn_style(|s| s.bg(colors().outline)),
         )
 }
@@ -187,10 +187,10 @@ fn state_pill(b: Battery, state: Memo<&'static str>, low: Memo<bool>) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap(4.0)
+        .gap(4.0_f32)
         .h(28.0)
-        .px(10.0)
-        .rounded(14.0)
+        .px(10.0_f32)
+        .rounded(14.0_f32)
         .flex_none()
         .transition_of(
             [Prop::Background, Prop::TextColor],
@@ -217,13 +217,13 @@ fn state_pill(b: Battery, state: Memo<&'static str>, low: Memo<bool>) -> Div {
                         .flex()
                         .flex_row()
                         .items_center()
-                        .gap(4.0)
+                        .gap(4.0_f32)
                         .child(anti_webui_md3e::components::sized_icon(symbol, 16.0))
                         .child(static_txt(TextStyle::LABEL_MEDIUM, word))
                 },
             )
-            .enter(|s| s.opacity(0.0).translate_y(10.0))
-            .exit(|s| s.opacity(0.0).translate_y(-10.0))
+            .enter(|s| s.opacity(0.0_f32).translate_y(10.0_f32))
+            .exit(|s| s.opacity(0.0_f32).translate_y(-10.0_f32))
             .transition(emphasized(350)),
         )
 }
@@ -240,17 +240,17 @@ fn stats(b: Battery) -> Div {
                         .flex_1()
                         .flex()
                         .flex_col()
-                        .gap(2.0)
-                        .px(12.0)
-                        .py(10.0)
-                        .rounded(16.0)
+                        .gap(2.0_f32)
+                        .px(12.0_f32)
+                        .py(10.0_f32)
+                        .rounded(16.0_f32)
                         .dyn_style(|s| s.bg(colors().surface_container_highest))
                         .child(
                             div()
                                 .flex()
                                 .flex_row()
                                 .items_center()
-                                .gap(4.0)
+                                .gap(4.0_f32)
                                 .child(sym(symbol, 14.0, |c| c.primary))
                                 .child(
                                     static_txt(TextStyle::LABEL_SMALL, label)
@@ -263,14 +263,14 @@ fn stats(b: Battery) -> Div {
                 },
             )
             .appear()
-            .enter(|s| s.opacity(0.0).scale(0.9))
-            .exit(|s| s.opacity(0.0).scale(0.9))
+            .enter(|s| s.opacity(0.0_f32).scale(0.9_f32))
+            .exit(|s| s.opacity(0.0_f32).scale(0.9_f32))
             .transition(overshoot(360))
         };
     div()
         .flex()
         .flex_row()
-        .gap(8.0)
+        .gap(8.0_f32)
         .child(tile(
             icons::ELECTRIC_BOLT,
             "Power",

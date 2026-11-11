@@ -52,9 +52,9 @@ pub fn panel(output: Output) -> Div {
         .w(width)
         .flex()
         .flex_col()
-        .gap(16.0)
-        .p(20.0)
-        .rounded(32.0)
+        .gap(16.0_f32)
+        .p(20.0_f32)
+        .rounded(32.0_f32)
         .shadows(elevation(4))
         .dyn_style(|s| {
             let c = colors();
@@ -65,10 +65,10 @@ pub fn panel(output: Output) -> Div {
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(10.0)
+                .gap(10.0_f32)
                 .h(46.0)
-                .px(16.0)
-                .rounded(23.0)
+                .px(16.0_f32)
+                .rounded(23.0_f32)
                 .dyn_style(|s| s.bg(colors().surface_container_highest))
                 .child(sym(icons::SEARCH, 20.0, |c| c.on_surface_variant))
                 .child(
@@ -124,8 +124,8 @@ pub fn panel(output: Output) -> Div {
                             cell(id, index, picked, launch)
                         },
                     )
-                    .enter(|s| s.opacity(0.0).scale(0.5))
-                    .exit(|s| s.opacity(0.0).scale(0.5))
+                    .enter(|s| s.opacity(0.0_f32).scale(0.5_f32))
+                    .exit(|s| s.opacity(0.0_f32).scale(0.5_f32))
                     .moves(emphasized(380))
                     .transition(overshoot(360)),
                 )
@@ -139,7 +139,7 @@ pub fn panel(output: Output) -> Div {
                             .flex_col()
                             .items_center()
                             .justify_center()
-                            .gap(8.0)
+                            .gap(8.0_f32)
                             .child(sym(icons::SEARCH, 48.0, |c| c.outline))
                             .child(
                                 txt(TextStyle::TITLE_MEDIUM, move || {
@@ -186,7 +186,7 @@ fn cell(
         .w(CELL_W)
         .h(CELL_H)
         .flex_none()
-        .p(4.0)
+        .p(4.0_f32)
         .on_hover(move |h| {
             hovered.set(h);
             if h && let Some(i) = index.get() {
@@ -202,7 +202,7 @@ fn cell(
                 .flex_col()
                 .items_center()
                 .justify_center()
-                .gap(6.0)
+                .gap(6.0_f32)
                 .transition_of([Prop::Background], Transition::ms(160).ease_out())
                 .dyn_style(move |s| {
                     let c = colors();
@@ -235,7 +235,7 @@ fn cell(
                             None => TextStyle::TITLE_LARGE
                                 .apply(div())
                                 .size(46.0)
-                                .rounded(15.0)
+                                .rounded(15.0_f32)
                                 .flex()
                                 .items_center()
                                 .justify_center()

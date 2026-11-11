@@ -112,11 +112,11 @@ pub fn install() {
                         },
                     }
                 };
-                div().p(16.0).select_none().child(
+                div().p(16.0_f32).select_none().child(
                     show(move || visible.get(), move || pill(level, symbol))
                         .appear()
-                        .enter(|s| s.opacity(0.0).translate_y(40.0).scale(0.8))
-                        .exit(|s| s.opacity(0.0).translate_y(24.0).scale(0.9))
+                        .enter(|s| s.opacity(0.0_f32).translate_y(40.0_f32).scale(0.8_f32))
+                        .exit(|s| s.opacity(0.0_f32).translate_y(24.0_f32).scale(0.9_f32))
                         .transition(overshoot(420)),
                 )
             },
@@ -135,9 +135,9 @@ fn pill(
         .flex()
         .flex_row()
         .items_center()
-        .gap(12.0)
-        .px(12.0)
-        .rounded(24.0)
+        .gap(12.0_f32)
+        .px(12.0_f32)
+        .rounded(24.0_f32)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -146,7 +146,7 @@ fn pill(
         .child(
             div()
                 .size(30.0)
-                .rounded(15.0)
+                .rounded(15.0_f32)
                 .flex()
                 .items_center()
                 .justify_center()
@@ -158,7 +158,7 @@ fn pill(
             div()
                 .flex_1()
                 .h(10.0)
-                .rounded(5.0)
+                .rounded(5.0_f32)
                 .relative()
                 .overflow_hidden()
                 .dyn_style(|s| s.bg(colors().secondary_container))
@@ -168,7 +168,7 @@ fn pill(
                         .top(0.0)
                         .bottom(0.0)
                         .left(0.0)
-                        .rounded(5.0)
+                        .rounded(5.0_f32)
                         .dyn_style(move |s| {
                             s.w(pct(fill.get().clamp(0.0, 1.0) * 100.0))
                                 .bg(colors().primary)

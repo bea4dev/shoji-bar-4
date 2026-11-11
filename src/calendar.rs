@@ -19,9 +19,9 @@ pub fn panel() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(14.0)
-        .p(16.0)
-        .rounded(30.0)
+        .gap(14.0_f32)
+        .p(16.0_f32)
+        .rounded(30.0_f32)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -58,14 +58,14 @@ fn header() -> Div {
     div()
         .flex()
         .flex_col()
-        .px(14.0)
-        .pt(6.0)
+        .px(14.0_f32)
+        .pt(6.0_f32)
         .child(
             div()
                 .flex()
                 .flex_row()
                 .items_end()
-                .gap(6.0)
+                .gap(6.0_f32)
                 .child(
                     rolling_text(clock("%H:%M"), big, width(52.0))
                         .dyn_style(|s| s.text_color(colors().primary)),
@@ -189,7 +189,7 @@ fn month_view() -> Div {
             .relative()
             .flex_1()
             .h(32.0)
-            .rounded(16.0)
+            .rounded(16.0_f32)
             .on_click(move |_| shown.set(untrack(|| this_month.get())))
             .child(
                 for_each(
@@ -209,8 +209,8 @@ fn month_view() -> Div {
                         )
                     },
                 )
-                .enter(|s| s.opacity(0.0).scale(0.9))
-                .exit(|s| s.opacity(0.0).scale(0.9))
+                .enter(|s| s.opacity(0.0_f32).scale(0.9_f32))
+                .exit(|s| s.opacity(0.0_f32).scale(0.9_f32))
                 .transition(emphasized(250)),
             ),
         |c| c.primary,
@@ -313,11 +313,11 @@ fn month_view() -> Div {
         .flex()
         .flex_col()
         .items_center()
-        .gap(4.0)
-        .px(12.0)
-        .pt(10.0)
-        .pb(12.0)
-        .rounded(20.0)
+        .gap(4.0_f32)
+        .px(12.0_f32)
+        .pt(10.0_f32)
+        .pb(12.0_f32)
+        .rounded(20.0_f32)
         .dyn_style(|s| s.bg(colors().surface_container_high))
         .child(nav)
         .child(week)
@@ -391,8 +391,8 @@ fn day(date: Date, of_month: bool, today: Memo<Date>) -> Div {
                     .top((CELL_H - TODAY) / 2.0)
                 },
             )
-            .enter(|s| s.opacity(0.0).scale(0.3))
-            .exit(|s| s.opacity(0.0).scale(0.3))
+            .enter(|s| s.opacity(0.0_f32).scale(0.3_f32))
+            .exit(|s| s.opacity(0.0_f32).scale(0.3_f32))
             .transition(overshoot(400)),
         )
         // Over the cookie.
@@ -437,10 +437,10 @@ fn gauges() -> Div {
             .flex()
             .flex_col()
             .items_center()
-            .gap(8.0)
-            .px(8.0)
-            .py(14.0)
-            .rounded(20.0)
+            .gap(8.0_f32)
+            .px(8.0_f32)
+            .py(14.0_f32)
+            .rounded(20.0_f32)
             .dyn_style(|s| s.bg(colors().surface_container_high))
             .child(
                 // The ring is as big as it draws itself; the icon sits in its middle.
@@ -474,7 +474,7 @@ fn gauges() -> Div {
     div()
         .flex()
         .flex_row()
-        .gap(10.0)
+        .gap(10.0_f32)
         .child(gauge(
             icons::SPEED,
             "CPU",

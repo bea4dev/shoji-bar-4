@@ -130,7 +130,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 set_timeout(Duration::from_millis(3000), move || {
                     list.set(vec![ws(1, true), ws(2, false)])
                 });
-                div().p(8.0).flex().child(crate::bar::workspaces_island(
+                div().p(8.0_f32).flex().child(crate::bar::workspaces_island(
                     memo(move || list.get()),
                     std::rc::Rc::new(|_: &str| {}),
                 ))
@@ -182,7 +182,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                     shown.set(Some(focused(None, end_long)))
                 });
                 div()
-                    .p(4.0)
+                    .p(4.0_f32)
                     .h(crate::bar::HEIGHT as f32)
                     .flex()
                     .items_center()

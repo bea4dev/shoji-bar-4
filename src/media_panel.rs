@@ -78,8 +78,8 @@ pub fn panel(output: Output) -> Div {
     div()
         .ml(left)
         .w(WIDTH)
-        .p(16.0)
-        .rounded(30.0)
+        .p(16.0_f32)
+        .rounded(30.0_f32)
         .shadows(elevation(3))
         .dyn_style(|s| s.bg(colors().surface_container))
         .child(
@@ -87,9 +87,9 @@ pub fn panel(output: Output) -> Div {
                 .relative()
                 .flex()
                 .flex_col()
-                .gap(14.0)
-                .p(16.0)
-                .rounded(22.0)
+                .gap(14.0_f32)
+                .p(16.0_f32)
+                .rounded(22.0_f32)
                 .overflow_hidden()
                 // Its own stacking context, so that the cover and its veil stay behind the rest.
                 .z_index(0)
@@ -131,8 +131,8 @@ fn backdrop(art: Memo<Option<String>>) -> Div {
                 },
             )
             .appear()
-            .enter(|s| s.opacity(0.0).scale(1.1))
-            .exit(|s| s.opacity(0.0))
+            .enter(|s| s.opacity(0.0_f32).scale(1.1_f32))
+            .exit(|s| s.opacity(0.0_f32))
             .transition(emphasized(600)),
         )
 }
@@ -148,13 +148,13 @@ fn about(
         .flex()
         .flex_row()
         .items_center()
-        .gap(14.0)
+        .gap(14.0_f32)
         .child(
             div()
                 .size(72.0)
                 .flex_none()
                 .relative()
-                .rounded(18.0)
+                .rounded(18.0_f32)
                 .overflow_hidden()
                 .dyn_style(|s| s.bg(colors().primary_container))
                 .child(
@@ -173,8 +173,8 @@ fn about(
                         |path| img(path).absolute().inset(0.0).object_fit(ObjectFit::Cover),
                     )
                     .appear()
-                    .enter(|s| s.opacity(0.0).scale(0.8))
-                    .exit(|s| s.opacity(0.0))
+                    .enter(|s| s.opacity(0.0_f32).scale(0.8_f32))
+                    .exit(|s| s.opacity(0.0_f32))
                     .transition(overshoot(500)),
                 ),
         )
@@ -207,18 +207,18 @@ fn about(
                                 column = column.child(
                                     static_txt(TextStyle::BODY_MEDIUM, by)
                                         .overflow_hidden()
-                                        .opacity(0.85),
+                                        .opacity(0.85_f32),
                                 );
                             }
                             column.child(
                                 static_txt(TextStyle::LABEL_SMALL, player)
                                     .overflow_hidden()
-                                    .opacity(0.65),
+                                    .opacity(0.65_f32),
                             )
                         },
                     )
-                    .enter(|s| s.opacity(0.0).translate_x(40.0))
-                    .exit(|s| s.opacity(0.0).translate_x(-40.0))
+                    .enter(|s| s.opacity(0.0_f32).translate_x(40.0_f32))
+                    .exit(|s| s.opacity(0.0_f32).translate_x(-40.0_f32))
                     .transition(emphasized(450)),
                 )
                 .dyn_style(move |s| s.text_color(fg(&colors()))),
@@ -303,7 +303,7 @@ fn seek_bar(current: Memo<Option<Player>>, playing: Memo<bool>, fg: impl crate::
                 .absolute()
                 .top(0.0)
                 .w(6.0)
-                .rounded(3.0)
+                .rounded(3.0_f32)
                 .pointer_events_none()
                 .dyn_style(move |s| {
                     let t = handle.get().max(0.0);
@@ -353,15 +353,15 @@ fn seek_bar(current: Memo<Option<Player>>, playing: Memo<bool>, fg: impl crate::
         .flex()
         .flex_row()
         .justify_between()
-        .px(2.0)
+        .px(2.0_f32)
         .child(txt(TextStyle::LABEL_SMALL, move || {
             clock(length().mul_f32(progress()))
         }))
         .child(txt(TextStyle::LABEL_SMALL, move || clock(length())))
-        .opacity(0.8)
+        .opacity(0.8_f32)
         .dyn_style(move |s| s.text_color(fg(&colors())));
 
-    div().flex().flex_col().gap(2.0).child(bar).child(times)
+    div().flex().flex_col().gap(2.0_f32).child(bar).child(times)
 }
 
 /// Back, play or pause, and forward. The middle one is a big rounded square that goes round while
@@ -381,7 +381,7 @@ fn buttons(current: Memo<Option<Player>>, playing: Memo<bool>, fg: impl crate::u
         .flex_row()
         .items_center()
         .justify_center()
-        .gap(20.0)
+        .gap(20.0_f32)
         .child(icon_btn(icons::SKIP_PREVIOUS, 44.0, fg).on_click(move |_| {
             if let Some(p) = current.get() {
                 drop(p.previous());
