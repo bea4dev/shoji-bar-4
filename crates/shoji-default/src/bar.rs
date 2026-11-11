@@ -251,12 +251,24 @@ pub struct Ws {
 /// The workspaces of an output, in order.
 fn workspaces_of(output: Output) -> Memo<Vec<Ws>> {
     memo(move || {
-        let mut all = workspaces().on(&output);
-        all.sort_by(|a, b| a.coordinates().cmp(b.coordinates()));
+        // A special workspace (the scratchpad kind) is not one of the row: it shows, as an `S`,
+        // only while it is open, and goes when it is put away.
+        let mut all: Vec<_> = workspaces()
+            .on(&output)
+            .into_iter()
+            .filter(|w| !w.is_hidden() || w.is_active())
+            .collect();
+        all.sort_by(|a, b| {
+            (a.is_hidden(), a.coordinates()).cmp(&(b.is_hidden(), b.coordinates()))
+        });
         all.iter()
             .map(|w| Ws {
                 id: w.id().to_owned(),
-                name: w.name().to_owned(),
+                name: if w.is_hidden() {
+                    "S".to_owned()
+                } else {
+                    w.name().to_owned()
+                },
                 active: w.is_active(),
                 empty: w.is_hidden(),
                 urgent: w.is_urgent(),
