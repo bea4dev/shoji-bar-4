@@ -282,7 +282,9 @@ fn surface(output: Output, id: PanelId, wanted: Memo<bool>) -> Div {
     };
     let content = {
         let content = def.content.clone();
-        move || content(output.clone())
+        move || {
+            content(output.clone()).dyn_style(|s| s.backdrop_blur(crate::theme::glass_blur()))
+        }
     };
     // Keys go to what has the focus, and with nothing focused not to here but to what holds it: the
     // panel takes the focus as it opens, for Escape. A panel with a field of its own gives the

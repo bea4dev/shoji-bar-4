@@ -54,6 +54,21 @@ thread_local! {
     static DARK: Cell<Option<Memo<bool>>> = const { Cell::new(None) };
     static WALLPAPER_SEED: Cell<Option<Signal<Option<u32>>>> = const { Cell::new(None) };
     static OVERRIDE: Cell<Option<Signal<Option<ColorScheme>>>> = const { Cell::new(None) };
+    static GLASS: Cell<Option<Signal<f32>>> = const { Cell::new(None) };
+}
+
+/// How much the panels and the islands of the bar blur what is behind them, in pixels: 0 for
+/// none, which is what the stock schemes want. A scheme of see-through colours (see
+/// [`set_scheme_override`]) wants some, to read as frosted glass.
+pub fn glass_blur() -> f32 {
+    GLASS.with(|g| g.get()).map_or(0.0, |s| s.get())
+}
+
+/// Sets [`glass_blur`]. Only works once [`install`] has run.
+pub fn set_glass_blur(radius: f32) {
+    if let Some(signal) = GLASS.with(|g| g.get()) {
+        signal.set(radius.max(0.0));
+    }
 }
 
 /// Puts a scheme of your own in place of the one made from the settings, until it is taken off
@@ -113,6 +128,7 @@ pub fn install() {
     });
 
     OVERRIDE.with(|o| o.set(Some(signal(None::<ColorScheme>))));
+    GLASS.with(|g| g.set(Some(signal(0.0f32))));
     let first = Cell::new(true);
     effect(move || {
         let s = settings().get();
