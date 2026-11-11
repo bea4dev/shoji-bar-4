@@ -202,14 +202,14 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
                 .z_index(-1)
                 .pointer_events_none()
                 .child(
-                    // Fades and grows from the middle when the pane is switched on or off.
+                    // Spreads from the middle island out to the sides (about 0.6 s) when the pane is switched on or off.
                     show(
                         || matches!(crate::theme::bar_pane(), crate::theme::BarPane::Stock),
                         stock_pane,
                     )
-                    .enter(|s| s.opacity(0.0).scale(0.97))
-                    .exit(|s| s.opacity(0.0).scale(0.97))
-                    .transition(emphasized(320)),
+                    .enter(|s| s.opacity(0.0).scale_x(0.0))
+                    .exit(|s| s.opacity(0.0).scale_x(0.0))
+                    .transition(emphasized(600)),
                 ),
         )
         .child(
