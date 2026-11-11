@@ -603,22 +603,50 @@ fn place_of(first: bool, here: impl Fn() -> bool + 'static) -> Animated<f32> {
 /// Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
 /// at least a quarter opaque.
 fn stock_pane() -> Div {
+    // The faint pane of the scheme in use.
+    let base = || {
+        div()
+            .absolute()
+            .inset(0.0)
+            .pointer_events_none()
+            .dyn_style(|s| {
+                let surface = colors().surface;
+                if surface.a < 0.95 {
+                    // A see-through scheme: the colour of the panels' cards, which is the same glass.
+                    let glass = colors().surface_container;
+                    s.bg(glass.with_alpha(glass.a.max(0.04)))
+                } else {
+                    // A third of the surface's own opacity: faint, much lighter than the scheme.
+                    s.bg(surface.with_alpha(surface.a * 0.34))
+                }
+            })
+    };
+    // With a see-through scheme the pane spreads out in the colour of the light one, and once it has
+    // spread it fades into the glass of the scheme: `intro` is true while it spreads.
+    let glass = colors().surface.a < 0.95;
+    let intro = signal(glass);
+    if glass {
+        drop(set_timeout(Duration::from_millis(650), move || intro.set(false)));
+    }
+    let seen = follow(move || if intro.get() { 0.0_f32 } else { 1.0 }, Transition::ms(550));
+    let light = {
+        let s = settings().get_untracked();
+        let c = crate::theme::scheme_for(crate::theme::current_seed(&s), s.palette, false).surface;
+        c.with_alpha(0.34)
+    };
     div()
         .absolute()
         .z_index(-1)
         .inset(0.0)
         .pointer_events_none()
-        .dyn_style(|s| {
-            let surface = colors().surface;
-            if surface.a < 0.95 {
-                // A see-through scheme: the colour of the panels' cards, which is the same glass.
-                let glass = colors().surface_container;
-                s.bg(glass.with_alpha(glass.a.max(0.04)))
-            } else {
-                // A third of the surface's own opacity: faint, much lighter than the scheme.
-                s.bg(surface.with_alpha(surface.a * 0.34))
-            }
-        })
+        .child(base().dyn_style(move |s| s.opacity(if glass { seen.get() } else { 1.0 })))
+        .child(
+            div()
+                .absolute()
+                .inset(0.0)
+                .pointer_events_none()
+                .dyn_style(move |s| s.bg(light).opacity(if glass { 1.0 - seen.get() } else { 0.0 })),
+        )
 }
 
 /// A window's icon and title, on one line.

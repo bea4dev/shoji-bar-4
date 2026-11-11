@@ -5,7 +5,6 @@ use crate::settings::{Palette, Settings, ThemeMode, settings};
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
 use anti_webui_md3e::dynamic::seed_colors;
-use anti_webui_md3e::motion::default_effects;
 use anti_webui_md3e::{
     ColorScheme, SchemeOptions, SchemeVariant, set_color_scheme, set_color_scheme_animated,
 };
@@ -145,9 +144,15 @@ pub fn install() {
         if first.replace(false) {
             set_color_scheme(scheme);
         } else {
-            set_color_scheme_animated(scheme, default_effects());
+            set_color_scheme_animated(scheme, fade());
         }
     });
+}
+
+/// The motion every change of colours goes through: a fade of about 0.6 s, from the colours that
+/// were on screen to the new ones (it starts from wherever a fade still running had got to).
+pub fn fade() -> Spring {
+    Spring::from_ratio(110.0, 1.0)
 }
 
 /// The best seed in a picture, read from a small copy of it.
