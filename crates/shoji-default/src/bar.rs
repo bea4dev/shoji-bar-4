@@ -261,7 +261,8 @@ fn workspaces_of(output: Output) -> Memo<Vec<Ws>> {
         all.sort_by(|a, b| {
             (a.is_hidden(), a.coordinates()).cmp(&(b.is_hidden(), b.coordinates()))
         });
-        all.iter()
+        let mut row: Vec<Ws> = all
+            .iter()
             .map(|w| Ws {
                 id: w.id().to_owned(),
                 name: if w.is_hidden() {
@@ -273,7 +274,14 @@ fn workspaces_of(output: Output) -> Memo<Vec<Ws>> {
                 empty: w.is_hidden(),
                 urgent: w.is_urgent(),
             })
-            .collect()
+            .collect();
+        // An open special workspace is drawn over the one under it: it alone has the pill.
+        if all.iter().any(|w| w.is_hidden() && w.is_active()) {
+            for (ws, w) in row.iter_mut().zip(&all) {
+                ws.active = w.is_hidden();
+            }
+        }
+        row
     })
 }
 
