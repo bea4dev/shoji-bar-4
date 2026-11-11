@@ -196,7 +196,12 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
                 .z_index(-1)
                 .inset(0.0)
                 .pointer_events_none()
-                .dyn_style(|s| s.bg(colors().surface.with_alpha(0.34))),
+                .dyn_style(|s| {
+                    // A third of the surface's own opacity, so that a see-through scheme gets a
+                    // pane that is see-through too.
+                    let surface = colors().surface;
+                    s.bg(surface.with_alpha(surface.a * 0.34))
+                }),
         )
         .child(
             div()
