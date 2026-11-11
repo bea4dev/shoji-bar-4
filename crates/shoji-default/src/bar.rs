@@ -607,11 +607,14 @@ fn fading_pane() -> Svg {
         .inset(0.0)
         .pointer_events_none()
         .dyn_style(|s| {
-            let c = colors().surface;
+            // The colour of the islands, so that the pane reads as one with them; see-through
+            // schemes get at least a veil.
+            let c = colors().surface_container;
+            let top = c.a.max(0.30);
             s.fill(
                 Gradient::linear(0.0, 0.0, 0.0, 1.0)
-                    .stop(0.0, c.with_alpha(0.30))
-                    .stop(0.35, c.with_alpha(0.12))
+                    .stop(0.0, c.with_alpha(top))
+                    .stop(0.35, c.with_alpha(top * 0.4))
                     .stop(0.62, c.with_alpha(0.0))
                     .stop(1.0, c.with_alpha(0.0)),
             )
