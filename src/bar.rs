@@ -38,8 +38,8 @@ pub fn view(output: Output) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .px(14.0)
-        .gap(10.0)
+        .px(14.0_f32)
+        .gap(10.0_f32)
         .dyn_style(|s| s.text_color(colors().on_surface))
         // Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
         // at least a quarter opaque.
@@ -56,7 +56,7 @@ pub fn view(output: Output) -> Div {
                 .flex()
                 .flex_row()
                 .items_center()
-                .gap(10.0)
+                .gap(10.0_f32)
                 .flex_1()
                 .min_w(0.0)
                 .child(launcher_island(output.clone()))
@@ -82,7 +82,7 @@ pub fn view(output: Output) -> Div {
                 .flex_row()
                 .items_center()
                 .justify_end()
-                .gap(10.0)
+                .gap(10.0_f32)
                 .flex_1()
                 .min_w(0.0)
                 .child(media_island(output.clone()))
@@ -217,7 +217,7 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                             .items_center()
                             .justify_center()
                             .pointer_events_none()
-                            .child(div().rounded(3.0).transition(overshoot(350)).dyn_style(
+                            .child(div().rounded(3.0_f32).transition(overshoot(350)).dyn_style(
                                 move |s| {
                                     let c = colors();
                                     let size = if empty.get() { 5.0 } else { 6.0 };
@@ -230,7 +230,7 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                                     };
                                     s.size(size)
                                         .bg(color)
-                                        .scale(if on.get() { 0.0 } else { 1.0 })
+                                        .scale(if on.get() { 0.0 } else { 1.0_f32 })
                                 },
                             )),
                     )
@@ -251,19 +251,19 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                             .transition(overshoot(400))
                             .dyn_style(move |s| {
                                 s.text_color(colors().on_primary)
-                                    .opacity(if on.get() { 1.0 } else { 0.0 })
-                                    .scale(if on.get() { 1.0 } else { 0.4 })
+                                    .opacity(if on.get() { 1.0 } else { 0.0_f32 })
+                                    .scale(if on.get() { 1.0 } else { 0.4_f32 })
                             })
                             .child(name),
                     )
             },
         )
         // They open and close their place, so the others and the island move over with them.
-        .enter(|s| s.w(0.0).opacity(0.0).scale(0.3))
-        .exit(|s| s.w(0.0).opacity(0.0).scale(0.3))
+        .enter(|s| s.w(0.0).opacity(0.0_f32).scale(0.3_f32))
+        .exit(|s| s.w(0.0).opacity(0.0_f32).scale(0.3_f32))
         .transition(emphasized(350));
     island()
-        .px(5.0)
+        .px(5.0_f32)
         .on_scroll(move |e| {
             let step = if e.delta_y > 0.0 {
                 1
@@ -350,9 +350,9 @@ pub fn focused_island(active: Memo<Option<Focused>>) -> Show {
             let sized = Rc::new(Cell::new(false));
             island()
                 .relative()
-                .px(5.0)
+                .px(5.0_f32)
                 .min_w(0.0)
-                .flex_shrink(1.0)
+                .flex_shrink(1.0_f32)
                 .overflow_hidden()
                 .child(
                     div()
@@ -402,8 +402,8 @@ pub fn focused_island(active: Memo<Option<Focused>>) -> Show {
                 .child(edge_fade())
         },
     )
-    .enter(|s| s.opacity(0.0).scale(0.8))
-    .exit(|s| s.opacity(0.0).scale(0.8))
+    .enter(|s| s.opacity(0.0_f32).scale(0.8_f32))
+    .exit(|s| s.opacity(0.0_f32).scale(0.8_f32))
     .transition(overshoot(350))
 }
 
@@ -474,13 +474,13 @@ fn window_title(shown: Signal<Option<Focused>>) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap(8.0)
-        .pr(9.0)
+        .gap(8.0_f32)
+        .pr(9.0_f32)
         .child(dyn_view(move || match icon.get() {
             Some(path) => img(path).size(22.0).flex_none().into_view(),
             None => div()
                 .size(22.0)
-                .rounded(11.0)
+                .rounded(11.0_f32)
                 .flex()
                 .items_center()
                 .justify_center()
@@ -536,7 +536,7 @@ fn changing_title(title: Memo<String>) -> Div {
                 .flex_none()
                 .max_w(320.0)
                 .overflow_hidden()
-                .opacity(0.0),
+                .opacity(0.0_f32),
         )
         .child(for_each(
             move || lines.with(|lines| lines.iter().map(|(t, _)| *t).collect::<Vec<_>>()),
@@ -617,8 +617,8 @@ fn clock_island(output: Output) -> Div {
     };
     pressable(
         island()
-            .px(14.0)
-            .gap(8.0)
+            .px(14.0_f32)
+            .gap(8.0_f32)
             .on_hover(move |h| hovered.set(h))
             .on_click(move |_| toggle(&output, Panel::Calendar))
             .dyn_style(move |s| {
@@ -677,8 +677,8 @@ fn media_island(output: Output) -> Show {
             pressable(
                 island()
                     .node_ref(here)
-                    .px(12.0)
-                    .gap(8.0)
+                    .px(12.0_f32)
+                    .gap(8.0_f32)
                     .max_w(260.0)
                     .on_click(move |_| {
                         if let Some(r) = here.logical_rect() {
@@ -717,8 +717,8 @@ fn media_island(output: Output) -> Show {
             )
         },
     )
-    .enter(|s| s.opacity(0.0).scale(0.6))
-    .exit(|s| s.opacity(0.0).scale(0.6))
+    .enter(|s| s.opacity(0.0_f32).scale(0.6_f32))
+    .exit(|s| s.opacity(0.0_f32).scale(0.6_f32))
     .transition(overshoot(400))
 }
 
@@ -734,11 +734,11 @@ fn equalizer(playing: Memo<bool>) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap(2.0)
+        .gap(2.0_f32)
         .h(13.0)
         .flex_none();
     for i in 0..4 {
-        row = row.child(div().w(2.5).rounded(1.25).dyn_style(move |s| {
+        row = row.child(div().w(2.5).rounded(1.25_f32).dyn_style(move |s| {
             let level = calming.get();
             // Only asks for frames while it moves.
             let wave = if level > 0.001 {
@@ -758,16 +758,16 @@ fn tray_island() -> Show {
     show(
         || !tray().items().is_empty(),
         || {
-            island().px(5.0).gap(2.0).child(
+            island().px(5.0_f32).gap(2.0_f32).child(
                 for_each(|| tray().items(), |item| item.key(), tray_icon)
-                    .enter(|s| s.opacity(0.0).scale(0.4))
-                    .exit(|s| s.opacity(0.0).scale(0.4))
+                    .enter(|s| s.opacity(0.0_f32).scale(0.4_f32))
+                    .exit(|s| s.opacity(0.0_f32).scale(0.4_f32))
                     .transition(overshoot(300)),
             )
         },
     )
-    .enter(|s| s.opacity(0.0).scale(0.8))
-    .exit(|s| s.opacity(0.0).scale(0.8))
+    .enter(|s| s.opacity(0.0_f32).scale(0.8_f32))
+    .exit(|s| s.opacity(0.0_f32).scale(0.8_f32))
     .transition(overshoot(300))
 }
 
@@ -780,7 +780,7 @@ fn tray_icon(item: TrayItem) -> Div {
     pressable(
         div()
             .size(24.0)
-            .rounded(12.0)
+            .rounded(12.0_f32)
             .flex()
             .items_center()
             .justify_center()
@@ -889,8 +889,8 @@ fn status_island(output: Output) -> Div {
     let color = move |c: &anti_webui_md3e::ColorScheme| c.on_surface_variant;
     pressable(
         island()
-            .px(12.0)
-            .gap(9.0)
+            .px(12.0_f32)
+            .gap(9.0_f32)
             .on_click(move |_| toggle(&output, Panel::QuickSettings))
             .dyn_style(move |s| {
                 if open.get() {
@@ -941,7 +941,7 @@ fn status_island(output: Output) -> Div {
                         .flex()
                         .flex_row()
                         .items_center()
-                        .gap(2.0)
+                        .gap(2.0_f32)
                         .child(dyn_sym(
                             move || battery_icon(b.percentage(), b.state()),
                             16.0,

@@ -269,7 +269,7 @@ fn screen(output: Output, state: State) -> Div {
                 },
             )
             .appear()
-            .enter(|s| s.scale(1.08))
+            .enter(|s| s.scale(1.08_f32))
             .transition(Transition::ms(1100).cubic_bezier(0.2, 0.0, 0.0, 1.0)),
         )
         // The veil, deeper while a password is typed, lifting as it unlocks.
@@ -289,10 +289,10 @@ fn screen(output: Output, state: State) -> Div {
                     let t = leaving.get();
                     s.opacity((1.0 - t).clamp(0.0, 1.0)).scale(1.0 + 0.08 * t)
                 })
-                .child(div().flex_grow(2.0))
+                .child(div().flex_grow(2.0_f32))
                 .child(settle_in(0, clock()))
                 .child(settle_in(1, date()))
-                .child(div().flex_grow(3.0))
+                .child(div().flex_grow(3.0_f32))
                 .child(settle_in(2, crate::user::avatar(104.0)))
                 .child(settle_in(
                     3,
@@ -300,7 +300,7 @@ fn screen(output: Output, state: State) -> Div {
                 ))
                 .child(settle_in(4, field(state)))
                 .child(message(state))
-                .child(div().flex_grow(1.6)),
+                .child(div().flex_grow(1.6_f32)),
         )
         .child(
             settle_in(5, status())
@@ -332,7 +332,7 @@ fn date() -> Div {
     txt(TextStyle::TITLE_LARGE, || {
         local_time(Every::Minute).format("%A, %-d %B")
     })
-    .opacity(0.85)
+    .opacity(0.85_f32)
 }
 
 /// The password, as shapes that pop in as it is typed, on a glassy pill; a turning shape while it
@@ -346,8 +346,8 @@ fn field(state: State) -> Div {
         .w(320.0)
         .h(56.0)
         .relative()
-        .rounded(28.0)
-        .border(1.5)
+        .rounded(28.0_f32)
+        .border(1.5_f32)
         .flex()
         .items_center()
         .justify_center()
@@ -375,13 +375,13 @@ fn field(state: State) -> Div {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .opacity(0.7)
+                        .opacity(0.7_f32)
                         .child(static_txt(TextStyle::BODY_LARGE, "Enter password"))
                 },
             )
             .appear()
-            .enter(|s| s.opacity(0.0))
-            .exit(|s| s.opacity(0.0))
+            .enter(|s| s.opacity(0.0_f32))
+            .exit(|s| s.opacity(0.0_f32))
             .transition(Transition::ms(180).ease_out()),
         )
         .child(
@@ -392,8 +392,8 @@ fn field(state: State) -> Div {
                     dot,
                 )
                 // The place opens and closes, so that the others slide over rather than jump.
-                .enter(|s| s.w(0.0).opacity(0.0))
-                .exit(|s| s.w(0.0).opacity(0.0).scale(0.3))
+                .enter(|s| s.w(0.0).opacity(0.0_f32))
+                .exit(|s| s.w(0.0).opacity(0.0_f32).scale(0.3_f32))
                 .transition(emphasized(300)),
             ),
         )
@@ -407,11 +407,11 @@ fn field(state: State) -> Div {
                         .flex()
                         .items_center()
                         .justify_center()
-                        .child(loading_indicator().scale(0.85))
+                        .child(loading_indicator().scale(0.85_f32))
                 },
             )
-            .enter(|s| s.opacity(0.0).scale(0.4))
-            .exit(|s| s.opacity(0.0).scale(0.4))
+            .enter(|s| s.opacity(0.0_f32).scale(0.4_f32))
+            .exit(|s| s.opacity(0.0_f32).scale(0.4_f32))
             .transition(overshoot(360)),
         )
 }
@@ -453,14 +453,14 @@ fn message(state: State) -> Div {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap(6.0)
+                    .gap(6.0_f32)
                     .text_color(rgb(ERROR))
                     .child(anti_webui_md3e::components::sized_icon(icons::ERROR, 18.0))
                     .child(txt(TextStyle::LABEL_LARGE, move || state.said.get()))
             },
         )
-        .enter(|s| s.opacity(0.0).translate_y(-8.0))
-        .exit(|s| s.opacity(0.0))
+        .enter(|s| s.opacity(0.0_f32).translate_y(-8.0_f32))
+        .exit(|s| s.opacity(0.0_f32))
         .transition(emphasized(300)),
     )
 }
@@ -480,8 +480,8 @@ fn status() -> Div {
                     .flex()
                     .flex_row()
                     .items_center()
-                    .gap(4.0)
-                    .opacity(0.9)
+                    .gap(4.0_f32)
+                    .opacity(0.9_f32)
                     .child(dyn_sym(
                         move || crate::bar::battery_icon(b.percentage(), b.state()),
                         18.0,

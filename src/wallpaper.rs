@@ -68,8 +68,8 @@ fn view() -> Div {
                 },
             )
             .appear()
-            .enter(|s| s.opacity(0.0).scale(1.06))
-            .exit(|s| s.opacity(0.0))
+            .enter(|s| s.opacity(0.0_f32).scale(1.06_f32))
+            .exit(|s| s.opacity(0.0_f32))
             .transition(Transition::ms(1100).cubic_bezier(0.2, 0.0, 0.0, 1.0)),
         )
 }
