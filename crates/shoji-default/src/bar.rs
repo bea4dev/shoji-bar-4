@@ -188,21 +188,11 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
         .px(14.0)
         .gap(10.0)
         .dyn_style(|s| s.text_color(colors().on_surface))
-        // Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
-        // at least a quarter opaque.
-        .child(
-            div()
-                .absolute()
-                .z_index(-1)
-                .inset(0.0)
-                .pointer_events_none()
-                .dyn_style(|s| {
-                    // A third of the surface's own opacity, so that a see-through scheme gets a
-                    // pane that is see-through too.
-                    let surface = colors().surface;
-                    s.bg(surface.with_alpha(surface.a * 0.34))
-                }),
-        )
+        .child(dyn_view(|| match crate::theme::bar_pane() {
+            crate::theme::BarPane::None => div().into_view(),
+            crate::theme::BarPane::Fade => fading_pane().into_view(),
+            crate::theme::BarPane::Stock => stock_pane().into_view(),
+        }))
         .child(
             div()
                 .flex()
@@ -590,6 +580,43 @@ fn place_of(first: bool, here: impl Fn() -> bool + 'static) -> Animated<f32> {
         }
     });
     place
+}
+
+/// Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
+/// at least a quarter opaque.
+fn stock_pane() -> Div {
+    div()
+        .absolute()
+        .z_index(-1)
+        .inset(0.0)
+        .pointer_events_none()
+        .dyn_style(|s| {
+            // A third of the surface's own opacity, so that a see-through scheme gets a
+            // pane that is see-through too.
+            let surface = colors().surface;
+            s.bg(surface.with_alpha(surface.a * 0.34))
+        })
+}
+
+/// A pane that is there at the top edge of the output and gone by the bottom edge of the bar, so
+/// that the bar does not end in a line.
+fn fading_pane() -> Svg {
+    svg()
+        .absolute()
+        .z_index(-1)
+        .inset(0.0)
+        .pointer_events_none()
+        .dyn_style(|s| {
+            let c = colors().surface;
+            s.fill(
+                Gradient::linear(0.0, 0.0, 0.0, 1.0)
+                    .stop(0.0, c.with_alpha(0.30))
+                    .stop(0.35, c.with_alpha(0.12))
+                    .stop(0.62, c.with_alpha(0.0))
+                    .stop(1.0, c.with_alpha(0.0)),
+            )
+        })
+        .child(svg::rect(0.0, 0.0, 8192.0, height() as f64))
 }
 
 /// The end of the window island fading into it, over a title that is wider than it is for now.
