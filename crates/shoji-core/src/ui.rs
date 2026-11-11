@@ -107,7 +107,10 @@ pub fn island() -> Div {
         .h(ISLAND)
         .rounded(ISLAND / 2.0)
         .shadows(elevation(1))
-        .dyn_style(|s| s.bg(colors().surface_container))
+        .dyn_style(|s| {
+            s.bg(colors().surface_container)
+                .backdrop_blur(crate::theme::glass_blur())
+        })
 }
 
 /// Gives `node` Material's state layer and ripples, in its own shape, in `color`.
