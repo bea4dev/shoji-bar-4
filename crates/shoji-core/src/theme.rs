@@ -65,8 +65,6 @@ pub enum BarPane {
     Stock,
     /// Nothing: only the islands float.
     None,
-    /// A long rounded box behind all the islands, like the card of a panel.
-    Wrap,
 }
 
 /// What the bar has behind its islands.

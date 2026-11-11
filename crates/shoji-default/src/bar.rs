@@ -58,6 +58,9 @@ impl Island {
 pub struct BarLayout {
     /// How tall the layer is. The stock islands are drawn for [`HEIGHT`].
     pub height: i32,
+    /// Room kept free under the islands, inside [`height`](Self::height): the islands sit at the
+    /// top and the pane behind them goes on a little below them.
+    pub bottom_margin: f32,
     pub left: Vec<Island>,
     pub center: Vec<Island>,
     pub right: Vec<Island>,
@@ -69,6 +72,7 @@ impl BarLayout {
     pub fn stock() -> Self {
         Self {
             height: HEIGHT,
+            bottom_margin: 0.0,
             left: vec![
                 Island::new("launcher", launcher_island),
                 Island::new("workspaces", workspaces_stock),
@@ -186,6 +190,7 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
         .flex_row()
         .items_center()
         .px(14.0)
+        .pb(layout.bottom_margin)
         .gap(10.0)
         .dyn_style(|s| s.text_color(colors().on_surface))
         // In a box of its own that takes no room in the row: a child of the row, even an empty
@@ -198,7 +203,6 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
                 .pointer_events_none()
                 .child(dyn_view(|| match crate::theme::bar_pane() {
                     crate::theme::BarPane::None => div().into_view(),
-                    crate::theme::BarPane::Wrap => wrapping_pane().into_view(),
                     crate::theme::BarPane::Stock => stock_pane().into_view(),
                 })),
         )
@@ -600,34 +604,14 @@ fn stock_pane() -> Div {
         .inset(0.0)
         .pointer_events_none()
         .dyn_style(|s| {
-            // A third of the surface's own opacity, so that a see-through scheme gets a
-            // pane that is see-through too.
             let surface = colors().surface;
-            s.bg(surface.with_alpha(surface.a * 0.34))
-        })
-}
-
-/// A long rounded box behind all the islands, like the card that holds a panel: the islands
-/// float on it.
-fn wrapping_pane() -> Div {
-    div()
-        .absolute()
-        .z_index(-1)
-        .top(2.0)
-        .bottom(2.0)
-        .left(6.0)
-        .right(6.0)
-        .rounded(18.0)
-        .shadows(crate::theme::elevation(2))
-        .pointer_events_none()
-        .dyn_style(|s| {
-            // See-through schemes: the card colour of the panels, so that it is the same glass.
-            // Solid ones: a shade apart from the islands' own, so that they stand out from it.
-            let glass = colors().surface_container;
-            if glass.a < 0.95 {
+            if surface.a < 0.95 {
+                // A see-through scheme: the colour of the panels' cards, which is the same glass.
+                let glass = colors().surface_container;
                 s.bg(glass.with_alpha(glass.a.max(0.04)))
             } else {
-                s.bg(colors().surface_container_low)
+                // A third of the surface's own opacity: faint, much lighter than the scheme.
+                s.bg(surface.with_alpha(surface.a * 0.34))
             }
         })
 }
