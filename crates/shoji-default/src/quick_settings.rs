@@ -71,9 +71,21 @@ pub fn slider_style() -> SliderStyle {
 }
 
 thread_local! {
+    static DARK_TILE_TEXT: std::cell::RefCell<Option<TileText>> =
+        const { std::cell::RefCell::new(None) };
     static DARK_TILE_EXTRA: std::cell::RefCell<Option<std::rc::Rc<dyn Fn() -> Div>>> =
         const { std::cell::RefCell::new(None) };
 }
+
+/// Gives the "Dark theme" tile other words (the title and the line under it) while `text` returns
+/// something: for an interface that has palettes of its own, to say which one is in use.
+pub fn set_dark_tile_text(text: impl Fn() -> Option<(String, String)> + 'static) {
+    DARK_TILE_TEXT.with(|t| *t.borrow_mut() = Some(std::rc::Rc::new(text)));
+}
+
+/// What the "Dark theme" tile says, when an interface of your own gives it other words: the title
+/// and the line under it.
+type TileText = std::rc::Rc<dyn Fn() -> Option<(String, String)>>;
 
 /// Puts what `build` makes at the right end of the "Dark theme" tile, for an interface of your own
 /// (a menu of palettes, say). It is built each time the panel opens. Its clicks should call
@@ -381,6 +393,19 @@ fn tile(
     click: impl Fn() + 'static,
     details: Option<Page>,
 ) -> Div {
+    tile_titled(icon, move || title.to_owned(), subtitle, on, available, click, details)
+}
+
+/// [`tile`] with a title that can change.
+fn tile_titled(
+    icon: impl Fn() -> &'static Symbol + 'static,
+    title: impl Fn() -> String + 'static,
+    subtitle: impl Fn() -> String + 'static,
+    on: impl Fn() -> bool + Copy + 'static,
+    available: impl Fn() -> bool + Copy + 'static,
+    click: impl Fn() + 'static,
+    details: Option<Page>,
+) -> Div {
     let round = follow(move || if on() { 1.0 } else { 0.0 }, fast_spatial());
     let pressed = signal(false);
     let squash = follow(
@@ -471,7 +496,7 @@ fn tile(
                     .flex_1()
                     .min_w(0.0)
                     .overflow_hidden()
-                    .child(static_txt(TextStyle::LABEL_LARGE, title))
+                    .child(txt(TextStyle::LABEL_LARGE, title))
                     .child(
                         txt(TextStyle::LABEL_SMALL, subtitle)
                             .overflow_hidden()
@@ -566,7 +591,7 @@ fn tiles() -> Div {
         )
         .child(
             settle_in(2, row())
-                .child(tile(
+                .child(tile_titled(
                     move || {
                         if dark() {
                             icons::DARK_MODE
@@ -574,11 +599,24 @@ fn tiles() -> Div {
                             icons::LIGHT_MODE
                         }
                     },
-                    "Dark theme",
-                    move || match settings().with(|s| s.mode) {
-                        ThemeMode::Auto => "By time of day".into(),
-                        _ if dark() => "On".into(),
-                        _ => "Off".into(),
+                    move || {
+                        DARK_TILE_TEXT
+                            .with(|t| t.borrow().clone())
+                            .and_then(|f| f())
+                            .map_or_else(|| "Dark theme".to_owned(), |(title, _)| title)
+                    },
+                    move || {
+                        if let Some((_, line)) = DARK_TILE_TEXT
+                            .with(|t| t.borrow().clone())
+                            .and_then(|f| f())
+                        {
+                            return line;
+                        }
+                        match settings().with(|s| s.mode) {
+                            ThemeMode::Auto => "By time of day".into(),
+                            _ if dark() => "On".into(),
+                            _ => "Off".into(),
+                        }
                     },
                     dark,
                     || true,
