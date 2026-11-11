@@ -201,10 +201,16 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
                 .inset(0.0)
                 .z_index(-1)
                 .pointer_events_none()
-                .child(dyn_view(|| match crate::theme::bar_pane() {
-                    crate::theme::BarPane::None => div().into_view(),
-                    crate::theme::BarPane::Stock => stock_pane().into_view(),
-                })),
+                .child(
+                    // Fades and grows from the middle when the pane is switched on or off.
+                    show(
+                        || matches!(crate::theme::bar_pane(), crate::theme::BarPane::Stock),
+                        stock_pane,
+                    )
+                    .enter(|s| s.opacity(0.0).scale(0.97))
+                    .exit(|s| s.opacity(0.0).scale(0.97))
+                    .transition(emphasized(320)),
+                ),
         )
         .child(
             div()
