@@ -26,6 +26,8 @@ pub enum Page {
     Bluetooth,
     Sound,
     Settings,
+    /// The page that an interface of your own gives with [`set_palettes_page`].
+    Palettes,
 }
 
 thread_local! {
@@ -73,7 +75,7 @@ pub fn slider_style() -> SliderStyle {
 thread_local! {
     static DARK_TILE_TEXT: std::cell::RefCell<Option<TileText>> =
         const { std::cell::RefCell::new(None) };
-    static DARK_TILE_EXTRA: std::cell::RefCell<Option<std::rc::Rc<dyn Fn() -> Div>>> =
+    static PALETTES_PAGE: std::cell::RefCell<Option<std::rc::Rc<dyn Fn() -> Div>>> =
         const { std::cell::RefCell::new(None) };
 }
 
@@ -87,11 +89,20 @@ pub fn set_dark_tile_text(text: impl Fn() -> Option<(String, String)> + 'static)
 /// and the line under it.
 type TileText = std::rc::Rc<dyn Fn() -> Option<(String, String)>>;
 
-/// Puts what `build` makes at the right end of the "Dark theme" tile, for an interface of your own
-/// (a menu of palettes, say). It is built each time the panel opens. Its clicks should call
-/// `stop_propagation` so they do not also toggle the theme.
-pub fn set_dark_tile_extra(build: impl Fn() -> Div + 'static) {
-    DARK_TILE_EXTRA.with(|e| *e.borrow_mut() = Some(std::rc::Rc::new(build)));
+/// Gives the "Dark theme" tile a page of its own, that slides in like Wi-Fi's: for an interface
+/// that has several palettes to choose from instead of two themes. With it the tile opens the
+/// page when clicked and no longer switches between dark and light. `build` is called each time
+/// the page is shown; [`qs_pages::header`](crate::qs_pages::header) and
+/// [`qs_pages::item`](crate::qs_pages::item) make it look like the other pages.
+pub fn set_palettes_page(build: impl Fn() -> Div + 'static) {
+    PALETTES_PAGE.with(|p| *p.borrow_mut() = Some(std::rc::Rc::new(build)));
+}
+
+fn palettes_page() -> Div {
+    match PALETTES_PAGE.with(|p| p.borrow().clone()) {
+        Some(build) => build(),
+        None => div(),
+    }
 }
 
 pub fn panel(output: Output) -> Div {
@@ -153,6 +164,7 @@ pub fn panel(output: Output) -> Div {
                     56.0,
                 ))
                 .child(page_view(Page::Sound, crate::qs_pages::sound_page, 56.0))
+                .child(page_view(Page::Palettes, palettes_page, 56.0))
                 .child(page_view(
                     Page::Settings,
                     crate::qs_settings::settings_page,
@@ -621,16 +633,21 @@ fn tiles() -> Div {
                     dark,
                     || true,
                     move || {
-                        settings().update(|s| {
-                            s.mode = if dark() {
-                                ThemeMode::Light
-                            } else {
-                                ThemeMode::Dark
-                            }
-                        })
+                        // With a page of palettes the tile opens it; the two themes are on it.
+                        if PALETTES_PAGE.with(|p| p.borrow().is_none()) {
+                            settings().update(|s| {
+                                s.mode = if dark() {
+                                    ThemeMode::Light
+                                } else {
+                                    ThemeMode::Dark
+                                }
+                            })
+                        }
                     },
-                    None,
-                ).children(DARK_TILE_EXTRA.with(|e| e.borrow().clone()).map(|build| build())))
+                    PALETTES_PAGE
+                        .with(|p| p.borrow().is_some())
+                        .then_some(Page::Palettes),
+                ))
                 .child(tile(
                     move || {
                         if dnd.get() {

@@ -54,6 +54,31 @@ thread_local! {
     static DARK: Cell<Option<Memo<bool>>> = const { Cell::new(None) };
     static WALLPAPER_SEED: Cell<Option<Signal<Option<u32>>>> = const { Cell::new(None) };
     static OVERRIDE: Cell<Option<Signal<Option<ColorScheme>>>> = const { Cell::new(None) };
+    static BAR_PANE: Cell<Option<Signal<BarPane>>> = const { Cell::new(None) };
+}
+
+/// What is behind the islands of the bar, across all of it.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum BarPane {
+    /// The faint pane of the stock bar, which the compositor blurs what is behind.
+    #[default]
+    Stock,
+    /// Nothing: only the islands float.
+    None,
+    /// A pane that fades away towards the bottom edge of the bar, with no hard line.
+    Fade,
+}
+
+/// What the bar has behind its islands.
+pub fn bar_pane() -> BarPane {
+    BAR_PANE.with(|b| b.get()).map_or(BarPane::Stock, |s| s.get())
+}
+
+/// Sets [`bar_pane`]. Only works once [`install`] has run.
+pub fn set_bar_pane(pane: BarPane) {
+    if let Some(signal) = BAR_PANE.with(|b| b.get()) {
+        signal.set(pane);
+    }
 }
 
 /// Puts a scheme of your own in place of the one made from the settings, until it is taken off
@@ -113,6 +138,7 @@ pub fn install() {
     });
 
     OVERRIDE.with(|o| o.set(Some(signal(None::<ColorScheme>))));
+    BAR_PANE.with(|b| b.set(Some(signal(BarPane::Stock))));
     let first = Cell::new(true);
     effect(move || {
         let s = settings().get();
