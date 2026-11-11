@@ -558,7 +558,6 @@ pub fn focused_island(active: Memo<Option<Focused>>) -> Show {
                             },
                         )),
                 )
-                .child(edge_fade())
         },
     )
     .enter(|s| s.opacity(0.0).scale(0.8))
@@ -614,34 +613,6 @@ fn stock_pane() -> Div {
                 s.bg(surface.with_alpha(surface.a * 0.34))
             }
         })
-}
-
-/// The end of the window island fading into it, over a title that is wider than it is for now.
-/// It is drawn in the island's own round end, which it would otherwise stick out of.
-fn edge_fade() -> Svg {
-    svg()
-        .absolute()
-        .top(0.0)
-        .right(0.0)
-        .w(EDGE)
-        .h(ISLAND)
-        .pointer_events_none()
-        .dyn_style(|s| {
-            let c = colors().surface_container;
-            s.fill(
-                Gradient::linear(0.0, 0.0, EDGE, 0.0)
-                    .units(GradientUnits::UserSpace)
-                    .stop(0.0, c.with_alpha(0.0))
-                    .stop(1.0, c),
-            )
-        })
-        .child(svg::rounded_rect(
-            (EDGE - ISLAND) as f64,
-            0.0,
-            ISLAND as f64,
-            ISLAND as f64,
-            (ISLAND / 2.0) as f64,
-        ))
 }
 
 /// A window's icon and title, on one line.
