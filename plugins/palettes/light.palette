@@ -1,0 +1,4 @@
+# The light theme: solid, light colours (made from the seed of the settings).
+label = Light
+base = light
+variant = tonal-spot

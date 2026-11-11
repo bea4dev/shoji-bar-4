@@ -10,6 +10,11 @@ mod plugin {
 }
 
 fn main() {
+    // `shoji-bar-4 --version`, `-V` or `version`: the version in the manifest, and done.
+    if matches!(std::env::args().nth(1).as_deref(), Some("--version" | "-V" | "version")) {
+        println!("shoji-bar-4 {}", env!("CARGO_PKG_VERSION"));
+        return;
+    }
     let safe = std::env::var_os("SHOJI_SAFE").is_some_and(|v| !v.is_empty() && v != "0")
         || std::env::args().nth(1).as_deref() == Some("--default");
     if safe {

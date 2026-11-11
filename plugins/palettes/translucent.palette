@@ -1,0 +1,37 @@
+# Clear, frosted glass: nothing is coloured, only blurred (smooth, no grain). Surfaces are barely
+# there, just enough for the compositor to blur what is behind them; text is white and the accent
+# is a soft white veil.
+label = Translucent
+base = dark
+# The radius, in pixels, of the blur Hyprland puts behind the shell's see-through surfaces (its
+# blur is switched on while this palette is in use).
+blur = 4
+
+primary = #ffffff2e
+on_primary = #ffffff
+primary_container = #ffffff1a
+on_primary_container = #ffffff
+secondary = #ffffff2e
+on_secondary = #ffffff
+secondary_container = #ffffff12
+on_secondary_container = #ffffff
+tertiary = #ffffff2e
+on_tertiary = #ffffff
+tertiary_container = #ffffff12
+on_tertiary_container = #ffffff
+
+surface = #ffffff08
+surface_dim = #ffffff08
+surface_bright = #ffffff0d
+surface_variant = #ffffff0d
+on_surface = #ffffff
+on_surface_variant = #ffffffe0
+surface_container_lowest = #ffffff06
+surface_container_low = #ffffff06
+surface_container = #ffffff08
+surface_container_high = #ffffff0d
+surface_container_highest = #ffffff14
+outline = #ffffff66
+outline_variant = #ffffff26
+inverse_surface = #ffffffd9
+inverse_on_surface = #1b2030

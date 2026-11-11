@@ -1,0 +1,14 @@
+# A palette is a text file: `key = value` per line, `#` starts a comment.
+#
+#   label    the name shown in the menu (the file name by default)
+#   base     dark or light: which tones the scheme is made with
+#   seed     the colour it is made from, as #rrggbb (the settings' own by default)
+#   variant  tonal-spot, vibrant, expressive, fidelity, neutral or monochrome
+#   <role>   any colour role of Material 3 (primary, on_primary, surface_container, ...) as
+#            #rrggbb, or #rrggbbaa to make it see-through; it is set after the scheme is made
+#
+# A file with only `base` is the stock dark or light theme (see dark.palette).
+label = Red
+base = dark
+seed = #d32f2f
+variant = vibrant
