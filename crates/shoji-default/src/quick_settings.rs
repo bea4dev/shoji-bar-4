@@ -70,6 +70,18 @@ pub fn slider_style() -> SliderStyle {
     SliderStyle::new().wavy().no_stops()
 }
 
+thread_local! {
+    static DARK_TILE_EXTRA: std::cell::RefCell<Option<std::rc::Rc<dyn Fn() -> Div>>> =
+        const { std::cell::RefCell::new(None) };
+}
+
+/// Puts what `build` makes at the right end of the "Dark theme" tile, for an interface of your own
+/// (a menu of palettes, say). It is built each time the panel opens. Its clicks should call
+/// `stop_propagation` so they do not also toggle the theme.
+pub fn set_dark_tile_extra(build: impl Fn() -> Div + 'static) {
+    DARK_TILE_EXTRA.with(|e| *e.borrow_mut() = Some(std::rc::Rc::new(build)));
+}
+
 pub fn panel(output: Output) -> Div {
     let _ = output;
     let page = signal(START.with(|s| s.replace(Page::Main)));
@@ -580,7 +592,7 @@ fn tiles() -> Div {
                         })
                     },
                     None,
-                ))
+                ).children(DARK_TILE_EXTRA.with(|e| e.borrow().clone()).map(|build| build())))
                 .child(tile(
                     move || {
                         if dnd.get() {
