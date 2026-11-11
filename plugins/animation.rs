@@ -24,8 +24,12 @@ fn fade() -> Spring {
 }
 
 const SPREAD: u64 = 600;
-const WHITEN: u64 = 450;
-const SETTLE: u64 = 550;
+/// Going to the light colour before the pane is drawn in, and from it to the glass once it is out.
+const WHITEN: u64 = 180;
+const SETTLE: u64 = 300;
+/// How far the pane reaches past each side of the bar: its rounded ends are there, out of sight
+/// while it covers the bar, and show along the way as it spreads or is drawn in.
+const ROUND: f32 = 19.0;
 
 pub fn install(ui: &mut Ui) {
     set_scheme_fade(fade());
@@ -78,7 +82,7 @@ fn pane() -> Div {
                     white.set(if glassy { 1.0 } else { 0.0 });
                     spread.to(1.0, Transition::ms(SPREAD));
                     if glassy {
-                        later(id, SPREAD + 50, Box::new(move || white.to(0.0, Transition::ms(SETTLE))));
+                        later(id, SPREAD, Box::new(move || white.to(0.0, Transition::ms(SETTLE))));
                     }
                 } else if glassy {
                     white.to(1.0, Transition::ms(WHITEN));
@@ -117,13 +121,16 @@ fn pane() -> Div {
         let s = settings().get_untracked();
         faint(scheme_for(current_seed(&s), s.palette, false).surface)
     };
-    let layer = || div().absolute().inset(0.0).pointer_events_none();
+    let layer = || div().absolute().inset(0.0).rounded(ROUND).pointer_events_none();
     // 1 for a see-through scheme, 0 for an opaque one.
     let see_through = || ((1.0 - colors().surface.a) / 0.97).clamp(0.0, 1.0);
     div()
         .absolute()
         .z_index(-1)
-        .inset(0.0)
+        .top(0.0)
+        .bottom(0.0)
+        .left(-ROUND)
+        .right(-ROUND)
         .pointer_events_none()
         .dyn_style(move |s| {
             let k = spread.get();
