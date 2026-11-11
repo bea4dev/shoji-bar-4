@@ -188,11 +188,20 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
         .px(14.0)
         .gap(10.0)
         .dyn_style(|s| s.text_color(colors().on_surface))
-        .child(dyn_view(|| match crate::theme::bar_pane() {
-            crate::theme::BarPane::None => div().into_view(),
-            crate::theme::BarPane::Wrap => wrapping_pane().into_view(),
-            crate::theme::BarPane::Stock => stock_pane().into_view(),
-        }))
+        // In a box of its own that takes no room in the row: a child of the row, even an empty
+        // one, would add a gap of its own and push the islands over.
+        .child(
+            div()
+                .absolute()
+                .inset(0.0)
+                .z_index(-1)
+                .pointer_events_none()
+                .child(dyn_view(|| match crate::theme::bar_pane() {
+                    crate::theme::BarPane::None => div().into_view(),
+                    crate::theme::BarPane::Wrap => wrapping_pane().into_view(),
+                    crate::theme::BarPane::Stock => stock_pane().into_view(),
+                })),
+        )
         .child(
             div()
                 .flex()
@@ -612,10 +621,14 @@ fn wrapping_pane() -> Div {
         .shadows(crate::theme::elevation(2))
         .pointer_events_none()
         .dyn_style(|s| {
-            // A shade apart from the islands' own, so that they stand out from it; see-through
-            // schemes get at least a veil.
-            let c = colors().surface_container_low;
-            s.bg(c.with_alpha(c.a.max(0.16)))
+            // See-through schemes: the card colour of the panels, so that it is the same glass.
+            // Solid ones: a shade apart from the islands' own, so that they stand out from it.
+            let glass = colors().surface_container;
+            if glass.a < 0.95 {
+                s.bg(glass.with_alpha(glass.a.max(0.04)))
+            } else {
+                s.bg(colors().surface_container_low)
+            }
         })
 }
 
