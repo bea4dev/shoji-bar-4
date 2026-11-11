@@ -84,12 +84,12 @@ pub fn panel() -> Div {
     spin.spring_to(1.0, fast_spatial());
     div()
         .w(WIDTH)
-        .p(24.0)
-        .rounded(28.0)
+        .p(24.0_f32)
+        .rounded(28.0_f32)
         .flex()
         .flex_col()
         .items_center()
-        .gap(16.0)
+        .gap(16.0_f32)
         .shadows(elevation(3))
         .dyn_style(|s| {
             let c = colors();
@@ -145,12 +145,12 @@ pub fn panel() -> Div {
         .child(
             div()
                 .w_full()
-                .pt(8.0)
+                .pt(8.0_f32)
                 .flex()
                 .flex_row()
                 .justify_end()
                 .items_center()
-                .gap(8.0)
+                .gap(8.0_f32)
                 .child(text_button("Cancel").on_click(|_| crate::panels::close()))
                 .child(action_button(what, on_action)),
         )
@@ -166,7 +166,7 @@ fn action_button(what: Ask, hovered: Signal<bool>) -> Div {
     pressable(
         div()
             .h(40.0)
-            .px(24.0)
+            .px(24.0_f32)
             .flex()
             .items_center()
             .justify_center()

@@ -190,8 +190,8 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
             |(key, _)| key.clone(),
             move |(key, _)| item(key, menu_open),
         )
-        .enter(|s| s.opacity(0.0).scale(0.2))
-        .exit(|s| s.opacity(0.0).scale(0.2))
+        .enter(|s| s.opacity(0.0_f32).scale(0.2_f32))
+        .exit(|s| s.opacity(0.0_f32).scale(0.2_f32))
         .transition(overshoot(420))
     };
 
@@ -367,9 +367,9 @@ fn item(
                         .dyn_style(move |s| s.bottom(LIFT + ICON + rise.get() + 10.0))
                         .child(
                             txt(TextStyle::LABEL_MEDIUM, move || name.get())
-                                .px(10.0)
-                                .py(5.0)
-                                .rounded(8.0)
+                                .px(10.0_f32)
+                                .py(5.0_f32)
+                                .rounded(8.0_f32)
                                 .shadows(elevation(2))
                                 .dyn_style(|s| {
                                     let c = colors();
@@ -378,8 +378,8 @@ fn item(
                         )
                 },
             )
-            .enter(|s| s.opacity(0.0).translate_y(8.0).scale(0.8))
-            .exit(|s| s.opacity(0.0).translate_y(4.0).scale(0.9))
+            .enter(|s| s.opacity(0.0_f32).translate_y(8.0_f32).scale(0.8_f32))
+            .exit(|s| s.opacity(0.0_f32).translate_y(4.0_f32).scale(0.9_f32))
             .transition(overshoot(260)),
         )
         // The icon, standing on the bottom of the cell.
@@ -411,7 +411,7 @@ fn item(
                         .size(ICON)
                         .into_view(),
                     None => div()
-                        .rounded(11.0)
+                        .rounded(11.0_f32)
                         .flex()
                         .items_center()
                         .justify_center()
@@ -442,12 +442,12 @@ fn item(
                 .right(0.0)
                 .flex()
                 .justify_center()
-                .gap(3.0)
+                .gap(3.0_f32)
                 .pointer_events_none()
                 .child(
                     div()
                         .h(3.0)
-                        .rounded(1.5)
+                        .rounded(1.5_f32)
                         .transition_of(
                             [Prop::Width, Prop::Background, Prop::Opacity],
                             overshoot(380),
@@ -462,7 +462,7 @@ fn item(
                                 _ => 10.0,
                             };
                             s.w(w)
-                                .opacity(if n == 0 { 0.0 } else { 1.0 })
+                                .opacity(if n == 0 { 0.0 } else { 1.0_f32 })
                                 .bg(if focused.get() {
                                     c.primary
                                 } else {

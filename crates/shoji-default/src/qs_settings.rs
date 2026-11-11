@@ -18,7 +18,7 @@ pub fn settings_page() -> Div {
     div()
         .flex()
         .flex_col()
-        .gap(12.0)
+        .gap(12.0_f32)
         .child(header("Settings", div()))
         .child(settle_in(1, account_section()))
         .child(settle_in(2, style_section()))
@@ -31,7 +31,7 @@ fn heading(symbol: &'static icons::Symbol, title: &'static str) -> Div {
         .flex()
         .flex_row()
         .items_center()
-        .gap(8.0)
+        .gap(8.0_f32)
         .child(sym(symbol, 18.0, |c| c.primary))
         .child(static_txt(TextStyle::TITLE_SMALL, title))
 }
@@ -54,7 +54,7 @@ fn account_section() -> Div {
             .flex()
             .flex_row()
             .items_center()
-            .gap(14.0)
+            .gap(14.0_f32)
             .child(crate::user::avatar(64.0))
             .child(
                 div()
@@ -62,7 +62,7 @@ fn account_section() -> Div {
                     .flex_col()
                     .flex_1()
                     .min_w(0.0)
-                    .gap(8.0)
+                    .gap(8.0_f32)
                     .child(
                         div()
                             .flex()
@@ -77,7 +77,7 @@ fn account_section() -> Div {
                         div()
                             .flex()
                             .flex_row()
-                            .gap(6.0)
+                            .gap(6.0_f32)
                             .child(
                                 styled_button(
                                     "Change picture",
@@ -103,8 +103,8 @@ fn account_section() -> Div {
                                         .on_click(|_| crate::user::forget_picture())
                                     },
                                 )
-                                .enter(|s| s.opacity(0.0).scale(0.8))
-                                .exit(|s| s.opacity(0.0).scale(0.8))
+                                .enter(|s| s.opacity(0.0_f32).scale(0.8_f32))
+                                .exit(|s| s.opacity(0.0_f32).scale(0.8_f32))
                                 .transition(overshoot(320)),
                             ),
                     ),
@@ -119,7 +119,7 @@ fn clock_section() -> Div {
             .flex()
             .flex_row()
             .items_center()
-            .px(4.0)
+            .px(4.0_f32)
             .child(static_txt(TextStyle::BODY_MEDIUM, label).flex_1())
             .child(switch(on))
     };
@@ -161,8 +161,8 @@ fn style_section() -> Div {
             ),
         )
     };
-    let mut chips_a = div().flex().flex_row().gap(6.0);
-    let mut chips_b = div().flex().flex_row().gap(6.0);
+    let mut chips_a = div().flex().flex_row().gap(6.0_f32);
+    let mut chips_b = div().flex().flex_row().gap(6.0_f32);
     for (i, p) in Palette::ALL.into_iter().enumerate() {
         if i < 3 {
             chips_a = chips_a.child(chip(p));
@@ -179,7 +179,7 @@ fn style_section() -> Div {
             div()
                 .flex()
                 .flex_col()
-                .gap(6.0)
+                .gap(6.0_f32)
                 .child(chips_a)
                 .child(chips_b),
         )
@@ -194,7 +194,7 @@ fn style_section() -> Div {
 /// The pictures to choose a wallpaper from. Choosing one takes the colors from it too.
 fn wallpapers() -> Div {
     let pictures = crate::wallpaper::pictures();
-    let mut row = div().flex().flex_row().gap(8.0).pb(4.0).overflow_x_scroll();
+    let mut row = div().flex().flex_row().gap(8.0_f32).pb(4.0_f32).overflow_x_scroll();
     for path in pictures {
         let chosen = memo({
             let path = path.clone();
@@ -234,7 +234,7 @@ fn wallpapers() -> Div {
                         .absolute()
                         .inset(0.0)
                         .pointer_events_none()
-                        .border(3.0)
+                        .border(3.0_f32)
                         .dyn_style(move |s| {
                             let t = round.get();
                             s.rounded(10.0 + 18.0 * t)
@@ -314,7 +314,7 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
                 .child(
                     div()
                         .size(14.0)
-                        .rounded(7.0)
+                        .rounded(7.0_f32)
                         .overflow_hidden()
                         .flex()
                         .flex_row()

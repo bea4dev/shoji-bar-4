@@ -120,12 +120,12 @@ impl PanelDef {
 
 /// Down from above, growing as it fades in: for panels that hang from the top of the output.
 pub fn from_above(s: Style) -> Style {
-    s.opacity(0.0).scale(0.7).translate_y(-80.0)
+    s.opacity(0.0_f32).scale(0.7_f32).translate_y(-80.0_f32)
 }
 
 /// Up a little as it grows: for panels in the middle of the output.
 pub fn rise_in(s: Style) -> Style {
-    s.opacity(0.0).scale(0.8).translate_y(40.0)
+    s.opacity(0.0_f32).scale(0.8_f32).translate_y(40.0_f32)
 }
 
 thread_local! {
@@ -333,8 +333,8 @@ fn surface(output: Output, id: PanelId, wanted: Memo<bool>) -> Div {
                 },
             )
             .appear()
-            .enter(|s| s.opacity(0.0))
-            .exit(|s| s.opacity(0.0))
+            .enter(|s| s.opacity(0.0_f32))
+            .exit(|s| s.opacity(0.0_f32))
             .transition(Transition::ms(300).ease_out()),
         );
     }
@@ -343,7 +343,7 @@ fn surface(output: Output, id: PanelId, wanted: Memo<bool>) -> Div {
         show(move || wanted.get(), content)
             .appear()
             .enter(move |s| enter(s))
-            .exit(|s| s.opacity(0.0).scale(0.9).translate_y(-8.0))
+            .exit(|s| s.opacity(0.0_f32).scale(0.9_f32).translate_y(-8.0_f32))
             .transition(overshoot(420)),
     )
 }
