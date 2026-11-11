@@ -190,7 +190,7 @@ pub fn view_with(output: Output, layout: &BarLayout) -> Div {
         .dyn_style(|s| s.text_color(colors().on_surface))
         .child(dyn_view(|| match crate::theme::bar_pane() {
             crate::theme::BarPane::None => div().into_view(),
-            crate::theme::BarPane::Fade => fading_pane().into_view(),
+            crate::theme::BarPane::Wrap => wrapping_pane().into_view(),
             crate::theme::BarPane::Stock => stock_pane().into_view(),
         }))
         .child(
@@ -598,28 +598,25 @@ fn stock_pane() -> Div {
         })
 }
 
-/// A pane that is there at the top edge of the output and gone by the bottom edge of the bar, so
-/// that the bar does not end in a line.
-fn fading_pane() -> Svg {
-    svg()
+/// A long rounded box behind all the islands, like the card that holds a panel: the islands
+/// float on it.
+fn wrapping_pane() -> Div {
+    div()
         .absolute()
         .z_index(-1)
-        .inset(0.0)
+        .top(2.0)
+        .bottom(2.0)
+        .left(6.0)
+        .right(6.0)
+        .rounded(18.0)
+        .shadows(crate::theme::elevation(2))
         .pointer_events_none()
         .dyn_style(|s| {
-            // The colour of the islands, so that the pane reads as one with them; see-through
+            // A shade apart from the islands' own, so that they stand out from it; see-through
             // schemes get at least a veil.
-            let c = colors().surface_container;
-            let top = c.a.max(0.30);
-            s.fill(
-                Gradient::linear(0.0, 0.0, 0.0, 1.0)
-                    .stop(0.0, c.with_alpha(top))
-                    .stop(0.35, c.with_alpha(top * 0.4))
-                    .stop(0.62, c.with_alpha(0.0))
-                    .stop(1.0, c.with_alpha(0.0)),
-            )
+            let c = colors().surface_container_low;
+            s.bg(c.with_alpha(c.a.max(0.16)))
         })
-        .child(svg::rect(0.0, 0.0, 8192.0, height() as f64))
 }
 
 /// The end of the window island fading into it, over a title that is wider than it is for now.
