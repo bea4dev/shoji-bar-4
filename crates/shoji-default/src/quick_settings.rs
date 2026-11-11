@@ -75,19 +75,27 @@ pub fn slider_style() -> SliderStyle {
 thread_local! {
     static DARK_TILE_TEXT: std::cell::RefCell<Option<TileText>> =
         const { std::cell::RefCell::new(None) };
+    static DARK_TILE_CLICK: std::cell::RefCell<Option<std::rc::Rc<dyn Fn()>>> =
+        const { std::cell::RefCell::new(None) };
     static PALETTES_PAGE: std::cell::RefCell<Option<std::rc::Rc<dyn Fn() -> Div>>> =
         const { std::cell::RefCell::new(None) };
 }
 
-/// Gives the "Dark theme" tile other words (the title and the line under it) while `text` returns
-/// something: for an interface that has palettes of its own, to say which one is in use.
-pub fn set_dark_tile_text(text: impl Fn() -> Option<(String, String)> + 'static) {
+/// Gives the "Dark theme" tile other words (the title, the line under it, and whether it looks
+/// switched on) while `text` returns something: for an interface that has palettes of its own, to say which one is in use.
+pub fn set_dark_tile_text(text: impl Fn() -> Option<(String, String, bool)> + 'static) {
     DARK_TILE_TEXT.with(|t| *t.borrow_mut() = Some(std::rc::Rc::new(text)));
 }
 
 /// What the "Dark theme" tile says, when an interface of your own gives it other words: the title
 /// and the line under it.
-type TileText = std::rc::Rc<dyn Fn() -> Option<(String, String)>>;
+type TileText = std::rc::Rc<dyn Fn() -> Option<(String, String, bool)>>;
+
+/// Makes a click on the "Dark theme" tile (anywhere but its chevron, when it has a page of
+/// palettes) run `f` instead of switching between dark and light.
+pub fn set_dark_tile_click(f: impl Fn() + 'static) {
+    DARK_TILE_CLICK.with(|c| *c.borrow_mut() = Some(std::rc::Rc::new(f)));
+}
 
 /// Gives the "Dark theme" tile a page of its own, that slides in like Wi-Fi's: for an interface
 /// that has several palettes to choose from instead of two themes. With it the tile opens the
@@ -405,10 +413,12 @@ fn tile(
     click: impl Fn() + 'static,
     details: Option<Page>,
 ) -> Div {
-    tile_titled(icon, move || title.to_owned(), subtitle, on, available, click, details)
+    tile_titled(icon, move || title.to_owned(), subtitle, on, available, click, details, false)
 }
 
-/// [`tile`] with a title that can change.
+/// [`tile`] with a title that can change. With `chevron_opens` a click anywhere on the tile does
+/// what `click` says, and only its chevron opens the page.
+#[allow(clippy::too_many_arguments)]
 fn tile_titled(
     icon: impl Fn() -> &'static Symbol + 'static,
     title: impl Fn() -> String + 'static,
@@ -417,6 +427,7 @@ fn tile_titled(
     available: impl Fn() -> bool + Copy + 'static,
     click: impl Fn() + 'static,
     details: Option<Page>,
+    chevron_opens: bool,
 ) -> Div {
     let round = follow(move || if on() { 1.0 } else { 0.0 }, fast_spatial());
     let pressed = signal(false);
@@ -450,7 +461,7 @@ fn tile_titled(
                 .child(dyn_view(move || sized_icon(icon(), 18.0))),
         );
     // With a page of its own, the tile opens it, and its icon is what turns it on and off.
-    let bubble = if details.is_some() {
+    let bubble = if details.is_some() && !chevron_opens {
         let click = click.clone();
         pressable(
             bubble.on_click(move |e| {
@@ -478,9 +489,9 @@ fn tile_titled(
             .on_click({
                 let click = click.clone();
                 move |_| match details {
-                    Some(page) => go(page),
-                    None if available() => click(),
-                    None => {}
+                    Some(page) if !chevron_opens => go(page),
+                    _ if available() => click(),
+                    _ => {}
                 }
             })
             .transition_of(
@@ -515,10 +526,31 @@ fn tile_titled(
                             .dyn_style(move |s| s.opacity(0.8)),
                     ),
             )
-            .children(details.map(|_| {
-                sized_icon(icons::CHEVRON_RIGHT, 18.0)
+            .children(details.map(|page| {
+                let chevron = sized_icon(icons::CHEVRON_RIGHT, 18.0)
                     .flex_none()
-                    .dyn_style(|s| s.opacity(0.7))
+                    .dyn_style(|s| s.opacity(0.7));
+                if chevron_opens {
+                    // Its own target, apart from the rest of the tile.
+                    pressable(
+                        div()
+                            .size(24.0)
+                            .rounded(12.0)
+                            .mr(-4.0)
+                            .flex()
+                            .items_center()
+                            .justify_center()
+                            .flex_none()
+                            .on_click(move |e| {
+                                e.stop_propagation();
+                                go(page);
+                            })
+                            .child(chevron),
+                        content,
+                    )
+                } else {
+                    chevron
+                }
             })),
         content,
     )
@@ -615,10 +647,10 @@ fn tiles() -> Div {
                         DARK_TILE_TEXT
                             .with(|t| t.borrow().clone())
                             .and_then(|f| f())
-                            .map_or_else(|| "Dark theme".to_owned(), |(title, _)| title)
+                            .map_or_else(|| "Dark theme".to_owned(), |(title, ..)| title)
                     },
                     move || {
-                        if let Some((_, line)) = DARK_TILE_TEXT
+                        if let Some((_, line, _)) = DARK_TILE_TEXT
                             .with(|t| t.borrow().clone())
                             .and_then(|f| f())
                         {
@@ -630,11 +662,18 @@ fn tiles() -> Div {
                             _ => "Off".into(),
                         }
                     },
-                    dark,
+                    // Looks switched on as the text says, or when the theme is dark.
+                    move || {
+                        DARK_TILE_TEXT
+                            .with(|t| t.borrow().clone())
+                            .and_then(|f| f())
+                            .map_or_else(dark, |(_, _, on)| on)
+                    },
                     || true,
                     move || {
-                        // With a page of palettes the tile opens it; the two themes are on it.
-                        if PALETTES_PAGE.with(|p| p.borrow().is_none()) {
+                        if let Some(f) = DARK_TILE_CLICK.with(|c| c.borrow().clone()) {
+                            f();
+                        } else if PALETTES_PAGE.with(|p| p.borrow().is_none()) {
                             settings().update(|s| {
                                 s.mode = if dark() {
                                     ThemeMode::Light
@@ -647,6 +686,8 @@ fn tiles() -> Div {
                     PALETTES_PAGE
                         .with(|p| p.borrow().is_some())
                         .then_some(Page::Palettes),
+                    // The chevron opens the page and the rest of the tile does the click's work.
+                    DARK_TILE_CLICK.with(|c| c.borrow().is_some()),
                 ))
                 .child(tile(
                     move || {

@@ -65,7 +65,8 @@ pub enum BarPane {
     Stock,
     /// Nothing: only the islands float.
     None,
-    /// A pane that fades away towards the bottom edge of the bar, with no hard line.
+    /// A pane in the colour of the islands that fades away towards the bottom edge of the bar,
+    /// with no hard line.
     Fade,
 }
 
