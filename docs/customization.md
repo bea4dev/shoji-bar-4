@@ -22,8 +22,7 @@ If both files exist, `init.rs` wins and the build prints a warning. A file only 
 
 The plugins directory is `plugins/` at the root of the project, next to the top-level `Cargo.toml`
 (or `$SHOJI_PLUGINS_DIR`, if you set it). The build creates it if it does not exist. It is yours.
-In the fork's repository it holds the author's own plugins, as a real example (see
-[Example plugins](#example-plugins)); in a project of your own, leave it out of version control.
+Leave it out of version control.
 
 Whatever the interface, `shoji-bar-4 msg ...` and `shoji-bar-4 preview ...` still work. `preview`
 always draws the stock parts.
@@ -146,20 +145,6 @@ Things the stock interface leaves open for a plugin to fill:
 | `shoji_default::quick_settings::set_palettes_page(f)` | the page the "Dark theme" tile's chevron opens |
 | `quick_settings::set_dark_tile_text(f)`, `set_dark_tile_click(f)` | what the "Dark theme" tile says (title, second line, on/off) and what a click on it does |
 | `shoji_default::qs_pages::{header, item, scrolling, subheading}` | the pieces of the quick settings pages, to build a page like the stock ones |
-
-## Example plugins
-
-The `plugins/` directory of the fork is a working set, one module per concern, loaded by
-`init-default.rs`:
-
-- `colour.rs`: reads the palettes in `plugins/palettes/*.palette` (`key = value` lines: a seed, a
-  variant, colour roles, a `blur` radius for glass palettes), keeps which one is in use and whether
-  the bar has its pane, and applies the compositor glass. A command file
-  (`~/.local/state/shoji-bar-4/command`: `palette <name>`, `bar on|off`) lets scripts drive it.
-- `animation.rs`: how colours move (one fade of about 0.6 s between any two palettes) and the pane
-  behind the bar, which spreads from the middle island to the sides.
-- `menu.rs`: the theme page in quick settings, with the palette in use ticked.
-- `tray.rs`, `agents.rs`, `music-player.rs`: a tray drop-down, an agents panel and a music panel.
 
 ## Version
 
