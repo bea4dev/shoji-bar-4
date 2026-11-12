@@ -91,9 +91,12 @@ report() {
             -o "$tmp/perf.data" -- sleep "$secs" 2>"$tmp/perf.err" &
         local perf_job=$!
     fi
+    local monitors=()
     if command -v dbus-monitor >/dev/null; then
         timeout "$secs" dbus-monitor --session --profile >"$tmp/dbus-session" 2>/dev/null &
+        monitors+=($!)
         timeout "$secs" dbus-monitor --system --profile >"$tmp/dbus-system" 2>/dev/null &
+        monitors+=($!)
     fi
     sleep "$secs"
     threads "$pid" >"$tmp/after"
@@ -103,7 +106,8 @@ report() {
         wait "$perf_job" && [ -s "$tmp/perf.data" ] && perf_ok=1
         [ "$use_sudo" = 1 ] && sudo -n chown "$USER" "$tmp/perf.data" 2>/dev/null
     fi
-    wait
+    # Only these: a bare wait would wait for the loop that keeps sudo fresh, which never ends.
+    [ "${#monitors[@]}" -gt 0 ] && wait "${monitors[@]}"
 
     local cpu
     cpu=$(awk -v a="$ticks_before" -v b="$ticks_after" -v hz="$hz" -v s="$secs" \
@@ -254,7 +258,8 @@ if [ "${1:-}" = --sudo ]; then
     sudo -v || exit 1
     # Keeps the password fresh while this runs, for perf in a report much later.
     while sleep 60; do sudo -n -v 2>/dev/null || exit; done &
-    trap 'kill $! 2>/dev/null' EXIT
+    fresh=$!
+    trap 'kill "$fresh" 2>/dev/null' EXIT
 fi
 
 case "${1:-}" in
