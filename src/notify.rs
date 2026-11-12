@@ -29,60 +29,9 @@ pub fn server() -> Option<NotificationServer> {
     })
 }
 
-const WIDTH: f32 = 352.0;
+pub(crate) const WIDTH: f32 = 352.0;
 /// At most this many pop up at once, the newest; the rest are in quick settings.
 const MAX_POPUPS: usize = 3;
-/// The layer is this tall whatever is in it, so a card coming in is never cut off while the
-/// surface would be growing; clicks go through all of it but the cards.
-const LAYER_HEIGHT: i32 = 560;
-
-/// The popups, on the first output. Call once, from the root.
-pub fn open_popups() {
-    let Some(server) = server() else { return };
-    let any = memo({
-        let server = server.clone();
-        move || !server.popups().is_empty()
-    });
-    // The layer is there while there is something to show, and a moment longer for it to leave.
-    let mounted = signal(false);
-    let pending: std::cell::Cell<Option<Timeout>> = std::cell::Cell::new(None);
-    effect(move || {
-        if let Some(t) = pending.take() {
-            t.cancel();
-        }
-        if any.get() {
-            mounted.set(true);
-        } else {
-            pending.set(Some(set_timeout(
-                std::time::Duration::from_millis(700),
-                move || mounted.set(false),
-            )));
-        }
-    });
-    effect(move || {
-        if !mounted.get() {
-            return;
-        }
-        let server = server.clone();
-        let region = signal(InputRegion::Empty);
-        let layer = open_layer(
-            LayerOptions::new()
-                .layer(Layer::Overlay)
-                .anchor(Anchor::TOP | Anchor::RIGHT)
-                .margin(Margin {
-                    top: 6,
-                    right: 10,
-                    ..Default::default()
-                })
-                .width(WIDTH as i32 + 28)
-                .height(LAYER_HEIGHT)
-                .input_region(InputRegion::Empty)
-                .namespace("shoji-bar-4-notifications"),
-            move || popups(server.clone(), region),
-        );
-        effect(move || layer.set_input_region(region.get()));
-    });
-}
 
 /// The cards, newest on top. Those below make room for a new one and close up after one that
 /// goes, sliding to their places; `region` follows where the cards are.
@@ -137,7 +86,11 @@ fn icon_of(n: &Notification) -> Div {
                 .and_then(app_by_id)
                 .and_then(|a| app_icon(&a, 64))
         });
-    let frame = div().size(36.0).flex_none().rounded(12.0_f32).overflow_hidden();
+    let frame = div()
+        .size(36.0)
+        .flex_none()
+        .rounded(12.0_f32)
+        .overflow_hidden();
     if let Some(picture) = n.image.clone() {
         frame.child(
             bitmap_view(move || Some(picture.clone()))
@@ -257,7 +210,11 @@ pub fn card(n: Notification, popup: bool) -> Div {
                             gone.dismiss();
                         })
                         .dyn_style(move |s| {
-                            s.opacity(if hovered.get() || !popup { 1.0 } else { 0.0_f32 })
+                            s.opacity(if hovered.get() || !popup {
+                                1.0
+                            } else {
+                                0.0_f32
+                            })
                         })
                         .transition_of([Prop::Opacity], Transition::ms(150).ease_out()),
                 ),

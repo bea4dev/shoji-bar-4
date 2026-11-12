@@ -1,10 +1,11 @@
-//! The bar along the top of every output: the launcher and the workspaces on the left, the window
-//! with the keyboard, the clock in the middle, and what is playing, the tray and the state of the
-//! system on the right. Each group floats in an island of its own, on a pane of frosted glass that
-//! is all of the bar.
+//! The bar along an edge of every output: the launcher and the workspaces at the start, the window
+//! with the keyboard and the clock in the middle, and what is playing, the tray and the state of the
+//! system at the end. Each group floats in an island of its own, on a pane of frosted glass that is
+//! all of the bar. Vertical bars use compact icons and stack the clock.
 
 use crate::appinfo::app_id_icon;
 use crate::panels::{Panel, is_open, toggle};
+use crate::placement::{AnchorPoint, BarPlacement, PanelSide};
 use crate::settings::settings;
 use crate::theme::{TextStyle, colors};
 use crate::ui::*;
@@ -18,29 +19,40 @@ use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
 
-/// How tall the layer is; the islands are [`ISLAND`] of it, with room above and below.
-pub const HEIGHT: i32 = 38;
-
-pub fn open(output: Output) {
-    open_layer(
-        LayerOptions::bar(Anchor::TOP, HEIGHT).namespace("shoji-bar-4-bar"),
-        move || view(output),
-    );
-}
-
-pub fn view(output: Output) -> Div {
-    div()
+pub fn view(output: Output, at: BarPlacement) -> Div {
+    let vertical = at.is_vertical();
+    let mut root = div()
         .select_none()
         .size_full()
         .relative()
         // Its own stacking context, for the glass to go behind the islands but not behind this.
         .z_index(0)
         .flex()
-        .flex_row()
         .items_center()
-        .px(14.0_f32)
+        .gap(10.0_f32);
+    root = if vertical {
+        root.flex_col().px(6.0_f32).py(14.0_f32)
+    } else {
+        root.flex_row().px(14.0_f32)
+    };
+    let leading = div().flex().items_center().gap(10.0_f32).flex_1();
+    let leading = if vertical {
+        leading.flex_col().min_h(0.0)
+    } else {
+        leading.flex_row().min_w(0.0)
+    };
+    let trailing = div()
+        .flex()
+        .items_center()
+        .justify_end()
         .gap(10.0_f32)
-        .dyn_style(|s| s.text_color(colors().on_surface))
+        .flex_1();
+    let trailing = if vertical {
+        trailing.flex_col().min_h(0.0)
+    } else {
+        trailing.flex_row().min_w(0.0)
+    };
+    root.dyn_style(|s| s.text_color(colors().on_surface))
         // Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
         // at least a quarter opaque.
         .child(
@@ -52,14 +64,8 @@ pub fn view(output: Output) -> Div {
                 .dyn_style(|s| s.bg(colors().surface.with_alpha(0.34))),
         )
         .child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .gap(10.0_f32)
-                .flex_1()
-                .min_w(0.0)
-                .child(launcher_island(output.clone()))
+            leading
+                .child(launcher_island(output.clone(), at))
                 .child(workspaces_island(
                     workspaces_of(output.clone()),
                     Rc::new({
@@ -72,34 +78,48 @@ pub fn view(output: Output) -> Div {
                             }
                         }
                     }),
+                    at,
                 ))
-                .child(window_island(output.clone())),
+                .child(window_island(output.clone(), at)),
         )
-        .child(clock_island(output.clone()))
+        .child(clock_island(output.clone(), at))
         .child(
-            div()
-                .flex()
-                .flex_row()
-                .items_center()
-                .justify_end()
-                .gap(10.0_f32)
-                .flex_1()
-                .min_w(0.0)
-                .child(media_island(output.clone()))
-                .child(tray_island())
-                .child(status_island(output)),
+            trailing
+                .child(media_island(output.clone(), at))
+                .child(tray_island(at))
+                .child(status_island(output, at)),
         )
 }
 
+const VERTICAL_ISLAND: f32 = 40.0;
+
+/// A horizontal pill, or a vertical island with its height set by its contents.
+fn bar_island(at: BarPlacement) -> Div {
+    let node = island();
+    if at.is_vertical() {
+        node.flex_col()
+            .w(VERTICAL_ISLAND)
+            .h(Length::Auto)
+            .rounded(VERTICAL_ISLAND / 2.0)
+    } else {
+        node
+    }
+}
+
 /// The button that opens the launcher: an icon on a shape that turns and blooms on hover.
-fn launcher_island(output: Output) -> Div {
+fn launcher_island(output: Output, at: BarPlacement) -> Div {
     let hovered = signal(false);
     let open = memo({
         let output = output.clone();
         move || is_open(&output, Panel::Launcher)
     });
-    island()
-        .w(ISLAND)
+    let side = if at.is_vertical() {
+        VERTICAL_ISLAND
+    } else {
+        ISLAND
+    };
+    bar_island(at)
+        .size(side)
         .justify_center()
         .on_hover(move |h| hovered.set(h))
         .on_click(move |_| toggle(&output, Panel::Launcher))
@@ -136,134 +156,178 @@ fn workspaces_of(output: Output) -> Memo<Vec<Ws>> {
 
 const SLOT: f32 = 18.0;
 const ACTIVE: f32 = 32.0;
-/// How tall the pill under the active workspace is.
+/// The pill's thickness on the cross axis.
 const PILL: f32 = 22.0;
 
 /// The workspaces of the output as dots, with a pill under the active one that stretches as it
 /// goes from one to another: its front edge leads on a quick spring, its back follows on a slow
 /// one.
-pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div {
+pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>, at: BarPlacement) -> Div {
+    let vertical = at.is_vertical();
     // Between one workspace going and the next coming there may be none: the pill stays.
     let last = Cell::new(0);
     let active = memo(move || {
-        let at = list.with(|l| l.iter().position(|w| w.active)).unwrap_or(last.get());
+        let at = list
+            .with(|l| l.iter().position(|w| w.active))
+            .unwrap_or(last.get());
         last.set(at);
         at
     });
     let scrolled = activate.clone();
-    let left = animated(0.0f32);
-    let right = animated(ACTIVE);
+    let start = animated(0.0f32);
+    let end = animated(ACTIVE);
     let first = Cell::new(true);
     effect(move || {
         let at = active.get() as f32 * SLOT;
-        let (to_left, to_right) = (at, at + ACTIVE);
+        let (to_start, to_end) = (at, at + ACTIVE);
         untrack(|| {
             if first.replace(false) {
-                left.set(to_left);
-                right.set(to_right);
-            } else if to_left >= left.get_untracked() {
-                right.spring_to(to_right, Spring::from_ratio(900.0, 0.7));
-                left.spring_to(to_left, Spring::from_ratio(260.0, 0.85));
+                start.set(to_start);
+                end.set(to_end);
+            } else if to_start >= start.get_untracked() {
+                end.spring_to(to_end, Spring::from_ratio(900.0, 0.7));
+                start.spring_to(to_start, Spring::from_ratio(260.0, 0.85));
             } else {
-                left.spring_to(to_left, Spring::from_ratio(900.0, 0.7));
-                right.spring_to(to_right, Spring::from_ratio(260.0, 0.85));
+                start.spring_to(to_start, Spring::from_ratio(900.0, 0.7));
+                end.spring_to(to_end, Spring::from_ratio(260.0, 0.85));
             }
         })
     });
     // Under the slots, also while one of them comes or goes: fading or scaling, a slot is
     // painted as one image with what is in it, and would otherwise go under the pill.
-    let pill = div()
-        .absolute()
-        .z_index(-1)
-        .top(0.0)
-        .h(PILL)
-        .rounded(PILL / 2.0)
-        .dyn_style(move |s| {
-            let (l, r) = (left.get(), right.get());
-            s.left(l).w((r - l).max(PILL)).bg(colors().primary)
-        });
-    let slots =
-        for_each(
-            move || list.get(),
-            |w| w.id.clone(),
-            move |w| {
-                let id = w.id.clone();
-                // Once gone from the list it leaves as it was, without turning back into a dot.
-                let seen = std::cell::RefCell::new(w.clone());
-                let me = memo(move || {
-                    if let Some(now) = list.with(|l| l.iter().find(|x| x.id == id).cloned()) {
-                        *seen.borrow_mut() = now;
-                    }
-                    seen.borrow().clone()
-                });
-                let on = memo(move || me.with(|w| w.active));
-                let empty = memo(move || me.with(|w| w.empty));
-                let urgent = memo(move || me.with(|w| w.urgent));
-                let name = w.name.clone();
-                let activate = activate.clone();
+    let pill = if vertical {
+        div()
+            .absolute()
+            .z_index(-1)
+            .left(0.0)
+            .w(PILL)
+            .rounded(PILL / 2.0)
+            .dyn_style(move |s| {
+                let (start, end) = (start.get(), end.get());
+                s.top(start).h((end - start).max(PILL)).bg(colors().primary)
+            })
+    } else {
+        div()
+            .absolute()
+            .z_index(-1)
+            .top(0.0)
+            .h(PILL)
+            .rounded(PILL / 2.0)
+            .dyn_style(move |s| {
+                let (start, end) = (start.get(), end.get());
+                s.left(start)
+                    .w((end - start).max(PILL))
+                    .bg(colors().primary)
+            })
+    };
+    let slots = for_each(
+        move || list.get(),
+        |w| w.id.clone(),
+        move |w| {
+            let id = w.id.clone();
+            // Once gone from the list it leaves as it was, without turning back into a dot.
+            let seen = std::cell::RefCell::new(w.clone());
+            let me = memo(move || {
+                if let Some(now) = list.with(|l| l.iter().find(|x| x.id == id).cloned()) {
+                    *seen.borrow_mut() = now;
+                }
+                seen.borrow().clone()
+            });
+            let on = memo(move || me.with(|w| w.active));
+            let empty = memo(move || me.with(|w| w.empty));
+            let urgent = memo(move || me.with(|w| w.urgent));
+            let name = w.name.clone();
+            let activate = activate.clone();
+            let slot = if vertical {
+                div()
+                    .relative()
+                    .w(PILL)
+                    .flex_none()
+                    .transition_of([Prop::Height], emphasized(350))
+                    .dyn_style(move |s| s.h(if on.get() { ACTIVE } else { SLOT }))
+            } else {
                 div()
                     .relative()
                     .h(PILL)
                     .flex_none()
                     .transition_of([Prop::Width], emphasized(350))
                     .dyn_style(move |s| s.w(if on.get() { ACTIVE } else { SLOT }))
-                    .on_click(move |_| activate(&w.id))
-                    // The dot, which gives way to the number.
-                    .child(
-                        div()
-                            .absolute()
-                            .inset(0.0)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .pointer_events_none()
-                            .child(div().rounded(3.0_f32).transition(overshoot(350)).dyn_style(
-                                move |s| {
-                                    let c = colors();
-                                    let size = if empty.get() { 5.0 } else { 6.0 };
-                                    let color = if urgent.get() {
-                                        c.error
-                                    } else if empty.get() {
-                                        c.outline_variant
-                                    } else {
-                                        c.on_surface_variant
-                                    };
-                                    s.size(size)
-                                        .bg(color)
-                                        .scale(if on.get() { 0.0 } else { 1.0_f32 })
-                                },
-                            )),
-                    )
-                    // As wide as the slot is when active, whatever it is on the way, so the
-                    // number stays on the pill while the slot opens and closes.
-                    .child(
-                        TextStyle::LABEL_MEDIUM
-                            .apply(div())
-                            .absolute()
-                            .top(0.0)
-                            .bottom(0.0)
-                            .left(0.0)
-                            .w(ACTIVE)
-                            .flex()
-                            .items_center()
-                            .justify_center()
-                            .pointer_events_none()
-                            .transition(overshoot(400))
-                            .dyn_style(move |s| {
-                                s.text_color(colors().on_primary)
-                                    .opacity(if on.get() { 1.0 } else { 0.0_f32 })
-                                    .scale(if on.get() { 1.0 } else { 0.4_f32 })
-                            })
-                            .child(name),
-                    )
-            },
-        )
-        // They open and close their place, so the others and the island move over with them.
-        .enter(|s| s.w(0.0).opacity(0.0_f32).scale(0.3_f32))
-        .exit(|s| s.w(0.0).opacity(0.0_f32).scale(0.3_f32))
-        .transition(emphasized(350));
-    island()
-        .px(5.0_f32)
+            };
+            let number = TextStyle::LABEL_MEDIUM
+                .apply(div())
+                .absolute()
+                .flex()
+                .items_center()
+                .justify_center()
+                .pointer_events_none()
+                .transition(overshoot(400))
+                .dyn_style(move |s| {
+                    s.text_color(colors().on_primary)
+                        .opacity(if on.get() { 1.0 } else { 0.0_f32 })
+                        .scale(if on.get() { 1.0 } else { 0.4_f32 })
+                })
+                .child(name);
+            let number = if vertical {
+                number.top(0.0).left(0.0).right(0.0).h(ACTIVE)
+            } else {
+                number.top(0.0).bottom(0.0).left(0.0).w(ACTIVE)
+            };
+            slot.on_click(move |_| activate(&w.id))
+                // The dot, which gives way to the number.
+                .child(
+                    div()
+                        .absolute()
+                        .inset(0.0)
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .pointer_events_none()
+                        .child(div().rounded(3.0_f32).transition(overshoot(350)).dyn_style(
+                            move |s| {
+                                let c = colors();
+                                let size = if empty.get() { 5.0 } else { 6.0 };
+                                let color = if urgent.get() {
+                                    c.error
+                                } else if empty.get() {
+                                    c.outline_variant
+                                } else {
+                                    c.on_surface_variant
+                                };
+                                s.size(size)
+                                    .bg(color)
+                                    .scale(if on.get() { 0.0 } else { 1.0_f32 })
+                            },
+                        )),
+                )
+                // As long as the active slot on the main axis, whatever it is on the way, so the
+                // number stays on the pill while the slot opens and closes.
+                .child(number)
+        },
+    )
+    // They open and close their place, so the others and the island move over with them.
+    .enter(move |s| {
+        if vertical {
+            s.h(0.0).opacity(0.0_f32).scale(0.3_f32)
+        } else {
+            s.w(0.0).opacity(0.0_f32).scale(0.3_f32)
+        }
+    })
+    .exit(move |s| {
+        if vertical {
+            s.h(0.0).opacity(0.0_f32).scale(0.3_f32)
+        } else {
+            s.w(0.0).opacity(0.0_f32).scale(0.3_f32)
+        }
+    })
+    .transition(emphasized(350));
+    let container = if vertical {
+        // The outer radius is VERTICAL_ISLAND / 2 and the pill's is PILL / 2.
+        // Their difference keeps the capsule centers together at either end.
+        bar_island(at).py((VERTICAL_ISLAND - PILL) / 2.0)
+    } else {
+        bar_island(at).px(5.0_f32)
+    };
+    container
         .on_scroll(move |e| {
             let step = if e.delta_y > 0.0 {
                 1
@@ -280,7 +344,17 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                 scrolled(&w.id);
             }
         })
-        .child(
+        .child(if vertical {
+            div()
+                .relative()
+                .z_index(0)
+                .flex()
+                .flex_col()
+                .items_center()
+                .w(PILL)
+                .child(pill)
+                .child(slots)
+        } else {
             div()
                 .relative()
                 .z_index(0)
@@ -289,22 +363,25 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>) -> Div
                 .items_center()
                 .h(PILL)
                 .child(pill)
-                .child(slots),
-        )
+                .child(slots)
+        })
 }
 
 /// The window with the keyboard on this output.
-fn window_island(output: Output) -> Show {
-    focused_island(memo(move || {
-        toplevels()
-            .active()
-            .filter(|t| t.outputs.is_empty() || t.outputs.contains(&output.name))
-            .map(|t| Focused {
-                id: t.id(),
-                title: t.title.chars().take(60).collect(),
-                app_id: t.app_id,
-            })
-    }))
+fn window_island(output: Output, at: BarPlacement) -> Show {
+    focused_island(
+        memo(move || {
+            toplevels()
+                .active()
+                .filter(|t| t.outputs.is_empty() || t.outputs.contains(&output.name))
+                .map(|t| Focused {
+                    id: t.id(),
+                    title: t.title.chars().take(60).collect(),
+                    app_id: t.app_id,
+                })
+        }),
+        at,
+    )
 }
 
 /// What the bar shows of the window with the keyboard.
@@ -315,13 +392,29 @@ pub struct Focused {
     pub app_id: String,
 }
 
-/// The icon and title of `active`. When another window takes the keyboard, its row comes up from
+/// The icon and title of `active` on the top bar, or only its application icon on a vertical bar.
+/// When another window takes the keyboard, its row comes up from
 /// below as the last one goes up; when the title changes, the new one comes up the same way. The
 /// island goes to the width of what comes on a spring, which keeps its speed when that changes
 /// again on the way, so it follows however fast they change. What goes stays until it has gone
 /// up, filling what the island has yet to give up, and a title wider than the island fades out at
 /// its edge rather than being cut off.
-pub fn focused_island(active: Memo<Option<Focused>>) -> Show {
+pub fn focused_island(active: Memo<Option<Focused>>, at: BarPlacement) -> Show {
+    if at.is_vertical() {
+        let app_id = memo(move || active.with(|t| t.as_ref().map(|t| t.app_id.clone())));
+        return show(
+            move || active.with(Option::is_some),
+            move || {
+                bar_island(at)
+                    .size(VERTICAL_ISLAND)
+                    .justify_center()
+                    .child(window_icon(app_id))
+            },
+        )
+        .enter(|s| s.opacity(0.0_f32).scale(0.8_f32))
+        .exit(|s| s.opacity(0.0_f32).scale(0.8_f32))
+        .transition(overshoot(350));
+    }
     show(
         move || active.with(Option::is_some),
         move || {
@@ -348,7 +441,7 @@ pub fn focused_island(active: Memo<Option<Focused>>) -> Show {
             });
             let width = animated(0.0f32);
             let sized = Rc::new(Cell::new(false));
-            island()
+            bar_island(at)
                 .relative()
                 .px(5.0_f32)
                 .min_w(0.0)
@@ -464,10 +557,29 @@ fn edge_fade() -> Svg {
         ))
 }
 
+/// A window's current application icon.
+fn window_icon(app_id: Memo<Option<String>>) -> View {
+    let icon = memo(move || app_id.with(|a| a.as_deref().and_then(|a| app_id_icon(a, 64))));
+    dyn_view(move || match icon.get() {
+        Some(path) => img(path).size(22.0).flex_none().into_view(),
+        None => div()
+            .size(22.0)
+            .rounded(11.0_f32)
+            .flex()
+            .items_center()
+            .justify_center()
+            .flex_none()
+            .dyn_style(|s| s.bg(colors().secondary_container))
+            .child(sym(icons::DESKTOP_WINDOWS, 13.0, |c| {
+                c.on_secondary_container
+            }))
+            .into_view(),
+    })
+}
+
 /// A window's icon and title, on one line.
 fn window_title(shown: Signal<Option<Focused>>) -> Div {
     let app_id = memo(move || shown.with(|t| t.as_ref().map(|t| t.app_id.clone())));
-    let icon = memo(move || app_id.with(|a| a.as_deref().and_then(|a| app_id_icon(a, 64))));
     let title =
         memo(move || shown.with(|t| t.as_ref().map(|t| t.title.clone()).unwrap_or_default()));
     div()
@@ -476,19 +588,7 @@ fn window_title(shown: Signal<Option<Focused>>) -> Div {
         .items_center()
         .gap(8.0_f32)
         .pr(9.0_f32)
-        .child(dyn_view(move || match icon.get() {
-            Some(path) => img(path).size(22.0).flex_none().into_view(),
-            None => div()
-                .size(22.0)
-                .rounded(11.0_f32)
-                .flex()
-                .items_center()
-                .justify_center()
-                .flex_none()
-                .dyn_style(|s| s.bg(colors().secondary_container))
-                .child(sym(icons::DESKTOP_WINDOWS, 13.0, |c| c.on_secondary_container))
-                .into_view(),
-        }))
+        .child(window_icon(app_id))
         .child(changing_title(title))
 }
 
@@ -582,9 +682,42 @@ fn small_change(old: &str, new: &str) -> bool {
     changed <= 4 && kept >= 3.max(2 * changed)
 }
 
+#[derive(Clone, Copy)]
+enum ClockPart {
+    Full,
+    Hour,
+    Minute,
+    Second,
+    Meridian,
+}
+
+fn clock_text(part: ClockPart) -> String {
+    let s = settings().get();
+    let t = local_time(if s.clock_seconds {
+        Every::Second
+    } else {
+        Every::Minute
+    });
+    match part {
+        ClockPart::Full => {
+            let hm = if s.clock_24h { "%H:%M" } else { "%I:%M" };
+            t.format(&if s.clock_seconds {
+                format!("{hm}:%S")
+            } else {
+                hm.to_owned()
+            })
+        }
+        ClockPart::Hour => t.format(if s.clock_24h { "%H" } else { "%I" }),
+        ClockPart::Minute => t.format("%M"),
+        ClockPart::Second => t.format("%S"),
+        ClockPart::Meridian => t.format("%p"),
+    }
+}
+
 /// The time, its digits rolling over as they change, and the date. Hovering makes the time
-/// heavier; a click opens the calendar.
-fn clock_island(output: Output) -> Div {
+/// heavier; a click opens the calendar. A vertical bar stacks the parts instead of showing the date.
+fn clock_island(output: Output, at: BarPlacement) -> Div {
+    let vertical = at.is_vertical();
     let hovered = signal(false);
     let weight = follow(
         move || if hovered.get() { 760.0 } else { 520.0 },
@@ -594,20 +727,6 @@ fn clock_island(output: Output) -> Div {
         let output = output.clone();
         move || is_open(&output, Panel::Calendar)
     });
-    let time = move || {
-        let s = settings().get();
-        let t = local_time(if s.clock_seconds {
-            Every::Second
-        } else {
-            Every::Minute
-        });
-        let hm = if s.clock_24h { "%H:%M" } else { "%I:%M" };
-        t.format(&if s.clock_seconds {
-            format!("{hm}:%S")
-        } else {
-            hm.to_owned()
-        })
-    };
     let size = 15.0;
     let style = TextStyle {
         size,
@@ -615,48 +734,85 @@ fn clock_island(output: Output) -> Div {
         letter_spacing: 0.0,
         weight: 500,
     };
-    pressable(
-        island()
-            .px(14.0_f32)
-            .gap(8.0_f32)
-            .on_hover(move |h| hovered.set(h))
-            .on_click(move |_| toggle(&output, Panel::Calendar))
+    let digit_width = move |c| match c {
+        '0'..='9' => size * 0.6,
+        ':' => size * 0.32,
+        _ => size * 0.5,
+    };
+    let time = if vertical {
+        div()
+            .flex()
+            .flex_col()
+            .items_center()
+            .child(rolling_text(
+                || clock_text(ClockPart::Hour),
+                style,
+                digit_width,
+            ))
+            .child(rolling_text(
+                || clock_text(ClockPart::Minute),
+                style,
+                digit_width,
+            ))
+            .child(show(
+                || settings().with(|s| s.clock_seconds),
+                || {
+                    rolling_text(
+                        || clock_text(ClockPart::Second),
+                        TextStyle::LABEL_SMALL,
+                        |c| if c.is_ascii_digit() { 7.0 } else { 5.0 },
+                    )
+                },
+            ))
+            .child(show(
+                || !settings().with(|s| s.clock_24h),
+                || txt(TextStyle::LABEL_SMALL, || clock_text(ClockPart::Meridian)),
+            ))
+    } else {
+        rolling_text(|| clock_text(ClockPart::Full), style, digit_width)
+    }
+    .dyn_style(move |s| s.font_axis(b"wght", weight.get()));
+    let content = if vertical {
+        bar_island(at).py(10.0_f32).gap(2.0_f32)
+    } else {
+        bar_island(at).px(14.0_f32).gap(8.0_f32)
+    };
+    let content = content
+        .on_hover(move |h| hovered.set(h))
+        .on_click(move |_| toggle(&output, Panel::Calendar))
+        .dyn_style(move |s| {
+            let c = colors();
+            if open.get() {
+                s.bg(c.primary_container).text_color(c.on_primary_container)
+            } else {
+                s
+            }
+        })
+        .child(time);
+    let content = if vertical {
+        content
+    } else {
+        content.child(
+            txt(TextStyle::LABEL_SMALL, || {
+                local_time(Every::Minute).format("%a %-d %b")
+            })
             .dyn_style(move |s| {
                 let c = colors();
-                if open.get() {
-                    s.bg(c.primary_container).text_color(c.on_primary_container)
+                s.text_color(if open.get() {
+                    c.on_primary_container
                 } else {
-                    s
-                }
-            })
-            .child(
-                rolling_text(time, style, move |c| match c {
-                    '0'..='9' => size * 0.6,
-                    ':' => size * 0.32,
-                    _ => size * 0.5,
+                    c.on_surface_variant
                 })
-                .dyn_style(move |s| s.font_axis(b"wght", weight.get())),
-            )
-            .child(
-                txt(TextStyle::LABEL_SMALL, || {
-                    local_time(Every::Minute).format("%a %-d %b")
-                })
-                .dyn_style(move |s| {
-                    let c = colors();
-                    s.text_color(if open.get() {
-                        c.on_primary_container
-                    } else {
-                        c.on_surface_variant
-                    })
-                }),
-            ),
-        |c| c.on_surface,
-    )
+            }),
+        )
+    };
+    pressable(content, |c| c.on_surface)
 }
 
-/// What is playing, while something plays: a little equalizer and the title. A click opens the
-/// player under it; the middle button pauses it or plays it again.
-fn media_island(output: Output) -> Show {
+/// What is playing, while something plays: a little equalizer and, on the top bar, its title.
+/// A click opens the player beside it; the middle button pauses it or plays it again.
+fn media_island(output: Output, at: BarPlacement) -> Show {
+    let vertical = at.is_vertical();
     let m = media();
     let current = memo(move || m.current());
     let open = memo({
@@ -674,47 +830,59 @@ fn media_island(output: Output) -> Show {
                 })
             });
             let here = node_ref();
-            pressable(
-                island()
-                    .node_ref(here)
-                    .px(12.0_f32)
-                    .gap(8.0_f32)
-                    .max_w(260.0)
-                    .on_click(move |_| {
-                        if let Some(r) = here.logical_rect() {
-                            crate::media_panel::anchor(r.x + r.width / 2.0);
-                        }
+            let content = if vertical {
+                bar_island(at).size(VERTICAL_ISLAND).justify_center()
+            } else {
+                bar_island(at).px(12.0_f32).gap(8.0_f32).max_w(260.0)
+            };
+            let content = content
+                .node_ref(here)
+                .on_click(move |_| {
+                    if let Some(r) = here.logical_rect() {
+                        crate::panels::toggle_at(
+                            &output,
+                            Panel::Media,
+                            AnchorPoint {
+                                x: r.x + r.width / 2.0,
+                                y: r.y + r.height / 2.0,
+                            },
+                        );
+                    } else {
                         toggle(&output, Panel::Media);
-                    })
-                    .on_aux_click(move |e| {
-                        if e.button == Some(PointerButton::Middle)
-                            && let Some(p) = untrack(|| current.get())
-                        {
-                            p.play_pause();
-                        }
-                    })
-                    .dyn_style(move |s| {
-                        let c = colors();
-                        if open.get() {
-                            s.bg(c.primary_container).text_color(c.on_primary_container)
-                        } else {
-                            s
-                        }
-                    })
-                    .child(equalizer(playing))
-                    .child(
-                        txt(BAR_TEXT, move || {
-                            current.with(|p| {
-                                p.as_ref()
-                                    .map(|p| p.title.chars().take(40).collect())
-                                    .unwrap_or_default()
-                            })
+                    }
+                })
+                .on_aux_click(move |e| {
+                    if e.button == Some(PointerButton::Middle)
+                        && let Some(p) = untrack(|| current.get())
+                    {
+                        p.play_pause();
+                    }
+                })
+                .dyn_style(move |s| {
+                    let c = colors();
+                    if open.get() {
+                        s.bg(c.primary_container).text_color(c.on_primary_container)
+                    } else {
+                        s
+                    }
+                })
+                .child(equalizer(playing));
+            let content = if vertical {
+                content
+            } else {
+                content.child(
+                    txt(BAR_TEXT, move || {
+                        current.with(|p| {
+                            p.as_ref()
+                                .map(|p| p.title.chars().take(40).collect())
+                                .unwrap_or_default()
                         })
-                        .min_w(0.0)
-                        .overflow_hidden(),
-                    ),
-                |c| c.on_surface,
-            )
+                    })
+                    .min_w(0.0)
+                    .overflow_hidden(),
+                )
+            };
+            pressable(content, |c| c.on_surface)
         },
     )
     .enter(|s| s.opacity(0.0_f32).scale(0.6_f32))
@@ -753,16 +921,28 @@ fn equalizer(playing: Memo<bool>) -> Div {
     row
 }
 
+const TRAY_ICON: f32 = 24.0;
+
 /// The icons of the tray.
-fn tray_island() -> Show {
+fn tray_island(at: BarPlacement) -> Show {
     show(
         || !tray().items().is_empty(),
-        || {
-            island().px(5.0_f32).gap(2.0_f32).child(
-                for_each(|| tray().items(), |item| item.key(), tray_icon)
-                    .enter(|s| s.opacity(0.0_f32).scale(0.4_f32))
-                    .exit(|s| s.opacity(0.0_f32).scale(0.4_f32))
-                    .transition(overshoot(300)),
+        move || {
+            let content = if at.is_vertical() {
+                // Center the end icon's circle in the island's semicircle.
+                bar_island(at).py((VERTICAL_ISLAND - TRAY_ICON) / 2.0)
+            } else {
+                bar_island(at).px(5.0_f32)
+            };
+            content.gap(2.0_f32).child(
+                for_each(
+                    || tray().items(),
+                    |item| item.key(),
+                    move |item| tray_icon(item, at),
+                )
+                .enter(|s| s.opacity(0.0_f32).scale(0.4_f32))
+                .exit(|s| s.opacity(0.0_f32).scale(0.4_f32))
+                .transition(overshoot(300)),
             )
         },
     )
@@ -771,7 +951,7 @@ fn tray_island() -> Show {
     .transition(overshoot(300))
 }
 
-fn tray_icon(item: TrayItem) -> Div {
+fn tray_icon(item: TrayItem, at: BarPlacement) -> Div {
     let open = signal(false);
     let key = item.key();
     let now = move || tray().items().into_iter().find(|i| i.key() == key);
@@ -779,8 +959,8 @@ fn tray_icon(item: TrayItem) -> Div {
     let clicked = item.clone();
     pressable(
         div()
-            .size(24.0)
-            .rounded(12.0_f32)
+            .size(TRAY_ICON)
+            .rounded(TRAY_ICON / 2.0)
             .flex()
             .items_center()
             .justify_center()
@@ -809,14 +989,14 @@ fn tray_icon(item: TrayItem) -> Div {
                 }
                 _ => {}
             })
-            .child(tray_menu(&item, open)),
+            .child(tray_menu(&item, open, at)),
         |c| c.on_surface,
     )
 }
 
 /// The item's menu, in the theme's menus: the separators part it into groups. It follows the item's
 /// menu as that changes.
-fn tray_menu(item: &TrayItem, open: Signal<bool>) -> View {
+fn tray_menu(item: &TrayItem, open: Signal<bool>, at: BarPlacement) -> View {
     let item = item.clone();
     effect({
         let item = item.clone();
@@ -827,12 +1007,17 @@ fn tray_menu(item: &TrayItem, open: Signal<bool>) -> View {
             }
         }
     });
+    let placement = match at.side() {
+        PanelSide::Below => Placement::BelowCenter,
+        PanelSide::Left => Placement::RightStart,
+        PanelSide::Right => Placement::LeftStart,
+    };
     dyn_view(move || {
         styled_menu(
             move || open.get(),
             move || open.set(false),
             tray_groups(&item, &item.menu()),
-            MenuStyle::new().placement(Placement::BelowCenter),
+            MenuStyle::new().placement(placement),
         )
     })
 }
@@ -877,7 +1062,8 @@ const BAR_TEXT: TextStyle = TextStyle {
 };
 
 /// Network, Bluetooth, sound and battery at a glance; a click opens quick settings.
-fn status_island(output: Output) -> Div {
+fn status_island(output: Output, at: BarPlacement) -> Div {
+    let vertical = at.is_vertical();
     let net = network();
     let bt = bluetooth();
     let a = audio();
@@ -887,80 +1073,83 @@ fn status_island(output: Output) -> Div {
         move || is_open(&output, Panel::QuickSettings)
     });
     let color = move |c: &anti_webui_md3e::ColorScheme| c.on_surface_variant;
-    pressable(
-        island()
-            .px(12.0_f32)
-            .gap(9.0_f32)
-            .on_click(move |_| toggle(&output, Panel::QuickSettings))
-            .dyn_style(move |s| {
-                if open.get() {
-                    s.bg(colors().primary_container)
+    let content = if vertical {
+        bar_island(at).py(10.0_f32).gap(7.0_f32)
+    } else {
+        bar_island(at).px(12.0_f32).gap(9.0_f32)
+    };
+    let content = content
+        .on_click(move |_| toggle(&output, Panel::QuickSettings))
+        .dyn_style(move |s| {
+            if open.get() {
+                s.bg(colors().primary_container)
+            } else {
+                s
+            }
+        })
+        .child(dyn_sym(
+            move || match net.wifi() {
+                Some(ap) => wifi_icon(ap.strength),
+                None if net.wired().is_some_and(|w| w.connected) => icons::LAN,
+                None if net.connectivity() == Connectivity::None => icons::SIGNAL_WIFI_OFF,
+                None => icons::WIFI_OFF,
+            },
+            16.0,
+            color,
+        ))
+        .child(show(
+            move || bt.available() && bt.adapter().is_some_and(|a| a.powered),
+            move || {
+                dyn_sym(
+                    move || {
+                        if bt.devices().iter().any(|d| d.connected) {
+                            icons::BLUETOOTH_CONNECTED
+                        } else {
+                            icons::BLUETOOTH
+                        }
+                    },
+                    16.0,
+                    color,
+                )
+            },
+        ))
+        .child(dyn_sym(
+            move || match a.default_sink() {
+                Some(s) if s.muted || s.volume <= 0.001 => icons::VOLUME_OFF,
+                Some(s) if s.volume < 0.5 => icons::VOLUME_DOWN,
+                _ => icons::VOLUME_UP,
+            },
+            16.0,
+            color,
+        ))
+        .child(show(
+            move || b.available(),
+            move || {
+                let battery = div().flex().items_center().gap(2.0_f32);
+                let battery = if vertical {
+                    battery.flex_col()
                 } else {
-                    s
-                }
-            })
-            .child(dyn_sym(
-                move || match net.wifi() {
-                    Some(ap) => wifi_icon(ap.strength),
-                    None if net.wired().is_some_and(|w| w.connected) => icons::LAN,
-                    None if net.connectivity() == Connectivity::None => icons::SIGNAL_WIFI_OFF,
-                    None => icons::WIFI_OFF,
-                },
-                16.0,
-                color,
-            ))
-            .child(show(
-                move || bt.available() && bt.adapter().is_some_and(|a| a.powered),
-                move || {
-                    dyn_sym(
-                        move || {
-                            if bt.devices().iter().any(|d| d.connected) {
-                                icons::BLUETOOTH_CONNECTED
-                            } else {
-                                icons::BLUETOOTH
-                            }
-                        },
+                    battery.flex_row()
+                };
+                battery
+                    .child(dyn_sym(
+                        move || battery_icon(b.percentage(), b.state()),
                         16.0,
                         color,
-                    )
-                },
-            ))
-            .child(dyn_sym(
-                move || match a.default_sink() {
-                    Some(s) if s.muted || s.volume <= 0.001 => icons::VOLUME_OFF,
-                    Some(s) if s.volume < 0.5 => icons::VOLUME_DOWN,
-                    _ => icons::VOLUME_UP,
-                },
-                16.0,
-                color,
-            ))
-            .child(show(
-                move || b.available(),
-                move || {
-                    div()
-                        .flex()
-                        .flex_row()
-                        .items_center()
-                        .gap(2.0_f32)
-                        .child(dyn_sym(
-                            move || battery_icon(b.percentage(), b.state()),
-                            16.0,
-                            color,
-                        ))
-                        .child(txt(TextStyle::LABEL_MEDIUM, move || {
-                            format!("{:.0}%", b.percentage())
-                        }))
-                },
-            ))
-            .dyn_style(move |s| {
-                if open.get() {
-                    s.text_color(colors().on_primary_container)
-                } else {
-                    s
-                }
-            }),
-        |c| c.on_surface,
-    )
+                    ))
+                    .child(txt(TextStyle::LABEL_MEDIUM, move || {
+                        format!("{:.0}%", b.percentage())
+                    }))
+            },
+        ))
+        .dyn_style(move |s| {
+            if open.get() {
+                s.text_color(colors().on_primary_container)
+            } else {
+                s
+            }
+        });
+    pressable(content, |c| c.on_surface)
 }
 
 pub fn wifi_icon(strength: u8) -> &'static anti_webui_md3e::icons::Symbol {

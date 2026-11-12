@@ -13,13 +13,15 @@ mod media_panel;
 mod notify;
 mod osd;
 mod pam;
-mod power_dialog;
 mod panels;
+mod placement;
+mod power_dialog;
 mod preview;
 mod qs_pages;
 mod qs_settings;
 mod quick_settings;
 mod settings;
+mod shell_layer;
 mod theme;
 mod ui;
 mod user;
@@ -51,14 +53,14 @@ fn main() {
             ipc::serve();
             theme::install();
             wm::share_theme();
-            notify::open_popups();
+            shell_layer::open_popups(shell_layer::Wayland);
             osd::install();
             lock::install();
             for_each_output(|output| {
-                bar::open(output.clone());
+                shell_layer::open_bar(output.clone(), shell_layer::Wayland);
                 dock::open(output.clone());
                 wallpaper::open(output.clone());
-                panels::install(output);
+                shell_layer::install_panels(output, shell_layer::Wayland);
             });
         });
     if let Err(e) = result {

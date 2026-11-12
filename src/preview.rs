@@ -2,13 +2,14 @@
 //! working on them:
 //!
 //! `shoji-bar-4 preview <part> <out.png> [--width W] [--height H] [--scale S] [--light]
-//!  [--pointer X,Y] [--click X,Y] [--right-click X,Y] [--drag X,Y:X,Y] [--escape] [--key K]
-//!  [--late] [--ms N]`
+//!  [--bar-position top|left|right] [--pointer X,Y] [--click X,Y] [--right-click X,Y]
+//!  [--drag X,Y:X,Y] [--escape] [--key K] [--late] [--ms N]`
 //!
 //! The pointer and clicks are in logical pixels, and `--escape` presses Escape after the clicks;
 //! `--late` opens a panel a second and a half after the start, for pictures of it coming in; `--ms`
 //! says how long animations run before the picture is taken.
 
+use crate::placement::{self, BarPlacement};
 use anti_webui::app::headless::write_png;
 use anti_webui::core::Ui;
 use anti_webui::core::event::{Modifiers, PointerButton, WindowEvent};
@@ -34,10 +35,19 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         let (x, y) = s.split_once(',')?;
         Some((x.parse().ok()?, y.parse().ok()?))
     };
+    let bar_position = match opt("--bar-position").as_deref() {
+        None | Some("top") => crate::settings::BarPosition::Top,
+        Some("left") => crate::settings::BarPosition::Left,
+        Some("right") => crate::settings::BarPosition::Right,
+        Some(other) => return Err(format!("unknown bar position: {other}").into()),
+    };
+    let at = BarPlacement::new(bar_position);
     let scale: f64 = opt("--scale").and_then(|s| s.parse().ok()).unwrap_or(1.8);
     let (default_w, default_h) = match part.as_str() {
-        "bar" => (1600.0, crate::bar::HEIGHT as f32),
-        "title" => (480.0, crate::bar::HEIGHT as f32),
+        "bar" if at.is_vertical() => (placement::WIDTH as f32, 1000.0),
+        "bar" => (1600.0, placement::HEIGHT as f32),
+        "title" if at.is_vertical() => (80.0, 80.0),
+        "title" => (480.0, placement::HEIGHT as f32),
         "dock" => (900.0, 136.0),
         "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" | "power" | "lock" => {
             (1600.0, 1000.0)
@@ -94,6 +104,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         if light {
             crate::settings::settings().update(|s| s.mode = crate::settings::ThemeMode::Light);
         }
+        crate::settings::settings().update(|s| s.bar_position = bar_position);
         crate::theme::install();
         let backdrop = div()
             .size_full()
@@ -112,7 +123,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
             }
         }
         let view = match part.as_str() {
-            "bar" => crate::bar::view(output),
+            "bar" => crate::bar::view(output, at),
             // As ShojiWM lists them: the ones with windows and the active one. At 1.5 s a new,
             // empty one after the last is gone to; at 3 s the first, which leaves the empty one.
             "workspaces" => {
@@ -133,6 +144,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 div().p(8.0_f32).flex().child(crate::bar::workspaces_island(
                     memo(move || list.get()),
                     std::rc::Rc::new(|_: &str| {}),
+                    at,
                 ))
             }
             // The title of the window with the keyboard, going between a long and a short one
@@ -168,26 +180,30 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
                 };
                 let shown = signal(Some(focused(Some(0), false)));
                 // After the preview's own wait at the start.
-                let mut at = 1200;
+                let mut elapsed = 1200;
                 let mut step = 0;
-                while at < 2700 {
-                    at += switch;
+                while elapsed < 2700 {
+                    elapsed += switch;
                     step += 1;
                     let long = step % 2 == 1;
-                    set_timeout(Duration::from_millis(at), move || {
+                    set_timeout(Duration::from_millis(elapsed), move || {
                         shown.set(Some(focused(Some(step), long)))
                     });
                 }
-                set_timeout(Duration::from_millis(at + switch), move || {
+                set_timeout(Duration::from_millis(elapsed + switch), move || {
                     shown.set(Some(focused(None, end_long)))
                 });
-                div()
+                let frame = div()
                     .p(4.0_f32)
-                    .h(crate::bar::HEIGHT as f32)
                     .flex()
                     .items_center()
-                    .dyn_style(|s| s.text_color(crate::theme::colors().on_surface))
-                    .child(crate::bar::focused_island(memo(move || shown.get())))
+                    .dyn_style(|s| s.text_color(crate::theme::colors().on_surface));
+                let frame = if at.is_vertical() {
+                    frame.h(placement::WIDTH as f32).justify_center()
+                } else {
+                    frame.h(placement::HEIGHT as f32)
+                };
+                frame.child(crate::bar::focused_island(memo(move || shown.get()), at))
             }
             "notifications" => match crate::notify::server() {
                 Some(server) => crate::notify::popups(server, signal(InputRegion::Empty)),

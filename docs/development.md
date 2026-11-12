@@ -27,12 +27,14 @@ shoji-bar-4 preview dock out.png --pointer 470,110
 shoji-bar-4 preview quick-settings out.png --width 460 --height 900 --scale 1 --light
 shoji-bar-4 preview workspaces out.png --ms 0 --frames 40 --every 30   # out-0.png … out-40.png
 shoji-bar-4 preview quick-settings out.png --click 1548,80 --click-frames 1 --ms 0 --frames 8 --every 40
+shoji-bar-4 preview bar left.png --bar-position left
+shoji-bar-4 preview quick-settings right.png --bar-position right --scale 1
 ```
 
 - **Parts**: `bar`, `dock`, `workspaces`, `title`, `quick-settings`, `calendar`, `launcher`, `clipboard`, `media`, `power`, `lock` and `notifications`.
   - In `lock`, the password is `shoji`, and PAM is not used.
   - `title` is the window island with a made-up window whose title goes between a long one and a short one every `--switch` ms (80 by default), from 1.2 s for a second and a half, and then stays on the one `--end` names (`long` or `short`). With `--windows`, the two titles belong to two windows that take the keyboard in turn. With `--spinner`, the title is a terminal's with a spinner in front, as Claude Code's is, which at the end changes to another title.
-- **Settings**: `preview` doesn't save them.
+- **Settings**: `preview` doesn't save them. `--bar-position top|left|right` selects the bar edge (top by default), including for panel and component previews.
 - **Real services**: the previews act on them.
   - A click on a network, Bluetooth or audio row really changes it.
   - Enter and Delete in `clipboard` act on the real cliphist and clipboard.
@@ -41,6 +43,10 @@ shoji-bar-4 preview quick-settings out.png --click 1548,80 --click-frames 1 --ms
 - **`--drag X1,Y1:X2,Y2`**: after the clicks, presses at the first point, moves to the second and lets go.
 - **`--key K`**: after the clicks, presses a key (`ArrowDown`, `ArrowUp`, `Enter`, `Delete`, `Escape`), or types K if it is a character. It can be given more than once.
 - **`--click-frames N`**: how many frames to run after a click (20 by default). Make it small to catch an animation a click starts from its beginning.
+
+## Layer lifecycle tests
+
+`src/shell_layer.rs` owns shell-surface creation, output binding, placement-driven reconfiguration and closing. Production uses its Wayland adapter; unit tests use the recording adapter through the same `open_bar` and `install_panels` interface. This covers multi-output assignment, unrelated-setting isolation, in-place placement updates and panel input changes without a compositor.
 
 ## CPU reports
 

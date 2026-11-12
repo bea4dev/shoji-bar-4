@@ -3,7 +3,7 @@
 
 use crate::qs_pages::header;
 use crate::quick_settings::{Page, open_at, section};
-use crate::settings::{Palette, ThemeMode, settings};
+use crate::settings::{BarPosition, Palette, ThemeMode, settings};
 use crate::theme::{SEEDS, TextStyle, colors, scheme_for, wallpaper_seed};
 use crate::ui::*;
 use anti_webui::prelude::*;
@@ -22,7 +22,8 @@ pub fn settings_page() -> Div {
         .child(header("Settings", div()))
         .child(settle_in(1, account_section()))
         .child(settle_in(2, style_section()))
-        .child(settle_in(3, clock_section()))
+        .child(settle_in(3, bar_section()))
+        .child(settle_in(4, clock_section()))
 }
 
 /// The heading of a section: an icon and its name.
@@ -112,6 +113,19 @@ fn account_section() -> Div {
     )
 }
 
+/// Where the bar is shown.
+fn bar_section() -> Div {
+    let positions = BarPosition::ALL;
+    section()
+        .child(heading(icons::DESKTOP_WINDOWS, "Bar position"))
+        .child(connected_button_group(
+            positions.map(|p| p.label()),
+            ButtonStyle::tonal(),
+            move |i| settings().with(|s| s.bar_position == positions[i]),
+            move |i| settings().update(|s| s.bar_position = positions[i]),
+        ))
+}
+
 /// How the clock in the bar reads.
 fn clock_section() -> Div {
     let row = |label: &'static str, on: Binding<bool>| {
@@ -194,7 +208,12 @@ fn style_section() -> Div {
 /// The pictures to choose a wallpaper from. Choosing one takes the colors from it too.
 fn wallpapers() -> Div {
     let pictures = crate::wallpaper::pictures();
-    let mut row = div().flex().flex_row().gap(8.0_f32).pb(4.0_f32).overflow_x_scroll();
+    let mut row = div()
+        .flex()
+        .flex_row()
+        .gap(8.0_f32)
+        .pb(4.0_f32)
+        .overflow_x_scroll();
     for path in pictures {
         let chosen = memo({
             let path = path.clone();

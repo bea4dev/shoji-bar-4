@@ -4,7 +4,7 @@ A Material 3 Expressive desktop shell for [ShojiWM](https://github.com/bea4dev/S
 
 ![shoji-bar-4 on ShojiWM](./ss.png)
 
-- **Top bar** of floating islands: launcher, workspaces, the active window, a rolling clock, now playing, tray and status icons.
+- **Top or vertical side bar** of floating islands: launcher, workspaces, the active window, a rolling clock, now playing, tray and status icons.
 - **Dock** that hides at the bottom edge and rises when the pointer reaches it.
 - **Quick settings**, **calendar**, **launcher**, **clipboard history**, **media player**, **notifications**, **OSD** and a **lock screen**.
 - **Dynamic color** from a seed or the wallpaper, moved to on a spring everywhere at once, window frames included.
@@ -27,3 +27,4 @@ ShojiWM's default config starts `~/.config/shoji-bar-4/target/release/shoji-bar-
 - [Features](docs/features.md): everything the shell does, part by part.
 - [Usage](docs/usage.md): running it, ShojiWM integration, commands and settings.
 - [Development](docs/development.md): building against a local AntiWebUI, offscreen previews and CPU reports.
+- [Glossary](GLOSSARY.md): the bar, islands, panels, placements and shell surfaces' shared language.
