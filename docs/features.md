@@ -9,7 +9,7 @@ A row of floating islands.
 - **Active window**: its icon and title. A new window, or a new title, comes up from below as the last one goes up, and the island follows its width on a spring, however fast they change. A title wider than the island for the moment fades out at its edge. A few characters changing in one place (a spinner like Claude Code's, a counter, a clock) change where they are, without the title coming up again.
 - **Clock**: the digits roll as they change, and hovering changes Roboto Flex's weight.
 - **Now playing** (a dancing equalizer): a click opens the player panel under it, a middle click pauses or plays.
-- **Tray**, network, Bluetooth, volume and battery.
+- **Tray**, network, Bluetooth, volume and battery. Tray icons are resolved from absolute files, application-provided icon directories or the desktop icon theme, with supplied pixmaps and title initials as fallbacks.
 
 ## Dock
 

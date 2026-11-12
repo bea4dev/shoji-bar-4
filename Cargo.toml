@@ -10,6 +10,9 @@ anti-webui = { git = "https://github.com/bea4dev/AntiWebUI.git", branch = "main"
 anti-webui-md3e = { git = "https://github.com/bea4dev/AntiWebUI.git", branch = "main" }
 serde_json = "1"
 
+[dev-dependencies]
+tempfile = "3"
+
 [features]
 ## Links AntiWebUI dynamically for faster rebuilds while developing.
 dynamic_linking = ["anti-webui/dynamic_linking"]
