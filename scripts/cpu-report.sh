@@ -102,6 +102,16 @@ report() {
     threads "$pid" >"$tmp/after"
     local ticks_after
     ticks_after=$(process_ticks "$pid")
+    # When the shell was built again after it started, its program is gone from the disk, and
+    # perf names none of its functions: a copy of it, under the name perf looks for, puts them back.
+    local symfs=()
+    local exe
+    exe=$(readlink "/proc/$pid/exe")
+    if [[ $exe == *" (deleted)" ]]; then
+        mkdir -p "$tmp/symfs$(dirname "$exe")" "$tmp/symfs/usr"
+        cp "/proc/$pid/exe" "$tmp/symfs$exe" 2>/dev/null && ln -s /usr/lib "$tmp/symfs/usr/lib" &&
+            symfs=(--symfs "$tmp/symfs")
+    fi
     if [ -n "${perf_job:-}" ]; then
         wait "$perf_job" && [ -s "$tmp/perf.data" ] && perf_ok=1
         [ "$use_sudo" = 1 ] && sudo -n chown "$USER" "$tmp/perf.data" 2>/dev/null
@@ -152,13 +162,13 @@ report() {
         if [ "$perf_ok" = 1 ]; then
             echo "## 時間を使っている関数（perf、自分の時間）"
             echo
-            perf report -i "$tmp/perf.data" --stdio --no-children -g none \
+            perf report -i "$tmp/perf.data" "${symfs[@]}" --stdio --no-children -g none \
                 --sort comm,dso,symbol --percent-limit 0.7 2>/dev/null |
                 grep -v '^#' | grep -v '^$' | head -60
             echo
             echo "## 呼び出し元を含めた時間（perf、上位）"
             echo
-            perf report -i "$tmp/perf.data" --stdio --children -g none \
+            perf report -i "$tmp/perf.data" "${symfs[@]}" --stdio --children -g none \
                 --sort symbol --percent-limit 4 2>/dev/null |
                 grep -v '^#' | grep -v '^$' | head -60
             echo
