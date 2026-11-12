@@ -10,7 +10,9 @@ use anti_webui_md3e::components::{sized_icon, wavy_progress_eased};
 use anti_webui_md3e::icons;
 use anti_webui_md3e::motion::fast_spatial;
 use std::cell::Cell;
+use std::sync::LazyLock;
 use std::time::Duration;
+use url::Url;
 
 /// The panel's, with the card of what is playing inside it.
 const WIDTH: f32 = 392.0;
@@ -39,11 +41,47 @@ fn clock(d: Duration) -> String {
     }
 }
 
-/// The cover's file, when it is one.
-fn art_of(p: &Player) -> Option<String> {
-    p.art_url
-        .as_ref()
-        .and_then(|u| u.strip_prefix("file://").map(str::to_owned))
+/// Downloads run outside the UI thread, with finite time and memory budgets.
+const ART_LIMIT: u64 = 10 * 1024 * 1024;
+static ART_CLIENT: LazyLock<ureq::Agent> = LazyLock::new(|| {
+    ureq::Agent::config_builder()
+        .timeout_global(Some(Duration::from_secs(10)))
+        .build()
+        .into()
+});
+
+fn load_art(url: &str) -> Option<ImageSource> {
+    let url = Url::parse(url).ok()?;
+    match url.scheme() {
+        "file" => Some(url.to_file_path().ok()?.into()),
+        "http" | "https" => {
+            let bytes = ART_CLIENT
+                .get(url.as_str())
+                .call()
+                .ok()?
+                .body_mut()
+                .with_config()
+                .limit(ART_LIMIT)
+                .read_to_vec()
+                .ok()?;
+            Some(bytes.into())
+        }
+        _ => None,
+    }
+}
+
+fn artwork(url: Memo<Option<String>>) -> Signal<Option<ImageSource>> {
+    let art = signal(None);
+    effect(move || {
+        let url = url.get();
+        art.set(None);
+        if let Some(url) = url {
+            // A task belongs to this effect run. Changing the URL or closing the panel
+            // disposes its callback, so an older download cannot replace the new cover.
+            task(move || load_art(&url)).then(move |source| art.set(source));
+        }
+    });
+    art
 }
 
 pub fn panel(output: Output) -> Div {
@@ -55,7 +93,8 @@ pub fn panel(output: Output) -> Div {
             close();
         }
     });
-    let art = memo(move || current.with(|p| p.as_ref().and_then(art_of)));
+    let url = memo(move || current.with(|p| p.as_ref().and_then(|p| p.art_url.clone())));
+    let art = artwork(url);
     let playing = memo(move || {
         current.with(|p| {
             p.as_ref()
@@ -106,7 +145,7 @@ pub fn panel(output: Output) -> Div {
 
 /// The cover over all of the panel, darkened so that what is on it can be read; a new one fades in
 /// over the old one.
-fn backdrop(art: Memo<Option<String>>) -> Div {
+fn backdrop(art: Signal<Option<ImageSource>>) -> Div {
     div()
         .absolute()
         .inset(0.0)
@@ -140,7 +179,7 @@ fn backdrop(art: Memo<Option<String>>) -> Div {
 /// The cover, the title, who it is by, and what plays it. A new title slides in over the old one.
 fn about(
     current: Memo<Option<Player>>,
-    art: Memo<Option<String>>,
+    art: Signal<Option<ImageSource>>,
     fg: impl crate::ui::Role,
 ) -> Div {
     let title = memo(move || current.with(|p| p.as_ref().map(|p| p.title.clone())));
@@ -426,4 +465,128 @@ fn buttons(current: Memo<Option<Player>>, playing: Memo<bool>, fg: impl crate::u
                 drop(p.next());
             }
         }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anti_webui::core::{channel, images::decode_bitmap};
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    use std::sync::{Arc, mpsc};
+    use std::thread::{self, JoinHandle};
+
+    const COVER: &[u8] = br#"<svg xmlns="http://www.w3.org/2000/svg" width="2" height="3"><rect width="2" height="3" fill="red"/></svg>"#;
+
+    fn server(response: Vec<u8>) -> (String, mpsc::Receiver<()>, mpsc::Sender<()>, JoinHandle<()>) {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let url = format!("http://{}/cover", listener.local_addr().unwrap());
+        let (started, received) = mpsc::channel();
+        let (release, ready) = mpsc::channel();
+        let worker = thread::spawn(move || {
+            let (stream, _) = listener.accept().unwrap();
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let mut stream = BufReader::new(stream);
+            loop {
+                let mut line = String::new();
+                assert_ne!(stream.read_line(&mut line).unwrap(), 0);
+                if line == "\r\n" {
+                    break;
+                }
+            }
+            let _ = started.send(());
+            ready.recv_timeout(Duration::from_secs(5)).unwrap();
+            // The client may close early when rejecting the status or body size.
+            let _ = stream.get_mut().write_all(&response);
+        });
+        (url, received, release, worker)
+    }
+
+    fn response() -> Vec<u8> {
+        let mut response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: image/svg+xml\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            COVER.len()
+        )
+        .into_bytes();
+        response.extend_from_slice(COVER);
+        response
+    }
+
+    #[test]
+    fn remote_cover_can_be_decoded_after_a_redirect() {
+        let (url, _, release, worker) = server(response());
+        let redirect = format!(
+            "HTTP/1.1 302 Found\r\nLocation: {url}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+        );
+        let (url, _, follow, redirect_worker) = server(redirect.into_bytes());
+        release.send(()).unwrap();
+        follow.send(()).unwrap();
+        let cover = load_art(&url).expect("HTTP artwork must reach the image decoder");
+        let bitmap = decode_bitmap(cover, (2, 3)).unwrap();
+        assert_eq!((bitmap.width(), bitmap.height()), (2, 3));
+        worker.join().unwrap();
+        redirect_worker.join().unwrap();
+    }
+
+    #[test]
+    fn local_cover_urls_decode_escaped_paths() {
+        let path = std::path::PathBuf::from("/tmp/album art/封面 #1.png");
+        let url = Url::from_file_path(&path).unwrap();
+        assert_eq!(load_art(url.as_str()), Some(path.into()));
+        assert!(load_art("file://remote-host/cover.png").is_none());
+        assert!(load_art("ftp://example.com/cover.png").is_none());
+    }
+
+    #[test]
+    fn failed_or_oversized_downloads_leave_no_cover() {
+        let mut oversized = format!(
+            "HTTP/1.1 200 OK\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            ART_LIMIT + 1
+        )
+        .into_bytes();
+        oversized.resize(oversized.len() + ART_LIMIT as usize + 1, b'x');
+        for response in [
+            b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n".to_vec(),
+            oversized,
+        ] {
+            let (url, _, release, worker) = server(response);
+            release.send(()).unwrap();
+            assert!(load_art(&url).is_none());
+            worker.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn late_download_cannot_replace_a_new_or_missing_cover() {
+        for next in [Some("file:///tmp/new-cover.png".to_owned()), None] {
+            let (url, started, release, worker) = server(response());
+            let (wake, woken) = mpsc::channel();
+            channel::set_thread_waker(Arc::new(move || {
+                let _ = wake.send(());
+            }));
+            let ((url, art), owner) = create_root(|| {
+                let url = signal(Some(url));
+                let art = artwork(memo(move || url.get()));
+                (url, art)
+            });
+            started.recv_timeout(Duration::from_secs(5)).unwrap();
+            assert!(art.get().is_none(), "the UI must not wait for the download");
+            url.set(next.clone());
+            let expected = next.as_deref().and_then(load_art);
+            if next.is_some() {
+                woken.recv_timeout(Duration::from_secs(5)).unwrap();
+                channel::pump();
+                assert_eq!(art.get(), expected);
+            }
+            release.send(()).unwrap();
+            woken.recv_timeout(Duration::from_secs(5)).unwrap();
+            channel::pump();
+            assert_eq!(art.get(), expected, "the old response must be ignored");
+            worker.join().unwrap();
+            owner.dispose();
+            channel::set_thread_waker(Arc::new(|| {}));
+        }
+    }
 }
