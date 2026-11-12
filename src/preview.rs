@@ -340,5 +340,9 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         };
         write_png(&path, w, h, &pixels)?;
     }
+    // Whether anything still asks for frames at the end: it should not once all has settled.
+    if ui.animating() {
+        eprintln!("still asking for frames");
+    }
     Ok(())
 }
