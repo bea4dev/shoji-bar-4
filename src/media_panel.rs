@@ -10,7 +10,7 @@ use anti_webui::shell::prelude::*;
 use anti_webui_md3e::components::{sized_icon, wavy_progress_eased};
 use anti_webui_md3e::icons;
 use anti_webui_md3e::motion::fast_spatial;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
 use std::sync::LazyLock;
 use std::time::Duration;
 use url::Url;
@@ -61,16 +61,42 @@ fn load_art(url: &str) -> Option<ImageSource> {
     }
 }
 
+thread_local! {
+    /// The last cover that came and its URL, so that the panel opened again shows it at once
+    /// rather than downloading and decoding it again.
+    static LAST: RefCell<Option<(String, ImageSource)>> = const { RefCell::new(None) };
+}
+
+fn cached(url: &str) -> Option<ImageSource> {
+    LAST.with(|l| {
+        l.borrow()
+            .as_ref()
+            .filter(|(u, _)| u == url)
+            .map(|(_, source)| source.clone())
+    })
+}
+
 fn artwork(url: Memo<Option<String>>) -> Signal<Option<ImageSource>> {
     let art = signal(None);
     effect(move || {
-        let url = url.get();
-        art.set(None);
-        if let Some(url) = url {
-            // A task belongs to this effect run. Changing the URL or closing the panel
-            // disposes its callback, so an older download cannot replace the new cover.
-            task(move || load_art(&url)).then(move |source| art.set(source));
+        let Some(url) = url.get() else {
+            art.set(None);
+            return;
+        };
+        if let Some(source) = cached(&url) {
+            art.set(Some(source));
+            return;
         }
+        art.set(None);
+        // A task belongs to this effect run. Changing the URL or closing the panel
+        // disposes its callback, so an older download cannot replace the new cover.
+        let asked = url.clone();
+        task(move || load_art(&asked)).then(move |source| {
+            if let Some(source) = &source {
+                LAST.with(|l| *l.borrow_mut() = Some((url, source.clone())));
+            }
+            art.set(source);
+        });
     });
     art
 }
@@ -557,6 +583,30 @@ mod tests {
             assert!(load_art(&url).is_none());
             worker.join().unwrap();
         }
+    }
+
+    #[test]
+    fn a_cover_that_came_is_shown_at_once_the_next_time() {
+        let (url, _, release, worker) = server(response());
+        let (wake, woken) = mpsc::channel();
+        channel::set_thread_waker(Arc::new(move || {
+            let _ = wake.send(());
+        }));
+        let first_url = url.clone();
+        let (first, owner) = create_root(|| artwork(memo(move || Some(first_url.clone()))));
+        release.send(()).unwrap();
+        woken.recv_timeout(Duration::from_secs(5)).unwrap();
+        channel::pump();
+        let cover = first.get().expect("the download must give a cover");
+        owner.dispose();
+        worker.join().unwrap();
+
+        // The server has gone: only the cache can give it, and the same source is not decoded
+        // again.
+        let (again, owner) = create_root(|| artwork(memo(move || Some(url.clone()))));
+        assert_eq!(again.get(), Some(cover));
+        owner.dispose();
+        channel::set_thread_waker(Arc::new(|| {}));
     }
 
     #[test]

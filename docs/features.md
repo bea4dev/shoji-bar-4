@@ -58,7 +58,7 @@ The icon under the pointer lifts a little and shows its name.
 It opens under the top bar's now-playing island, or beside it on a vertical bar.
 
 - A card on a base in the theme's colors, like the other panels. The album art fills the card, darkened so the text stays readable. When the track changes, the art and the title change over.
-- Covers can come from local file URLs or HTTP/HTTPS URLs, including redirects. Network covers load in the background (up to 10 MiB, with a 10-second timeout); unavailable covers keep the music-note placeholder. A late download cannot replace a newer track's cover.
+- Covers can come from local file URLs or HTTP/HTTPS URLs, including redirects. Network covers load in the background (up to 10 MiB, with a 10-second timeout); unavailable covers keep the music-note placeholder. A late download cannot replace a newer track's cover. The last cover is kept, so opening the panel again shows it at once.
 - **Wavy seek bar**: a click seeks there, and a drag seeks to where you let go. A handle appears at the end while the pointer is on it.
 - Elapsed time and length, and previous, play or pause (a large button that rounds off while playing), and next.
 
