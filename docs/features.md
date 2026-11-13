@@ -9,7 +9,7 @@ Floating islands along the top, left or right. **Settings → Bar position** mov
 - **Active window**: on the top bar, its icon and title. A new window, or a new title, comes up from below as the last one goes up, and the island follows its width on a spring, however fast they change. A title wider than the island for the moment fades out at its edge. A few characters changing in one place (a spinner like Claude Code's, a counter, a clock) change where they are, without the title coming up again. A vertical bar shows the application icon only.
 - **Clock**: the digits roll as they change, and hovering changes Roboto Flex's weight. A vertical bar stacks hours, minutes and optional seconds, with AM/PM for 12-hour time; the date stays on the top bar.
 - **Now playing** (a dancing equalizer): a click opens the player under the top bar or beside a vertical bar, a middle click pauses or plays. The vertical island omits the title.
-- **Tray**, network, Bluetooth, volume and battery. Tray menus open beside a vertical bar.
+- **Tray**, network, Bluetooth, volume and battery. Tray menus open beside a vertical bar. Tray icons are resolved from absolute files, application-provided icon directories or the desktop icon theme, with supplied pixmaps and title initials as fallbacks.
 
 ## Dock
 

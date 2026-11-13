@@ -3,7 +3,7 @@
 //! system at the end. Each group floats in an island of its own, on a pane of frosted glass that is
 //! all of the bar. Vertical bars use compact icons and stack the clock.
 
-use crate::appinfo::app_id_icon;
+use crate::appinfo::{app_id_icon, tray_icon_file};
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::{AnchorPoint, BarPlacement, PanelSide};
 use crate::settings::settings;
@@ -956,6 +956,7 @@ fn tray_icon(item: TrayItem, at: BarPlacement) -> Div {
     let key = item.key();
     let now = move || tray().items().into_iter().find(|i| i.key() == key);
     let shown = now.clone();
+    let icon = memo(move || now().map(|item| item.icon));
     let clicked = item.clone();
     pressable(
         div()
@@ -965,7 +966,14 @@ fn tray_icon(item: TrayItem, at: BarPlacement) -> Div {
             .items_center()
             .justify_center()
             .child(dyn_view(move || {
-                match shown().and_then(|i| i.icon.best(48)) {
+                let icon = icon.get();
+                if let Some(path) = icon.as_ref().and_then(|icon| tray_icon_file(icon, 48)) {
+                    return img(path)
+                        .size(16.0)
+                        .object_fit(ObjectFit::Contain)
+                        .into_view();
+                }
+                match icon.and_then(|icon| icon.best(48)) {
                     Some(picture) => bitmap_view(move || Some(picture.clone()))
                         .size(16.0)
                         .into_view(),

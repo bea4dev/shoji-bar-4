@@ -2125,6 +2125,7 @@ dependencies = [
  "anti-webui",
  "anti-webui-md3e",
  "serde_json",
+ "tempfile",
  "ureq",
  "url",
 ]
