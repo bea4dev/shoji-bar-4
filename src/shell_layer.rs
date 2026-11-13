@@ -53,7 +53,9 @@ impl Request {
 
     fn into_wayland_options(self) -> LayerOptions {
         let mut options = match self.kind {
-            RequestKind::Bar(at) => LayerOptions::bar(at.edge(), at.thickness()),
+            // Auto uses the initial window size before the first configure.
+            RequestKind::Bar(at) => LayerOptions::bar(at.edge(), at.thickness())
+                .exclusive(Exclusive::Fixed(at.thickness())),
             RequestKind::Panel(_) => LayerOptions::new()
                 .layer(Layer::Top)
                 .anchor(Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT)
@@ -119,6 +121,9 @@ impl Handle for WaylandHandle {
         let (Some(current), Some(output)) = (self.placement.get(), self.output.as_ref()) else {
             return;
         };
+        // Each setter commits separately. Reserve only the target thickness even
+        // while the compositor still reports dimensions from the previous edge.
+        self.layer.set_exclusive(Exclusive::Fixed(at.thickness()));
         // Stretch is encoded as zero and is valid only with both anchors on that axis.
         // Keep both axes fixed while the anchor set changes, then restore the target stretch.
         let (old_width, old_height) = if current.is_vertical() {
@@ -406,6 +411,91 @@ mod tests {
     fn reset_settings() {
         crate::settings::never_save();
         crate::settings::settings().set(Settings::default());
+    }
+
+    #[test]
+    fn bar_reservation_stays_bounded_before_configure_and_during_edge_changes() {
+        use crate::settings::BarPosition::{Left, Right, Top};
+        use anti_webui::core::layer::LayerSize;
+        use anti_webui::core::window::{self, Command, Role};
+
+        // Exercise the production adapter's opening options and queued platform
+        // commands without mapping a surface into the user's desktop.
+        for start in [Top, Left, Right] {
+            let mut output = output("DP-1");
+            output.logical_size.width = 2194;
+            output.logical_size.height = 1234;
+            let (bar, owner) = create_root(|| {
+                Wayland.open(
+                    Request::bar(output, BarPlacement::new(start)),
+                    Box::new(|| div().into_view()),
+                )
+            });
+            let request = window::take_opens().pop().expect("bar opening request");
+            let Role::Layer(mut spec) = request.options.role else {
+                panic!("bar must open a layer");
+            };
+            let mut size = (request.options.width, request.options.height);
+            let expected = if start == Top { 38 } else { 52 };
+            assert_eq!(
+                spec.exclusive_zone(size.0, size.1),
+                expected,
+                "startup must reserve the bar thickness, not the initial window size",
+            );
+            let id = request.handle.id();
+            window::start_root(request.handle, Box::new(|| {}));
+
+            let configured = |width, height| {
+                let axis = |size, span| match size {
+                    LayerSize::Fixed(n) => n,
+                    LayerSize::Stretch => span,
+                    LayerSize::Content => panic!("bar axes must be fixed or stretched"),
+                };
+                (axis(width, 2194), axis(height, 1234))
+            };
+            size = configured(spec.width, spec.height);
+            for target in [Left, Right, Top, Right, Left, Top] {
+                bar.set_placement(BarPlacement::new(target));
+                let mut immediate = spec.clone();
+                let mut immediate_size = size;
+                // One schedule delays all configures until the transition ends;
+                // another configures after every command. Neither may reserve
+                // the old full-output dimension on the new edge.
+                for (window, command) in window::take_commands() {
+                    assert_eq!(window, id);
+                    let Command::Layer(change) = command else {
+                        panic!("unexpected command while changing bar placement");
+                    };
+                    spec.apply(&change);
+                    immediate.apply(&change);
+                    for (state, dimensions) in [(&*spec, size), (&*immediate, immediate_size)] {
+                        assert!(
+                            (1..=52).contains(&state.exclusive_zone(dimensions.0, dimensions.1)),
+                            "oversized reservation during {start:?} -> {target:?}: {state:?}",
+                        );
+                        assert!(state.width != LayerSize::Stretch || state.anchor.spans_width());
+                        assert!(state.height != LayerSize::Stretch || state.anchor.spans_height());
+                    }
+                    immediate_size = configured(immediate.width, immediate.height);
+                    assert!(
+                        (1..=52).contains(
+                            &immediate.exclusive_zone(immediate_size.0, immediate_size.1),
+                        )
+                    );
+                }
+                let expected = if target == Top { 38 } else { 52 };
+                assert_eq!(spec.exclusive_zone(size.0, size.1), expected);
+                assert_eq!(
+                    spec.anchor.exclusive_edge(),
+                    Some(BarPlacement::new(target).edge())
+                );
+                size = configured(spec.width, spec.height);
+                assert_eq!(spec.exclusive_zone(size.0, size.1), expected);
+            }
+            owner.dispose();
+            window::stop_root(id);
+            window::take_commands();
+        }
     }
 
     #[test]
