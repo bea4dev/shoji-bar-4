@@ -272,7 +272,8 @@ fn item(
                 .collect::<Vec<_>>()
         }
     });
-    let focused = memo(move || windows.with(|w| w.iter().any(|t| t.activated)));
+    // A minimized window can stay `activated` while nothing else takes the keyboard.
+    let focused = memo(move || windows.with(|w| w.iter().any(|t| t.activated && !t.minimized)));
     let hovered = signal(false);
     let rise = follow(move || if hovered.get() { RISE } else { 0.0 }, fast_spatial());
     let pressed = signal(false);
@@ -320,16 +321,17 @@ fn item(
                     set_timeout(Duration::from_secs(4), move || launching.set(None));
                 }
             } else if let Some(active) = open.iter().find(|t| t.activated) {
-                // Goes round its windows.
-                let at = open.iter().position(|t| t.id() == active.id()).unwrap_or(0);
-                if open.len() > 1 {
-                    open[(at + 1) % open.len()].activate();
-                } else if active.minimized {
+                if active.minimized {
                     // After a minimize that left nothing else to take the
                     // keyboard, the WM can keep this window `activated`; a
                     // click on a minimized entry then means restore, not
-                    // minimize again.
+                    // minimize again, and the one restored is the one that
+                    // was minimized even when the app has others.
                     active.activate();
+                } else if open.len() > 1 {
+                    // Goes round its windows.
+                    let at = open.iter().position(|t| t.id() == active.id()).unwrap_or(0);
+                    open[(at + 1) % open.len()].activate();
                 } else {
                     active.set_minimized(true);
                 }
