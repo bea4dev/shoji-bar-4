@@ -74,7 +74,7 @@ pub fn tray_icon_file(icon: &TrayIcon, size: u32) -> Option<PathBuf> {
             }
         }
     }
-    icon_file(name, size).filter(|path| !is_xpm(path))
+    icon_file(name, size)
 }
 
 fn is_xpm(path: &Path) -> bool {
