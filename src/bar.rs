@@ -3,11 +3,11 @@
 //! system at the end. Each group floats in an island of its own, on a pane of frosted glass that is
 //! all of the bar. Vertical bars use compact icons and stack the clock.
 
-use crate::appinfo::{app_id_icon, tray_icon_file};
+use crate::appinfo::{app_id_icon, tray_icon_image};
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::{AnchorPoint, BarPlacement, PanelSide};
 use crate::settings::settings;
-use crate::theme::{TextStyle, colors};
+use crate::theme::{TextStyle, colors, hex_of, target_scheme};
 use crate::ui::*;
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
@@ -957,6 +957,9 @@ fn tray_icon(item: TrayItem, at: BarPlacement) -> Div {
     let now = move || tray().items().into_iter().find(|i| i.key() == key);
     let shown = now.clone();
     let icon = memo(move || now().map(|item| item.icon));
+    // A symbolic icon is a picture made in a color: in the one the theme is going to, made again
+    // when that changes rather than at each step of the way there.
+    let symbolic_color = memo(|| hex_of(target_scheme().on_surface));
     let clicked = item.clone();
     pressable(
         div()
@@ -967,8 +970,11 @@ fn tray_icon(item: TrayItem, at: BarPlacement) -> Div {
             .justify_center()
             .child(dyn_view(move || {
                 let icon = icon.get();
-                if let Some(path) = icon.as_ref().and_then(|icon| tray_icon_file(icon, 48)) {
-                    return img(path)
+                let picture = icon
+                    .as_ref()
+                    .and_then(|icon| tray_icon_image(icon, 48, symbolic_color.get()));
+                if let Some(picture) = picture {
+                    return img(picture)
                         .size(16.0)
                         .object_fit(ObjectFit::Contain)
                         .into_view();

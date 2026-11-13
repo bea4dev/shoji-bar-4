@@ -55,6 +55,13 @@ thread_local! {
     static WALLPAPER_SEED: Cell<Option<Signal<Option<u32>>>> = const { Cell::new(None) };
 }
 
+/// The scheme the colors are going to, without the steps on the way there, for what can't follow
+/// them as they change (a picture made in a color).
+pub fn target_scheme() -> ColorScheme {
+    let s = settings().get();
+    scheme_for(current_seed(&s), s.palette, is_dark())
+}
+
 /// Whether the scheme is dark now.
 pub fn is_dark() -> bool {
     DARK.with(|d| d.get()).is_some_and(|m| m.get())
