@@ -324,6 +324,12 @@ fn item(
                 let at = open.iter().position(|t| t.id() == active.id()).unwrap_or(0);
                 if open.len() > 1 {
                     open[(at + 1) % open.len()].activate();
+                } else if active.minimized {
+                    // After a minimize that left nothing else to take the
+                    // keyboard, the WM can keep this window `activated`; a
+                    // click on a minimized entry then means restore, not
+                    // minimize again.
+                    active.activate();
                 } else {
                     active.set_minimized(true);
                 }
