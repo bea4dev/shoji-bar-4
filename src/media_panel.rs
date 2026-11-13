@@ -2,6 +2,7 @@
 //! title, a wavy seek bar that can be clicked or dragged, the times, and the buttons.
 
 use crate::panels::close;
+use crate::placement::{AnchorPoint, BarPlacement};
 use crate::theme::{TextStyle, colors, elevation};
 use crate::ui::*;
 use anti_webui::prelude::*;
@@ -18,16 +19,6 @@ const WIDTH: f32 = 392.0;
 const EDGE: f32 = 14.0;
 /// How tall the place that takes the pointer around the seek bar is.
 const SEEK_H: f32 = 28.0;
-
-thread_local! {
-    /// Where the middle of the bar's island was when it was clicked, from the left of the output.
-    static ANCHOR: Cell<Option<f32>> = const { Cell::new(None) };
-}
-
-/// Says where the island is, for the panel to open under it.
-pub fn anchor(center: f32) {
-    ANCHOR.with(|a| a.set(Some(center)));
-}
 
 /// `1:05`, `1:02:03`.
 fn clock(d: Duration) -> String {
@@ -46,7 +37,7 @@ fn art_of(p: &Player) -> Option<String> {
         .and_then(|u| u.strip_prefix("file://").map(str::to_owned))
 }
 
-pub fn panel(output: Output) -> Div {
+pub fn panel(output: Output, anchor: Option<AnchorPoint>, at: BarPlacement) -> Div {
     let m = media();
     let current = memo(move || m.current());
     // When it stops being there, so does this.
@@ -71,13 +62,23 @@ pub fn panel(output: Output) -> Div {
         }
     };
     let width = output.logical_size.width as f32;
-    let center = ANCHOR.with(Cell::get).unwrap_or(width - EDGE - WIDTH / 2.0);
-    let left = (center - WIDTH / 2.0).clamp(EDGE, (width - WIDTH - EDGE).max(EDGE));
-
-    // The panel, like the others: the theme's color around a card, which has the cover behind it.
-    div()
-        .ml(left)
-        .w(WIDTH)
+    let height = output.logical_size.height as f32;
+    let (x, y) = anchor
+        .map(|a| (a.x, a.y))
+        .unwrap_or((width - EDGE - WIDTH / 2.0, height / 2.0));
+    let left = (x - WIDTH / 2.0).clamp(EDGE, (width - WIDTH - EDGE).max(EDGE));
+    let top = signal(y);
+    let panel = div().w(WIDTH);
+    let panel = if at.is_vertical() {
+        panel
+            .dyn_style(move |s| s.mt(top.get()))
+            .on_resized(move |_, h| {
+                top.set((y - h / 2.0).clamp(EDGE, (height - h - EDGE).max(EDGE)));
+            })
+    } else {
+        panel.ml(left)
+    };
+    panel
         .p(16.0_f32)
         .rounded(30.0_f32)
         .shadows(elevation(3))

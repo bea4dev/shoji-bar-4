@@ -83,6 +83,42 @@ impl Palette {
     }
 }
 
+/// Where the bar sits on each output.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BarPosition {
+    Top,
+    Left,
+    Right,
+}
+
+impl BarPosition {
+    pub const ALL: [BarPosition; 3] = [Self::Top, Self::Left, Self::Right];
+
+    pub fn is_vertical(self) -> bool {
+        self != Self::Top
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Top => "Top",
+            Self::Left => "Left",
+            Self::Right => "Right",
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            Self::Top => "top",
+            Self::Left => "left",
+            Self::Right => "right",
+        }
+    }
+
+    fn from_name(name: &str) -> Option<Self> {
+        Self::ALL.into_iter().find(|p| p.name() == name)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Settings {
     pub mode: ThemeMode,
@@ -94,6 +130,7 @@ pub struct Settings {
     pub wallpaper: Option<PathBuf>,
     /// The desktop entry ids of the apps the dock always shows, in order.
     pub pinned: Vec<String>,
+    pub bar_position: BarPosition,
     pub clock_24h: bool,
     pub clock_seconds: bool,
     /// The user's picture, a copy kept next to this file; `None` for the desktop's.
@@ -118,6 +155,7 @@ impl Default for Settings {
             ]
             .map(String::from)
             .to_vec(),
+            bar_position: BarPosition::Top,
             clock_24h: true,
             clock_seconds: false,
             avatar: None,
@@ -134,6 +172,7 @@ impl Settings {
             "palette": self.palette.name(),
             "wallpaper": self.wallpaper.as_ref().map(|p| p.to_string_lossy().into_owned()),
             "pinned": self.pinned,
+            "bar_position": self.bar_position.name(),
             "clock_24h": self.clock_24h,
             "clock_seconds": self.clock_seconds,
             "avatar": self.avatar.as_ref().map(|p| p.to_string_lossy().into_owned()),
@@ -166,6 +205,9 @@ impl Settings {
                 .iter()
                 .filter_map(|x| x.as_str().map(String::from))
                 .collect();
+        }
+        if let Some(p) = str_of("bar_position").and_then(BarPosition::from_name) {
+            s.bar_position = p;
         }
         if let Some(b) = bool_of("clock_24h") {
             s.clock_24h = b;

@@ -64,6 +64,7 @@ Settings are kept in `$XDG_STATE_HOME/shoji-bar-4/settings.json` (usually `~/.lo
 | `palette` | `tonal-spot` / `vibrant` / `expressive` / `fidelity` / `neutral` / `monochrome` |
 | `wallpaper` | The wallpaper's path (`null` draws none) |
 | `pinned` | Desktop IDs of the apps pinned to the dock |
+| `bar_position` | `top` / `left` / `right`; changing it in Settings moves the bar immediately |
 | `clock_24h` / `clock_seconds` | How the clock is shown |
 
 Wallpapers to choose from are read from `~/Pictures/wallpapers`.
