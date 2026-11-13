@@ -141,16 +141,10 @@ pub(crate) fn invocation(output: &Output, panel: Panel) -> Memo<Option<Invocatio
 pub fn view(output: Output, panel: Panel) -> Div {
     let invocation = invocation(&output, panel);
     let wanted = memo(move || invocation.get().is_some());
-    surface_at(
-        output,
-        panel,
-        wanted,
-        invocation,
-        crate::placement::current(),
-    )
+    surface_at(output, panel, wanted, invocation, crate::placement::memoized())
 }
 
-fn place_panel(root: Div, panel: Panel, at: BarPlacement) -> Div {
+fn place_panel(root: Style, panel: Panel, at: BarPlacement) -> Style {
     let clearance = at.clearance();
     match panel {
         Panel::QuickSettings => match at.side() {
@@ -201,7 +195,7 @@ pub(crate) fn surface_at(
     panel: Panel,
     wanted: Memo<bool>,
     invocation: Memo<Option<Invocation>>,
-    at: BarPlacement,
+    placement: Memo<BarPlacement>,
 ) -> Div {
     let content = move || match panel {
         Panel::QuickSettings => crate::quick_settings::panel(output.clone()),
@@ -210,7 +204,7 @@ pub(crate) fn surface_at(
         Panel::Clipboard => crate::clipboard::panel(output.clone()),
         Panel::Media => {
             let anchor = untrack(|| invocation.get()).and_then(|i| i.anchor);
-            crate::media_panel::panel(output.clone(), anchor, at)
+            crate::media_panel::panel(output.clone(), anchor, untrack(|| placement.get()))
         }
         Panel::Power => crate::power_dialog::panel(),
     };
@@ -246,7 +240,18 @@ pub(crate) fn surface_at(
                 close();
             }
         }));
-    let mut root = place_panel(root, panel, at);
+    // Where it is follows the bar, without what is in it being built again.
+    let mut root = root.dyn_style(move |s| place_panel(s, panel, placement.get()));
+    if panel == Panel::Media {
+        // It is put by the island it was opened from, which has just gone with the bar.
+        let first = Cell::new(true);
+        effect(move || {
+            placement.get();
+            if !first.replace(false) && untrack(|| wanted.get()) {
+                close();
+            }
+        });
+    }
     if panel.veiled() {
         // A veil over the desktop, so that the panel in the middle stands out.
         root = root.child(
@@ -270,8 +275,8 @@ pub(crate) fn surface_at(
     root.child(
         show(move || wanted.get(), content)
             .appear()
-            .enter(move |s| enter_motion(s, panel, at))
-            .exit(move |s| exit_motion(s, panel, at))
+            .enter(move |s| enter_motion(s, panel, untrack(|| placement.get())))
+            .exit(move |s| exit_motion(s, panel, untrack(|| placement.get())))
             .transition(crate::ui::overshoot(420)),
     )
 }

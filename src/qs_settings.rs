@@ -208,12 +208,7 @@ fn style_section() -> Div {
 /// The pictures to choose a wallpaper from. Choosing one takes the colors from it too.
 fn wallpapers() -> Div {
     let pictures = crate::wallpaper::pictures();
-    let mut row = div()
-        .flex()
-        .flex_row()
-        .gap(8.0_f32)
-        .pb(4.0_f32)
-        .overflow_x_scroll();
+    let mut row = div().flex().flex_row().gap(8.0_f32).pb(4.0_f32).overflow_x_scroll();
     for path in pictures {
         let chosen = memo({
             let path = path.clone();

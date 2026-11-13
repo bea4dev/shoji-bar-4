@@ -27,4 +27,4 @@ ShojiWM's default config starts `~/.config/shoji-bar-4/target/release/shoji-bar-
 - [Features](docs/features.md): everything the shell does, part by part.
 - [Usage](docs/usage.md): running it, ShojiWM integration, commands and settings.
 - [Development](docs/development.md): building against a local AntiWebUI, offscreen previews and CPU reports.
-- [Glossary](GLOSSARY.md): the bar, islands, panels, placements and shell surfaces' shared language.
+- [Glossary](docs/glossary.md): the bar, islands, panels, placements and shell surfaces' shared language.

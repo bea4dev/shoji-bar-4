@@ -48,7 +48,7 @@ shoji-bar-4 preview quick-settings right.png --bar-position right --scale 1
 
 `src/shell_layer.rs` owns shell-surface creation, output binding, placement-driven reconfiguration and closing. Production uses its Wayland adapter; unit tests use the recording adapter through the same `open_bar` and `install_panels` interface. This covers multi-output assignment, unrelated-setting isolation, in-place placement updates and panel input changes without a compositor.
 
-Bars reserve their fixed thickness from the first surface commit, and update that reservation before changing edges. The reservation regression exercises the production Wayland adapter's opening options and queued layer changes with AntiWebUI's real exclusive-zone calculation. It checks top/left/right startup and repeated edge changes with both delayed and immediate configure timing, including valid stretch anchors. It does not map surfaces into a live compositor or assert Niri's viewport recovery.
+A bar reserves its thickness from its first commit, and moves to another edge with one `set_geometry`, which changes the edge, both sizes and the reserved zone in one commit. AntiWebUI's own layer protocol tests cover what that sends.
 
 ```sh
 cargo test --locked --bin shoji-bar-4 shell_layer::tests

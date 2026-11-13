@@ -86,11 +86,7 @@ fn icon_of(n: &Notification) -> Div {
                 .and_then(app_by_id)
                 .and_then(|a| app_icon(&a, 64))
         });
-    let frame = div()
-        .size(36.0)
-        .flex_none()
-        .rounded(12.0_f32)
-        .overflow_hidden();
+    let frame = div().size(36.0).flex_none().rounded(12.0_f32).overflow_hidden();
     if let Some(picture) = n.image.clone() {
         frame.child(
             bitmap_view(move || Some(picture.clone()))
@@ -210,11 +206,7 @@ pub fn card(n: Notification, popup: bool) -> Div {
                             gone.dismiss();
                         })
                         .dyn_style(move |s| {
-                            s.opacity(if hovered.get() || !popup {
-                                1.0
-                            } else {
-                                0.0_f32
-                            })
+                            s.opacity(if hovered.get() || !popup { 1.0 } else { 0.0_f32 })
                         })
                         .transition_of([Prop::Opacity], Transition::ms(150).ease_out()),
                 ),

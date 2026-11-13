@@ -2,7 +2,7 @@
 //! tests use a recording adapter through the same functions.
 
 use crate::panels::{self, Panel};
-use crate::placement::{self, BarPlacement, PanelSide};
+use crate::placement::{self, BarPlacement};
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
 use std::cell::Cell;
@@ -53,9 +53,7 @@ impl Request {
 
     fn into_wayland_options(self) -> LayerOptions {
         let mut options = match self.kind {
-            // Auto uses the initial window size before the first configure.
-            RequestKind::Bar(at) => LayerOptions::bar(at.edge(), at.thickness())
-                .exclusive(Exclusive::Fixed(at.thickness())),
+            RequestKind::Bar(at) => LayerOptions::bar(at.edge(), at.thickness()),
             RequestKind::Panel(_) => LayerOptions::new()
                 .layer(Layer::Top)
                 .anchor(Anchor::TOP | Anchor::BOTTOM | Anchor::LEFT | Anchor::RIGHT)
@@ -85,7 +83,6 @@ impl Request {
 
 /// The layer operations used after opening.
 pub(crate) trait Handle: Clone {
-    fn set_margin(&self, margin: Margin);
     fn set_input_region(&self, region: InputRegion);
     fn set_placement(&self, at: BarPlacement);
 }
@@ -104,50 +101,30 @@ pub(crate) struct Wayland;
 #[derive(Clone)]
 pub(crate) struct WaylandHandle {
     layer: LayerHandle,
-    output: Option<Output>,
-    placement: Cell<Option<BarPlacement>>,
 }
 
 impl Handle for WaylandHandle {
-    fn set_margin(&self, margin: Margin) {
-        self.layer.set_margin(margin);
-    }
-
     fn set_input_region(&self, region: InputRegion) {
         self.layer.set_input_region(region);
     }
 
     fn set_placement(&self, at: BarPlacement) {
-        let (Some(current), Some(output)) = (self.placement.get(), self.output.as_ref()) else {
-            return;
-        };
-        // Each setter commits separately. Reserve only the target thickness even
-        // while the compositor still reports dimensions from the previous edge.
-        self.layer.set_exclusive(Exclusive::Fixed(at.thickness()));
-        // Stretch is encoded as zero and is valid only with both anchors on that axis.
-        // Keep both axes fixed while the anchor set changes, then restore the target stretch.
-        let (old_width, old_height) = if current.is_vertical() {
-            (current.thickness(), output.logical_size.height)
+        // The edge, both sizes and the reserved thickness in one commit, so the bar never shows
+        // half of the turn or keeps the old edge's length as its zone.
+        let (across, width, height) = if at.is_vertical() {
+            (
+                Anchor::TOP | Anchor::BOTTOM,
+                LayerSize::Fixed(at.thickness()),
+                LayerSize::Stretch,
+            )
         } else {
-            (output.logical_size.width, current.thickness())
+            (
+                Anchor::LEFT | Anchor::RIGHT,
+                LayerSize::Stretch,
+                LayerSize::Fixed(at.thickness()),
+            )
         };
-        self.layer.set_size(
-            LayerSize::Fixed(old_width.max(1)),
-            LayerSize::Fixed(old_height.max(1)),
-        );
-        let across = if at.is_vertical() {
-            Anchor::TOP | Anchor::BOTTOM
-        } else {
-            Anchor::LEFT | Anchor::RIGHT
-        };
-        self.layer.set_anchor(at.edge() | across);
-        let (width, height) = if at.is_vertical() {
-            (LayerSize::Fixed(at.thickness()), LayerSize::Stretch)
-        } else {
-            (LayerSize::Stretch, LayerSize::Fixed(at.thickness()))
-        };
-        self.layer.set_size(width, height);
-        self.placement.set(Some(at));
+        self.layer.set_geometry(at.edge() | across, width, height);
     }
 }
 
@@ -155,15 +132,8 @@ impl Adapter for Wayland {
     type Handle = WaylandHandle;
 
     fn open(&self, request: Request, root: Box<dyn FnOnce() -> View>) -> Self::Handle {
-        let placement = match &request.kind {
-            RequestKind::Bar(at) => Some(*at),
-            _ => None,
-        };
-        let output = request.output.clone();
         WaylandHandle {
             layer: open_layer(request.into_wayland_options(), move || root()),
-            output,
-            placement: Cell::new(placement),
         }
     }
 }
@@ -230,21 +200,12 @@ fn install_panel<A: Adapter>(output: Output, panel: Panel, adapter: A) {
         }
         let request = Request::panel(output.clone(), panel);
         let content_output = output.clone();
+        // Not built again when the placement changes, so what is open in it stays as it is.
         let layer = untrack(|| {
             adapter.open(
                 request,
                 Box::new(move || {
-                    div()
-                        .size_full()
-                        .child(dyn_view(move || {
-                            panels::surface_at(
-                                content_output.clone(),
-                                panel,
-                                wanted,
-                                invocation,
-                                placement.get(),
-                            )
-                        }))
+                    panels::surface_at(content_output, panel, wanted, invocation, placement)
                         .into_view()
                 }),
             )
@@ -284,7 +245,6 @@ pub(crate) fn open_popups<A: Adapter>(adapter: A) {
         }
     });
 
-    let placement = placement::memoized();
     effect(move || {
         if !mounted.get() {
             return;
@@ -297,21 +257,6 @@ pub(crate) fn open_popups<A: Adapter>(adapter: A) {
                 Box::new(move || crate::notify::popups(server.clone(), region).into_view()),
             )
         });
-        let margins = layer.clone();
-        effect(move || {
-            let at = placement.get();
-            let right = 10
-                + if at.side() == PanelSide::Right {
-                    at.thickness()
-                } else {
-                    0
-                };
-            margins.set_margin(Margin {
-                top: 6,
-                right,
-                ..Default::default()
-            });
-        });
         effect(move || layer.set_input_region(region.get()));
     });
 }
@@ -319,6 +264,7 @@ pub(crate) fn open_popups<A: Adapter>(adapter: A) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::placement::PanelSide;
     use crate::settings::{Settings, ThemeMode};
     use std::cell::RefCell;
     use std::rc::Rc;
@@ -331,7 +277,6 @@ mod tests {
     struct Record {
         request: Request,
         active: bool,
-        margins: Vec<Margin>,
         inputs: Vec<InputRegion>,
         placements: Vec<BarPlacement>,
     }
@@ -343,10 +288,6 @@ mod tests {
     }
 
     impl Handle for RecordingHandle {
-        fn set_margin(&self, margin: Margin) {
-            self.records.borrow_mut()[self.id].margins.push(margin);
-        }
-
         fn set_input_region(&self, region: InputRegion) {
             self.records.borrow_mut()[self.id].inputs.push(region);
         }
@@ -366,7 +307,6 @@ mod tests {
             self.records.borrow_mut().push(Record {
                 request,
                 active: true,
-                margins: Vec::new(),
                 inputs: Vec::new(),
                 placements: Vec::new(),
             });
@@ -411,91 +351,6 @@ mod tests {
     fn reset_settings() {
         crate::settings::never_save();
         crate::settings::settings().set(Settings::default());
-    }
-
-    #[test]
-    fn bar_reservation_stays_bounded_before_configure_and_during_edge_changes() {
-        use crate::settings::BarPosition::{Left, Right, Top};
-        use anti_webui::core::layer::LayerSize;
-        use anti_webui::core::window::{self, Command, Role};
-
-        // Exercise the production adapter's opening options and queued platform
-        // commands without mapping a surface into the user's desktop.
-        for start in [Top, Left, Right] {
-            let mut output = output("DP-1");
-            output.logical_size.width = 2194;
-            output.logical_size.height = 1234;
-            let (bar, owner) = create_root(|| {
-                Wayland.open(
-                    Request::bar(output, BarPlacement::new(start)),
-                    Box::new(|| div().into_view()),
-                )
-            });
-            let request = window::take_opens().pop().expect("bar opening request");
-            let Role::Layer(mut spec) = request.options.role else {
-                panic!("bar must open a layer");
-            };
-            let mut size = (request.options.width, request.options.height);
-            let expected = if start == Top { 38 } else { 52 };
-            assert_eq!(
-                spec.exclusive_zone(size.0, size.1),
-                expected,
-                "startup must reserve the bar thickness, not the initial window size",
-            );
-            let id = request.handle.id();
-            window::start_root(request.handle, Box::new(|| {}));
-
-            let configured = |width, height| {
-                let axis = |size, span| match size {
-                    LayerSize::Fixed(n) => n,
-                    LayerSize::Stretch => span,
-                    LayerSize::Content => panic!("bar axes must be fixed or stretched"),
-                };
-                (axis(width, 2194), axis(height, 1234))
-            };
-            size = configured(spec.width, spec.height);
-            for target in [Left, Right, Top, Right, Left, Top] {
-                bar.set_placement(BarPlacement::new(target));
-                let mut immediate = spec.clone();
-                let mut immediate_size = size;
-                // One schedule delays all configures until the transition ends;
-                // another configures after every command. Neither may reserve
-                // the old full-output dimension on the new edge.
-                for (window, command) in window::take_commands() {
-                    assert_eq!(window, id);
-                    let Command::Layer(change) = command else {
-                        panic!("unexpected command while changing bar placement");
-                    };
-                    spec.apply(&change);
-                    immediate.apply(&change);
-                    for (state, dimensions) in [(&*spec, size), (&*immediate, immediate_size)] {
-                        assert!(
-                            (1..=52).contains(&state.exclusive_zone(dimensions.0, dimensions.1)),
-                            "oversized reservation during {start:?} -> {target:?}: {state:?}",
-                        );
-                        assert!(state.width != LayerSize::Stretch || state.anchor.spans_width());
-                        assert!(state.height != LayerSize::Stretch || state.anchor.spans_height());
-                    }
-                    immediate_size = configured(immediate.width, immediate.height);
-                    assert!(
-                        (1..=52).contains(
-                            &immediate.exclusive_zone(immediate_size.0, immediate_size.1),
-                        )
-                    );
-                }
-                let expected = if target == Top { 38 } else { 52 };
-                assert_eq!(spec.exclusive_zone(size.0, size.1), expected);
-                assert_eq!(
-                    spec.anchor.exclusive_edge(),
-                    Some(BarPlacement::new(target).edge())
-                );
-                size = configured(spec.width, spec.height);
-                assert_eq!(spec.exclusive_zone(size.0, size.1), expected);
-            }
-            owner.dispose();
-            window::stop_root(id);
-            window::take_commands();
-        }
     }
 
     #[test]
