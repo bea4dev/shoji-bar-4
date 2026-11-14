@@ -513,7 +513,7 @@ fn tiles() -> Div {
                         None if net.wifi_enabled() => "Not connected".into(),
                         None => "Wi-Fi off".into(),
                     },
-                    move || net.wifi_enabled(),
+                    move || net.wifi_enabled() || net.wired().is_some_and(|w| w.connected),
                     move || net.available(),
                     move || drop(net.set_wifi_enabled(!net.wifi_enabled())),
                     Some(Page::Wifi),
