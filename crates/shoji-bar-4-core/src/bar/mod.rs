@@ -4,6 +4,7 @@
 //! all of the bar. Vertical bars use compact icons and stack the clock.
 
 use crate::appinfo::{app_id_icon, tray_icon_image};
+use crate::bar::island::Island;
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::{AnchorPoint, BarPlacement, PanelSide};
 use crate::settings::settings;
@@ -18,6 +19,36 @@ use anti_webui_md3e::motion::{fast_spatial, slow_spatial};
 use std::cell::{Cell, RefCell};
 use std::rc::Rc;
 use std::time::Duration;
+
+pub mod island;
+
+#[derive(Clone, Default)]
+pub struct Bar {
+    pub left: Vec<Island>,
+    pub center: Vec<Island>,
+    pub right: Vec<Island>,
+}
+
+impl Bar {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn left(mut self, islands: impl IntoIterator<Item = Island>) -> Self {
+        self.left = islands.into_iter().collect();
+        self
+    }
+
+    pub fn center(mut self, islands: impl IntoIterator<Item = Island>) -> Self {
+        self.center = islands.into_iter().collect();
+        self
+    }
+
+    pub fn right(mut self, islands: impl IntoIterator<Item = Island>) -> Self {
+        self.right = islands.into_iter().collect();
+        self
+    }
+}
 
 pub fn view(output: Output, at: BarPlacement) -> Div {
     let vertical = at.is_vertical();
@@ -1205,7 +1236,27 @@ pub fn battery_icon(
 
 #[cfg(test)]
 mod tests {
-    use super::small_change;
+    use super::*;
+    use std::rc::Rc;
+
+    fn island(id: &str) -> Island {
+        Island {
+            id: id.into(),
+            build: Rc::new(|_, _| unreachable!()),
+        }
+    }
+
+    #[test]
+    fn the_order_of_the_calls_does_not_matter() {
+        let bar = Bar::new()
+            .right([island("c")])
+            .left([island("a")])
+            .center([island("b")]);
+
+        assert_eq!(bar.left[0].id, "a");
+        assert_eq!(bar.center[0].id, "b");
+        assert_eq!(bar.right[0].id, "c");
+    }
 
     #[test]
     fn a_spinner_or_a_counter_is_a_small_change() {
