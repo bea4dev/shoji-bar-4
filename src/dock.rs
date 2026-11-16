@@ -27,14 +27,11 @@ const RISE: f32 = 6.0;
 const PAD: f32 = 7.0;
 /// How far an icon at rest stands above the bottom of its cell: in its middle.
 const LIFT: f32 = (CELL - ICON) / 2.0;
-const MARGIN: f32 = 12.0;
 /// The body of the dock; what grows reaches above it, into the rest of the layer.
 const BODY: f32 = CELL + 2.0 * PAD;
 const LAYER: i32 = 136;
 /// How tall the strip along the bottom edge is that brings the dock up.
 const EDGE: f32 = 2.0;
-/// How far down the dock goes to be out of sight, its shadow too.
-const DROP: f32 = BODY + MARGIN + 28.0;
 /// How long the dock stays after the pointer has left it.
 const STAYS: Duration = Duration::from_millis(600);
 
@@ -114,6 +111,20 @@ fn entries() -> Vec<Entry> {
 }
 
 pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
+    let enabled = memo(|| settings().with(|s| s.dock_enabled));
+    effect(move || {
+        // Clear input while the owner is alive, not from a teardown callback.
+        if !enabled.get() {
+            region.set(InputRegion::Empty);
+        }
+    });
+    div().size_full().child(show(
+        move || enabled.get(),
+        move || enabled_view(output.clone(), region),
+    ))
+}
+
+fn enabled_view(output: Output, region: Signal<InputRegion>) -> Div {
     let list = memo(move || {
         entries()
             .into_iter()
@@ -151,11 +162,18 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
             down.to(1.0, emphasized_accelerate(250));
         }
     });
+    let bottom_margin = memo(|| {
+        crate::placement::memoized()
+            .get()
+            .bottom_pad()
+            .clamp(6.0, 32.0)
+    });
     // Clicks go through all of the layer but the edge and, while it is up, the dock and what is
     // below it, unless it is busy.
     effect(move || {
         let (lw, lh) = layer_size.get();
         let (bw, bh) = body_size.get();
+        let margin = bottom_margin.get();
         let busy = menu_open.get().is_some();
         let edge = RectI::new(0, (lh - EDGE).floor() as i32, lw.ceil() as i32, EDGE as i32 + 1);
         region.set(if busy {
@@ -163,7 +181,7 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
         } else if lw <= 0.0 {
             InputRegion::Empty
         } else if up.get() && bw > 0.0 {
-            let top = (lh - MARGIN - bh).floor() as i32;
+            let top = (lh - margin - bh).floor() as i32;
             InputRegion::Rects(vec![
                 RectI::new(
                     ((lw - bw) / 2.0).floor() as i32,
@@ -210,7 +228,7 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
         .flex_col()
         .justify_end()
         .items_center()
-        .pb(MARGIN)
+        .dyn_style(move |s| s.pb(bottom_margin.get()))
         .on_resized(move |w, h| layer_size.set((w, h)))
         .on_hover(move |on| inside.set(on))
         .child(
@@ -224,11 +242,15 @@ pub fn view(output: Output, region: Signal<InputRegion>) -> Div {
                 .rounded(BODY / 2.0)
                 .shadows(elevation(3))
                 .dyn_style(move |s| {
+                    let drop = BODY + bottom_margin.get() + 28.0;
                     s.bg(colors().surface_container)
-                        .translate_y(down.get() * DROP)
+                        .translate_y(down.get() * drop)
                 })
                 .on_resized(move |w, h| body_size.set((w, h)))
-                .child(launcher_button(launcher_output))
+                .child(show(
+                    || settings().with(|s| s.launcher_enabled),
+                    move || launcher_button(launcher_output.clone()),
+                ))
                 .child(
                     div()
                         .flex()
@@ -573,4 +595,49 @@ fn launcher_button(output: Output) -> Div {
                         .dyn_style(move |s| s.translate_y(-rise.get())),
                 ),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use anti_webui::core::{
+        Ui,
+        event::{Modifiers, WindowEvent},
+        geometry::{PointF, Scale, SizeI},
+    };
+    use std::cell::Cell;
+
+    #[test]
+    fn disabling_dock_releases_input_and_reenabling_restores_it() {
+        crate::settings::never_save();
+        settings().set(crate::settings::Settings::default());
+        let region_slot = Cell::new(None);
+        let mut ui = Ui::new(|| {
+            let region = signal(InputRegion::Empty);
+            region_slot.set(Some(region));
+            view(Output::default(), region)
+        });
+        let region = region_slot.get().unwrap();
+        ui.handle_event(WindowEvent::Resized {
+            size: SizeI::new(900, 136),
+            scale: Scale::from_f64(1.0),
+        });
+        ui.update();
+        assert_ne!(region.get(), InputRegion::Empty);
+        ui.handle_event(WindowEvent::PointerMoved {
+            position: PointF::new(450.0, 135.0),
+            modifiers: Modifiers::default(),
+        });
+        ui.update();
+        for _ in 0..3 {
+            settings().update(|s| s.dock_enabled = false);
+            ui.update();
+            assert_eq!(region.get(), InputRegion::Empty);
+            settings().update(|s| s.dock_enabled = true);
+            ui.update();
+            assert_ne!(region.get(), InputRegion::Empty);
+        }
+        // The preview owns its input signal inside the UI, not in an enclosing shell root.
+        drop(ui);
+    }
 }

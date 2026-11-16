@@ -48,6 +48,7 @@ shoji-bar-4 msg toggle media [OUTPUT]
 shoji-bar-4 msg close
 shoji-bar-4 msg lock                           # only the password unlocks
 shoji-bar-4 msg theme dark|light|auto|toggle
+shoji-bar-4 msg padding [status|reset|<N>|gaps <N>|<top|right|bottom|left> <N|auto>|[set] <k=v>...]
 shoji-bar-4 msg status                         # open panels, running clocks and so on
 shoji-bar-4 msg quit
 ```
@@ -65,6 +66,9 @@ Settings are kept in `$XDG_STATE_HOME/shoji-bar-4/settings.json` (usually `~/.lo
 | `wallpaper` | The wallpaper's path (`null` draws none) |
 | `pinned` | Desktop IDs of the apps pinned to the dock |
 | `bar_position` | `top` / `left` / `right`; changing it in Settings moves the bar immediately |
+| `padding` | `{ "gaps": 14, "top": null, "right": null, "bottom": null, "left": null }` (or shorthand integer `N`); controls bar/panel/notification/dock/OSD spacing to match compositor `gaps` and `struts` |
+| `launcher_enabled` | Show the launcher buttons in the bar and dock (`true` by default) |
+| `dock_enabled` | Show the bottom-edge dock (`true` by default) |
 | `clock_24h` / `clock_seconds` | How the clock is shown |
 
 Wallpapers to choose from are read from `~/Pictures/wallpapers`.

@@ -49,6 +49,7 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         "title" if at.is_vertical() => (80.0, 80.0),
         "title" => (480.0, placement::HEIGHT as f32),
         "dock" => (900.0, 136.0),
+        "settings" => (396.0, 1400.0),
         "launcher" | "quick-settings" | "calendar" | "clipboard" | "media" | "power" | "lock" => {
             (1600.0, 1000.0)
         }
@@ -98,7 +99,15 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         &gpu.device,
         anti_webui::wgpu::wgpu::TextureFormat::Rgba8Unorm,
     );
-    let output = outputs().into_iter().next();
+    let output = outputs().into_iter().next().or_else(|| {
+        let mut fallback = Output {
+            name: "Preview-1".into(),
+            ..Default::default()
+        };
+        fallback.logical_size.width = lw.round() as i32;
+        fallback.logical_size.height = lh.round() as i32;
+        Some(fallback)
+    });
     crate::settings::never_save();
     let mut ui = Ui::new(move || {
         if light {
@@ -109,6 +118,20 @@ pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
         let backdrop = div()
             .size_full()
             .bg(rgb(if light { 0xc8d0d8 } else { 0x30343a }));
+        if part == "settings" {
+            return backdrop.child(
+                div()
+                    .w(396.0)
+                    .h_full()
+                    .p(16.0_f32)
+                    .overflow_y_scroll()
+                    .dyn_style(|s| {
+                        let c = crate::theme::colors();
+                        s.bg(c.surface_container).text_color(c.on_surface)
+                    })
+                    .child(crate::qs_settings::settings_page()),
+            );
+        }
         let Some(output) = output else {
             return backdrop.child("no output");
         };

@@ -2,7 +2,7 @@
 
 ## Bar
 
-Floating islands along the top, left or right. **Settings → Bar position** moves the bar immediately.
+Floating islands along the top, left or right. **Settings → Desktop & layout → Bar position** moves the bar immediately.
 
 - **Launcher button**: its Material Shape morphs (Cookie4 → Cookie9 → Circle).
 - **Workspaces**: a marker that stretches as it moves, its leading edge on a fast spring and its trailing edge on a slow one. The mouse wheel switches workspaces too. When workspaces come and go, their places open and close and the island follows along the bar.
@@ -38,6 +38,12 @@ The icon under the pointer lifts a little and shows its name.
 - **Settings page**, behind the gear (or the user picture):
   - **User picture**: a copy of the one you pick is kept in `$XDG_STATE_HOME/shoji-bar-4/`. Without one, `~/.face.icon`, `~/.face` or AccountsService's picture is used. Picking one needs zenity.
   - **Style and color**: wallpaper, seed color, scheme variant, and light, auto or dark.
+  - **Desktop & layout**:
+    - Bar position (**Top**, **Left**, **Right**) and independent **Launcher** and **Dock** switches, both on by default and applied immediately on every output.
+      - Disabling Launcher hides its bar and dock buttons and closes it if open. IPC requests to open or toggle it return an error while disabled.
+      - Disabling Dock hides it and removes its bottom-edge trigger and menu input. Re-enabling it restores the dock; pinned apps are kept.
+      - The switches persist as `launcher_enabled` and `dock_enabled` in `$XDG_STATE_HOME/shoji-bar-4/settings.json`. Older settings files keep both features enabled.
+    - **Gaps & Edge overrides**: shared `gaps` value (0–64 px with presets, stepper, and slider) plus expandable per-edge overrides (`top`, `right`, `bottom`, `left`, 0–512 px or `auto`), persisted as `padding`, so bar islands, bar-adjacent panels, notifications, dock, and OSD align with compositor `gaps` and `struts`.
   - **Clock**: 24-hour time and seconds.
 
 ## Calendar

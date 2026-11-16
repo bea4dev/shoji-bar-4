@@ -84,12 +84,15 @@ pub fn install() {
         if !mounted.get() {
             return;
         }
-        open_layer(
+        let placement = crate::placement::memoized();
+        let initial_bottom =
+            (untrack(|| placement.get()).bottom_pad().round() as i32).max(24) - 16;
+        let layer = open_layer(
             LayerOptions::new()
                 .layer(Layer::Overlay)
                 .anchor(Anchor::BOTTOM)
                 .margin(Margin {
-                    bottom: 16,
+                    bottom: initial_bottom,
                     ..Default::default()
                 })
                 .fit_content()
@@ -121,6 +124,17 @@ pub fn install() {
                 )
             },
         );
+        let first_margin = Cell::new(true);
+        let bottom = memo(move || (placement.get().bottom_pad().round() as i32).max(24) - 16);
+        effect(move || {
+            let bottom = bottom.get();
+            if !first_margin.replace(false) {
+                layer.set_margin(Margin {
+                    bottom,
+                    ..Default::default()
+                });
+            }
+        });
     });
 }
 

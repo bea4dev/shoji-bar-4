@@ -30,6 +30,7 @@ pub fn server() -> Option<NotificationServer> {
 }
 
 pub(crate) const WIDTH: f32 = 352.0;
+pub(crate) const SHADOW_PAD: i32 = 14;
 /// At most this many pop up at once, the newest; the rest are in quick settings.
 const MAX_POPUPS: usize = 3;
 
@@ -39,10 +40,10 @@ pub fn popups(server: NotificationServer, region: Signal<InputRegion>) -> Div {
     div()
         .flex()
         .flex_col()
-        .p(14.0_f32)
+        .p(SHADOW_PAD as f32)
         .select_none()
         .on_resized(move |w, h| {
-            region.set(if h > 28.5 {
+            region.set(if h > (SHADOW_PAD * 2) as f32 + 0.5 {
                 InputRegion::Rects(vec![RectI::new(0, 0, w.ceil() as i32, h.ceil() as i32)])
             } else {
                 InputRegion::Empty

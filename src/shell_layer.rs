@@ -23,7 +23,7 @@ pub(crate) struct Request {
 pub(crate) enum RequestKind {
     Bar(BarPlacement),
     Panel(Panel),
-    Notifications,
+    Notifications(BarPlacement),
 }
 
 impl Request {
@@ -43,11 +43,11 @@ impl Request {
         }
     }
 
-    fn notifications() -> Self {
+    fn notifications(at: BarPlacement) -> Self {
         Self {
             output: None,
             namespace: "shoji-bar-4-notifications".to_owned(),
-            kind: RequestKind::Notifications,
+            kind: RequestKind::Notifications(at),
         }
     }
 
@@ -61,15 +61,11 @@ impl Request {
                 .exclusive(Exclusive::Ignore)
                 // And Escape, without clicking it first.
                 .keyboard(Keyboard::Exclusive),
-            RequestKind::Notifications => LayerOptions::new()
+            RequestKind::Notifications(at) => LayerOptions::new()
                 .layer(Layer::Overlay)
                 .anchor(Anchor::TOP | Anchor::RIGHT)
-                .margin(Margin {
-                    top: 6,
-                    right: 10,
-                    ..Default::default()
-                })
-                .width(crate::notify::WIDTH as i32 + 28)
+                .margin(at.notification_margin(crate::notify::SHADOW_PAD))
+                .width(crate::notify::WIDTH as i32 + crate::notify::SHADOW_PAD * 2)
                 .height(NOTIFICATION_HEIGHT)
                 .input_region(InputRegion::Empty),
         };
@@ -83,6 +79,7 @@ impl Request {
 
 /// The layer operations used after opening.
 pub(crate) trait Handle: Clone {
+    fn set_margin(&self, margin: Margin);
     fn set_input_region(&self, region: InputRegion);
     fn set_placement(&self, at: BarPlacement);
 }
@@ -104,6 +101,10 @@ pub(crate) struct WaylandHandle {
 }
 
 impl Handle for WaylandHandle {
+    fn set_margin(&self, margin: Margin) {
+        self.layer.set_margin(margin);
+    }
+
     fn set_input_region(&self, region: InputRegion) {
         self.layer.set_input_region(region);
     }
@@ -141,6 +142,7 @@ impl Adapter for Wayland {
 /// Opens one bar per output and updates it in place when placement changes.
 pub(crate) fn open_bar<A: Adapter>(output: Output, adapter: A) {
     let placement = placement::memoized();
+    let position = placement::position_memo();
     let at = untrack(|| placement.get());
     let request = Request::bar(output.clone(), at);
     let view_output = output.clone();
@@ -151,7 +153,11 @@ pub(crate) fn open_bar<A: Adapter>(output: Output, adapter: A) {
                 div()
                     .size_full()
                     .child(dyn_view(move || {
-                        crate::bar::view(view_output.clone(), placement.get())
+                        let at = BarPlacement::with_padding(
+                            position.get(),
+                            untrack(|| placement.get()).padding(),
+                        );
+                        crate::bar::view(view_output.clone(), at)
                     }))
                     .into_view()
             }),
@@ -159,7 +165,10 @@ pub(crate) fn open_bar<A: Adapter>(output: Output, adapter: A) {
     });
     let initial = Cell::new(true);
     effect(move || {
-        let at = placement.get();
+        let at = BarPlacement::with_padding(
+            position.get(),
+            untrack(|| placement.get()).padding(),
+        );
         if !initial.replace(false) {
             layer.set_placement(at);
         }
@@ -245,17 +254,28 @@ pub(crate) fn open_popups<A: Adapter>(adapter: A) {
         }
     });
 
+    let placement = placement::memoized();
     effect(move || {
         if !mounted.get() {
             return;
         }
         let server = server.clone();
         let region = signal(InputRegion::Empty);
+        let initial_at = untrack(|| placement.get());
         let layer = untrack(|| {
             adapter.open(
-                Request::notifications(),
+                Request::notifications(initial_at),
                 Box::new(move || crate::notify::popups(server.clone(), region).into_view()),
             )
+        });
+        let margins = layer.clone();
+        let margin = memo(move || placement.get().notification_margin(crate::notify::SHADOW_PAD));
+        let first_margin = Cell::new(true);
+        effect(move || {
+            let next = margin.get();
+            if !first_margin.replace(false) {
+                margins.set_margin(next);
+            }
         });
         effect(move || layer.set_input_region(region.get()));
     });
@@ -277,6 +297,7 @@ mod tests {
     struct Record {
         request: Request,
         active: bool,
+        margins: Vec<Margin>,
         inputs: Vec<InputRegion>,
         placements: Vec<BarPlacement>,
     }
@@ -288,6 +309,10 @@ mod tests {
     }
 
     impl Handle for RecordingHandle {
+        fn set_margin(&self, margin: Margin) {
+            self.records.borrow_mut()[self.id].margins.push(margin);
+        }
+
         fn set_input_region(&self, region: InputRegion) {
             self.records.borrow_mut()[self.id].inputs.push(region);
         }
@@ -307,6 +332,7 @@ mod tests {
             self.records.borrow_mut().push(Record {
                 request,
                 active: true,
+                margins: Vec::new(),
                 inputs: Vec::new(),
                 placements: Vec::new(),
             });
@@ -435,5 +461,156 @@ mod tests {
         );
         owner.dispose();
         assert_eq!(recording.active_count(), 0);
+    }
+
+    #[test]
+    fn padding_updates_keep_bar_layer_and_open_quick_settings_page_intact() {
+        use crate::quick_settings::{self, Page};
+        use crate::settings::{BarPosition, ShellPadding};
+        use anti_webui::core::window::{self, Role};
+        use anti_webui::core::{
+            Ui,
+            event::WindowEvent,
+            geometry::{Scale, SizeI},
+        };
+
+        reset_settings();
+        panels::close();
+
+        // 1. Notification layer options apply edge padding and shadow offset without double-counting bar thickness.
+        let custom = ShellPadding {
+            gaps: 16,
+            top: Some(8),
+            right: Some(24),
+            bottom: Some(0),
+            left: Some(64),
+        };
+        let (notif_handle, notif_owner) = create_root(|| {
+            Wayland.open(
+                Request::notifications(BarPlacement::with_padding(BarPosition::Top, custom)),
+                Box::new(|| div().into_view()),
+            )
+        });
+        let notif_req = window::take_opens().pop().expect("notifications open");
+        let notif_id = notif_req.handle.id();
+        let Role::Layer(spec) = notif_req.options.role else {
+            panic!("notifications must open a layer");
+        };
+        assert_eq!(
+            spec.margin,
+            Margin {
+                top: 8 - crate::notify::SHADOW_PAD,
+                right: 24 - crate::notify::SHADOW_PAD,
+                ..Default::default()
+            }
+        );
+        window::start_root(notif_req.handle, Box::new(|| {}));
+        window::take_commands();
+        notif_handle.set_margin(
+            BarPlacement::with_padding(BarPosition::Right, ShellPadding { right: Some(32), ..custom })
+                .notification_margin(crate::notify::SHADOW_PAD),
+        );
+        let notif_cmds = window::take_commands();
+        assert!(!notif_cmds.is_empty());
+        notif_owner.dispose();
+        window::stop_root(notif_id);
+        window::take_commands();
+
+        // 2. Bar padding updates on the same edge emit no Wayland layer commands.
+        let mut dp1 = output("DP-1");
+        dp1.logical_size.width = 1600;
+        dp1.logical_size.height = 1000;
+        let ((), bar_owner) = create_root(|| open_bar(dp1.clone(), Wayland));
+        let open_req = window::take_opens().pop().expect("bar open");
+        let bar_id = open_req.handle.id();
+        window::start_root(open_req.handle, Box::new(|| {}));
+        window::take_commands();
+        crate::settings::settings().update(|s| s.padding = custom);
+        assert!(
+            window::take_commands().is_empty(),
+            "padding changes on the same edge must not re-commit Wayland bar geometry"
+        );
+        bar_owner.dispose();
+        window::stop_root(bar_id);
+        window::take_commands();
+        reset_settings();
+
+        // 3. Updating padding while Quick Settings is open on Settings preserves the open page.
+        #[derive(Clone)]
+        struct LiveAdapter {
+            recording: Recording,
+            views: Signal<Vec<(usize, View)>>,
+        }
+
+        impl Adapter for LiveAdapter {
+            type Handle = RecordingHandle;
+
+            fn open(&self, request: Request, root: Box<dyn FnOnce() -> View>) -> Self::Handle {
+                let id = self.recording.records.borrow().len();
+                self.recording.records.borrow_mut().push(Record {
+                    request,
+                    active: true,
+                    margins: Vec::new(),
+                    inputs: Vec::new(),
+                    placements: Vec::new(),
+                });
+                let view = root();
+                self.views.update(|list| list.push((id, view)));
+                let records = self.recording.records.clone();
+                let views = self.views;
+                on_cleanup(move || {
+                    records.borrow_mut()[id].active = false;
+                    if views.is_alive() {
+                        views.update(|list| list.retain(|(entry, _)| *entry != id));
+                    }
+                });
+                RecordingHandle {
+                    records: self.recording.records.clone(),
+                    id,
+                }
+            }
+        }
+
+        let recording = Recording::default();
+        let adapter_recording = recording.clone();
+        let panel_output = dp1;
+        let mut ui = Ui::new(move || {
+            let views = signal(Vec::new());
+            let adapter = LiveAdapter {
+                recording: adapter_recording.clone(),
+                views,
+            };
+            install_panels(panel_output.clone(), adapter);
+            panels::open("DP-1", Panel::QuickSettings);
+            div().size_full().child(dyn_view(move || {
+                let mut stack = div().size_full();
+                for (_, view) in views.get() {
+                    stack = stack.child(view);
+                }
+                stack
+            }))
+        });
+        ui.handle_event(WindowEvent::Resized {
+            size: SizeI::new(1600, 1000),
+            scale: Scale::from_f64(1.0),
+        });
+        ui.update();
+        assert_eq!(recording.len(), 1);
+        quick_settings::go(Page::Settings);
+        ui.update();
+        assert_eq!(quick_settings::current_page_for_test(), Some(Page::Settings));
+
+        crate::settings::settings().update(|s| s.padding = custom);
+        ui.update();
+        assert_eq!(recording.len(), 1);
+        assert_eq!(
+            quick_settings::current_page_for_test(),
+            Some(Page::Settings),
+            "padding updates must not rebuild Quick Settings back to Main"
+        );
+
+        panels::close();
+        drop(ui);
+        reset_settings();
     }
 }

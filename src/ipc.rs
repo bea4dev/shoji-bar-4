@@ -10,6 +10,7 @@
 //! shoji-bar-4 msg close
 //! shoji-bar-4 msg lock
 //! shoji-bar-4 msg theme dark|light|auto|toggle
+//! shoji-bar-4 msg padding [status|reset|<N>|gaps <N>|<top|right|bottom|left> <N|auto>|[set] <k=v>...]
 //! shoji-bar-4 msg quit
 //! shoji-bar-4 msg status
 //! ```
@@ -17,7 +18,7 @@
 //! Without an output, a panel opens where the window with the keyboard is.
 
 use crate::panels::{self, Panel};
-use crate::settings::{ThemeMode, settings};
+use crate::settings::{ShellPadding, ThemeMode, settings};
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
 use std::io::{BufRead, BufReader, Write};
@@ -126,14 +127,24 @@ pub fn focused_output() -> Option<String> {
 }
 
 fn run(line: &str) -> Result<String, String> {
+    run_with(line, focused_output)
+}
+
+fn run_with(
+    line: &str,
+    resolve_output: impl FnOnce() -> Option<String>,
+) -> Result<String, String> {
     let words: Vec<&str> = line.split_whitespace().collect();
     match words.as_slice() {
         ["toggle" | "open", name, rest @ ..] => {
             let panel = Panel::from_name(name).ok_or_else(|| format!("no panel called {name}"))?;
+            if !panel.enabled() {
+                return Err(format!("{name} is disabled in Settings"));
+            }
             let output = rest
                 .first()
                 .map(|s| s.to_string())
-                .or_else(focused_output)
+                .or_else(resolve_output)
                 .ok_or("no output")?;
             let open_now = panels::current().is_some_and(|(o, p)| o == output && p == panel);
             if words[0] == "toggle" && open_now {
@@ -164,6 +175,7 @@ fn run(line: &str) -> Result<String, String> {
             settings().update(|s| s.mode = mode);
             Ok(String::new())
         }
+        ["padding", rest @ ..] => run_padding(rest),
         ["status"] => Ok(status()),
         ["quit"] => {
             let _ = std::fs::remove_file(socket());
@@ -171,5 +183,222 @@ fn run(line: &str) -> Result<String, String> {
             Ok(String::new())
         }
         _ => Err(format!("unknown command: {line}")),
+    }
+}
+
+fn padding_status() -> String {
+    let p = settings().with(|s| s.padding.normalized());
+    let edge = |v: Option<u16>| match v {
+        Some(n) => n.to_string(),
+        None => format!("auto({})", p.gaps),
+    };
+    format!(
+        "gaps={} top={} right={} bottom={} left={}",
+        p.gaps,
+        edge(p.top),
+        edge(p.right),
+        edge(p.bottom),
+        edge(p.left),
+    )
+}
+
+fn parse_gaps_value(raw: &str) -> Result<u16, String> {
+    raw.parse::<u16>()
+        .ok()
+        .filter(|&n| n <= ShellPadding::MAX_GAPS)
+        .ok_or_else(|| format!("gaps must be 0..={}", ShellPadding::MAX_GAPS))
+}
+
+fn parse_edge_value(raw: &str, side: &str) -> Result<Option<u16>, String> {
+    if raw.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    raw.parse::<u16>()
+        .ok()
+        .filter(|&n| n <= ShellPadding::MAX_EDGE)
+        .map(Some)
+        .ok_or_else(|| format!("{side} padding must be 0..={} or auto", ShellPadding::MAX_EDGE))
+}
+
+fn apply_padding_kv(padding: &mut ShellPadding, token: &str) -> Result<(), String> {
+    let (key, value) = token
+        .split_once('=')
+        .ok_or_else(|| format!("expected key=value, got {token}"))?;
+    match key {
+        "gaps" => padding.gaps = parse_gaps_value(value)?,
+        "top" => padding.top = parse_edge_value(value, "top")?,
+        "right" => padding.right = parse_edge_value(value, "right")?,
+        "bottom" => padding.bottom = parse_edge_value(value, "bottom")?,
+        "left" => padding.left = parse_edge_value(value, "left")?,
+        other => return Err(format!("unknown padding key: {other}")),
+    }
+    Ok(())
+}
+
+fn run_padding(words: &[&str]) -> Result<String, String> {
+    match words {
+        [] | ["status"] => Ok(padding_status()),
+        ["reset"] => {
+            settings().update(|s| s.padding = ShellPadding::DEFAULT);
+            Ok(String::new())
+        }
+        ["gaps", value] => {
+            let gaps = parse_gaps_value(value)?;
+            settings().update(|s| {
+                let mut next = s.padding.normalized();
+                next.gaps = gaps;
+                s.padding = next;
+            });
+            Ok(String::new())
+        }
+        [side @ ("top" | "right" | "bottom" | "left"), value] => {
+            let edge = parse_edge_value(value, side)?;
+            settings().update(|s| {
+                let mut next = s.padding.normalized();
+                match *side {
+                    "top" => next.top = edge,
+                    "right" => next.right = edge,
+                    "bottom" => next.bottom = edge,
+                    "left" => next.left = edge,
+                    _ => unreachable!(),
+                }
+                s.padding = next;
+            });
+            Ok(String::new())
+        }
+        ["set"] => Err("padding set requires at least one key=value".into()),
+        ["set", assignments @ ..] => {
+            let mut next = settings().with(|s| s.padding.normalized());
+            for token in assignments {
+                apply_padding_kv(&mut next, token)?;
+            }
+            settings().update(|s| s.padding = next);
+            Ok(String::new())
+        }
+        [single] if !single.contains('=') => {
+            if single.parse::<i64>().is_ok() {
+                let gaps = parse_gaps_value(single)?;
+                settings().update(|s| {
+                    s.padding = ShellPadding {
+                        gaps,
+                        ..ShellPadding::DEFAULT
+                    };
+                });
+                Ok(String::new())
+            } else {
+                Err(format!("unknown padding command: {single}"))
+            }
+        }
+        assignments if !assignments.is_empty() => {
+            let mut next = settings().with(|s| s.padding.normalized());
+            for token in assignments {
+                apply_padding_kv(&mut next, token)?;
+            }
+            settings().update(|s| s.padding = next);
+            Ok(String::new())
+        }
+        _ => Err("unknown padding command".into()),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn disabled_launcher_is_rejected_while_other_panels_open() {
+        crate::settings::never_save();
+        settings().set(crate::settings::Settings::default());
+        panels::close();
+
+        settings().update(|s| s.launcher_enabled = false);
+        assert_eq!(
+            run_with("toggle launcher DP-1", || Some("DP-1".into())),
+            Err("launcher is disabled in Settings".into())
+        );
+        assert_eq!(
+            run_with("open launcher", || Some("DP-1".into())),
+            Err("launcher is disabled in Settings".into())
+        );
+        assert_eq!(panels::current(), None);
+
+        run_with("open calendar", || Some("DP-1".into())).unwrap();
+        assert_eq!(panels::current(), Some(("DP-1".into(), Panel::Calendar)));
+
+        panels::close();
+        settings().set(crate::settings::Settings::default());
+    }
+
+    #[test]
+    fn padding_ipc_updates_queries_resets_and_validates_atomically() {
+        crate::settings::never_save();
+        settings().set(crate::settings::Settings::default());
+
+        assert_eq!(
+            run_with("padding", || None).unwrap(),
+            "gaps=14 top=auto(14) right=auto(14) bottom=auto(14) left=auto(14)"
+        );
+
+        run_with("padding top 8", || None).unwrap();
+        run_with("padding gaps 20", || None).unwrap();
+        assert_eq!(
+            settings().with(|s| s.padding),
+            ShellPadding {
+                gaps: 20,
+                top: Some(8),
+                right: None,
+                bottom: None,
+                left: None,
+            }
+        );
+
+        run_with("padding set left=64 right=64 bottom=0", || None).unwrap();
+        assert_eq!(
+            run_with("padding status", || None).unwrap(),
+            "gaps=20 top=8 right=64 bottom=0 left=64"
+        );
+
+        run_with("padding top auto", || None).unwrap();
+        assert_eq!(settings().with(|s| s.padding.top), None);
+
+        // `padding <N>` sets uniform padding and clears per-edge overrides.
+        run_with("padding 16", || None).unwrap();
+        assert_eq!(
+            settings().with(|s| s.padding),
+            ShellPadding {
+                gaps: 16,
+                ..ShellPadding::DEFAULT
+            }
+        );
+
+        // Invalid assignments must not mutate existing state.
+        assert!(run_with("padding set", || None).is_err());
+        assert!(run_with("padding 65", || None).is_err());
+        assert!(run_with("padding -1", || None).is_err());
+        assert!(run_with("padding top 513", || None).is_err());
+        assert!(run_with("padding set gaps=8 left=999", || None).is_err());
+        assert_eq!(
+            settings().with(|s| s.padding),
+            ShellPadding {
+                gaps: 16,
+                ..ShellPadding::DEFAULT
+            }
+        );
+
+        run_with("padding gaps=12 left=48", || None).unwrap();
+        assert_eq!(
+            settings().with(|s| s.padding),
+            ShellPadding {
+                gaps: 12,
+                top: None,
+                right: None,
+                bottom: None,
+                left: Some(48),
+            }
+        );
+
+        run_with("padding reset", || None).unwrap();
+        assert_eq!(settings().with(|s| s.padding), ShellPadding::DEFAULT);
+        settings().set(crate::settings::Settings::default());
     }
 }

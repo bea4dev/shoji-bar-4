@@ -71,7 +71,20 @@ pub fn slider_style() -> SliderStyle {
 }
 
 pub fn panel(output: Output) -> Div {
-    let _ = output;
+    let placement = crate::placement::memoized();
+    let output_height = output.logical_size.height as f32;
+    let available_height = memo(move || {
+        if output_height <= 0.0 {
+            return 2000.0;
+        }
+        let p = placement.get();
+        let top_reserved = if p.position() == crate::settings::BarPosition::Top {
+            p.clearance()
+        } else {
+            p.top_pad()
+        };
+        (output_height - top_reserved - p.bottom_pad() - 48.0).max(160.0)
+    });
     let page = signal(START.with(|s| s.replace(Page::Main)));
     PAGE.with(|p| p.set(Some(page)));
     // The pages lie over each other, so the panel takes the height of the one shown, going to that
@@ -95,6 +108,8 @@ pub fn panel(output: Output) -> Div {
             move || {
                 let fit = fit.clone();
                 build()
+                    .dyn_style(move |s| s.max_h(available_height.get()))
+                    .overflow_y_scroll()
                     .absolute()
                     .top(0.0)
                     .left(0.0)
@@ -728,4 +743,9 @@ fn sliders() -> Div {
                 .child(div().size(32.0).flex_none())
             },
         ))
+}
+
+#[cfg(test)]
+pub(crate) fn current_page_for_test() -> Option<Page> {
+    page_signal().map(|p| p.get_untracked())
 }
