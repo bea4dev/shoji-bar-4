@@ -7,7 +7,6 @@ license.workspace = true
 
 [dependencies]
 shoji-bar-4-core.workspace = true
-anti-webui.workspace = true
 
 [features]
 ## Links AntiWebUI dynamically for faster rebuilds while developing.
