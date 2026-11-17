@@ -22,6 +22,14 @@ use std::time::Duration;
 
 pub mod island;
 
+/// The size of the words in the bar: smaller than Material's titles, as a bar is.
+pub(crate) const BAR_TEXT: TextStyle = TextStyle {
+    size: 13.0,
+    line_height: 18.0,
+    letter_spacing: 0.1,
+    weight: 500,
+};
+
 #[derive(Clone, Default)]
 pub struct Bar {
     pub left: Vec<Island>,
@@ -1082,14 +1090,6 @@ fn tray_groups(item: &TrayItem, list: &[TrayMenuItem]) -> Vec<Vec<MenuItem>> {
     groups.retain(|g| !g.is_empty());
     groups
 }
-
-/// The size of the words in the bar: smaller than Material's titles, as a bar is.
-const BAR_TEXT: TextStyle = TextStyle {
-    size: 13.0,
-    line_height: 18.0,
-    letter_spacing: 0.1,
-    weight: 500,
-};
 
 /// Network, Bluetooth, sound and battery at a glance; a click opens quick settings.
 fn status_island(output: Output, at: BarPlacement) -> Div {
