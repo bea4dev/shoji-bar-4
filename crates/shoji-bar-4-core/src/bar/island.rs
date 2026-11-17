@@ -18,6 +18,18 @@ pub struct Island {
     // TODO: add other fields: shape, padding, hover, click, highlight, entrance
 }
 
+impl Island {
+    pub fn new(
+        id: impl Into<String>,
+        build: impl Fn(Output, BarPlacement) -> View + 'static,
+    ) -> Self {
+        Self {
+            id: id.into(),
+            build: Rc::new(build),
+        }
+    }
+}
+
 // Aux
 pub const VERTICAL_ISLAND: f32 = 40.0;
 /// A floating container of the bar: a pill on `surface_container`.

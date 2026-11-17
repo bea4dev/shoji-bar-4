@@ -4,7 +4,7 @@ use anti_webui::{
     core::{
         animation::{Spring, animated},
         reactive::{Memo, effect, memo, untrack},
-        view::{Div, div, for_each},
+        view::{Div, IntoView, div, for_each},
     },
     shell::{Output, workspaces},
     style::{Prop, Styled},
@@ -12,7 +12,7 @@ use anti_webui::{
 use anti_webui_md3e::typography::TextStyle;
 
 use crate::{
-    bar::island::{VERTICAL_ISLAND, bar_island},
+    bar::island::{Island, VERTICAL_ISLAND, bar_island},
     placement::BarPlacement,
     ui::emphasized,
 };
@@ -257,4 +257,19 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>, at: Ba
                 .child(pill)
                 .child(slots)
         })
+}
+
+/// The workspaces of the output, as an island of the bar.
+pub fn island() -> Island {
+    Island::new("workspaces", |output, at| {
+        let activate: Rc<dyn Fn(&str)> = Rc::new({
+            let output = output.clone();
+            move |id: &str| {
+                if let Some(w) = workspaces().on(&output).into_iter().find(|w| w.id() == id) {
+                    w.activate();
+                }
+            }
+        });
+        workspaces_island(workspaces_of(output), activate, at).into_view()
+    })
 }

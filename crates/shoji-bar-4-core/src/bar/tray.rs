@@ -1,5 +1,5 @@
 use crate::appinfo::tray_icon_image;
-use crate::bar::island::{VERTICAL_ISLAND, bar_island};
+use crate::bar::island::{Island, VERTICAL_ISLAND, bar_island};
 use crate::placement::{BarPlacement, PanelSide};
 use crate::theme::{TextStyle, hex_of, target_scheme};
 use crate::ui::*;
@@ -152,4 +152,9 @@ fn tray_groups(item: &TrayItem, list: &[TrayMenuItem]) -> Vec<Vec<MenuItem>> {
     }
     groups.retain(|g| !g.is_empty());
     groups
+}
+
+/// The icons of the tray, as an island of the bar.
+pub fn island() -> Island {
+    Island::new("tray", |_output, at| tray_island(at).into_view())
 }

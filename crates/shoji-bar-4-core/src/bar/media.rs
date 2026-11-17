@@ -1,5 +1,5 @@
 use crate::bar::BAR_TEXT;
-use crate::bar::island::{VERTICAL_ISLAND, bar_island};
+use crate::bar::island::{Island, VERTICAL_ISLAND, bar_island};
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::{AnchorPoint, BarPlacement};
 use crate::theme::colors;
@@ -118,4 +118,9 @@ fn equalizer(playing: Memo<bool>) -> Div {
         }));
     }
     row
+}
+
+/// What is playing, as an island of the bar.
+pub fn island() -> Island {
+    Island::new("media", |output, at| media_island(output, at).into_view())
 }

@@ -1,4 +1,4 @@
-use crate::bar::island::{bar_island};
+use crate::bar::island::{Island, bar_island};
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::BarPlacement;
 use crate::settings::settings;
@@ -133,4 +133,9 @@ pub fn clock_island(output: Output, at: BarPlacement) -> Div {
         )
     };
     pressable(content, |c| c.on_surface)
+}
+
+/// The clock, as an island of the bar.
+pub fn island() -> Island {
+    Island::new("clock", |output, at| clock_island(output, at).into_view())
 }

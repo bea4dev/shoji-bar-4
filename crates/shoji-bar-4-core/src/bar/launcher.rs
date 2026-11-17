@@ -1,6 +1,6 @@
 use crate::panels::toggle;
 use crate::ui::launcher_glyph;
-use anti_webui::prelude::{Styled};
+use anti_webui::prelude::{IntoView, Styled};
 use anti_webui::{
     core::{
         reactive::{memo, signal},
@@ -10,7 +10,7 @@ use anti_webui::{
 };
 
 use crate::{
-    bar::island::{ISLAND, VERTICAL_ISLAND, bar_island},
+    bar::island::{Island, ISLAND, VERTICAL_ISLAND, bar_island},
     panels::{Panel, is_open},
     placement::BarPlacement,
 };
@@ -33,4 +33,11 @@ pub fn launcher_island(output: Output, at: BarPlacement) -> Div {
         .on_hover(move |h| hovered.set(h))
         .on_click(move |_| toggle(&output, Panel::Launcher))
         .child(launcher_glyph(open, hovered, || 15.0).size(26.0))
+}
+
+/// The launcher button, as an island of the bar.
+pub fn island() -> Island {
+    Island::new("launcher", |output, at| {
+        launcher_island(output, at).into_view()
+    })
 }

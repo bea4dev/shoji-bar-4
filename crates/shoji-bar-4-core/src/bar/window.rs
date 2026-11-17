@@ -1,6 +1,6 @@
 use crate::appinfo::app_id_icon;
 use crate::bar::BAR_TEXT;
-use crate::bar::island::{ISLAND, VERTICAL_ISLAND, bar_island};
+use crate::bar::island::{ISLAND, Island, VERTICAL_ISLAND, bar_island};
 use crate::placement::BarPlacement;
 use crate::theme::colors;
 use crate::ui::*;
@@ -324,6 +324,11 @@ fn small_change(old: &str, new: &str) -> bool {
     let kept = head + tail;
     let changed = old.len().max(new.len()) - kept;
     changed <= 4 && kept >= 3.max(2 * changed)
+}
+
+/// The window with the keyboard, as an island of the bar.
+pub fn island() -> Island {
+    Island::new("window", |output, at| window_island(output, at).into_view())
 }
 
 #[cfg(test)]

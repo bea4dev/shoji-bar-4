@@ -1,4 +1,4 @@
-use crate::bar::island::{bar_island};
+use crate::bar::island::{Island, bar_island};
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::BarPlacement;
 use crate::theme::{TextStyle, colors};
@@ -134,4 +134,9 @@ pub fn battery_icon(
         8.. => icons::BATTERY_1_BAR,
         _ => icons::BATTERY_0_BAR,
     }
+}
+
+/// The state of the system, as an island of the bar.
+pub fn island() -> Island {
+    Island::new("status", |output, at| status_island(output, at).into_view())
 }
