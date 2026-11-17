@@ -1,6 +1,7 @@
 //! Shell-surface lifecycle behind one interface. The Wayland adapter opens real layers;
 //! tests use a recording adapter through the same functions.
 
+use crate::bar::Bar;
 use crate::panels::{self, Panel};
 use crate::placement::{self, BarPlacement};
 use anti_webui::prelude::*;
@@ -139,7 +140,7 @@ impl Adapter for Wayland {
 }
 
 /// Opens one bar per output and updates it in place when placement changes.
-pub(crate) fn open_bar<A: Adapter>(output: Output, adapter: A) {
+pub(crate) fn open_bar<A: Adapter>(bar: Bar, output: Output, adapter: A) {
     let placement = placement::memoized();
     let at = untrack(|| placement.get());
     let request = Request::bar(output.clone(), at);
@@ -151,7 +152,7 @@ pub(crate) fn open_bar<A: Adapter>(output: Output, adapter: A) {
                 div()
                     .size_full()
                     .child(dyn_view(move || {
-                        crate::bar::view(view_output.clone(), placement.get())
+                        crate::bar::view(&bar, view_output.clone(), placement.get())
                     }))
                     .into_view()
             }),
@@ -264,11 +265,12 @@ pub(crate) fn open_popups<A: Adapter>(adapter: A) {
 /// The production entry points: the layers of the shell on Wayland. The adapter seam above stays
 /// private to this module (the tests use it), so whoever starts the shell uses these.
 pub mod wayland {
+    use crate::bar::Bar;
     use anti_webui::shell::prelude::Output;
 
-    /// Opens the bar on `output` and keeps it up to date with the placement.
-    pub fn open_bar(output: Output) {
-        super::open_bar(output, super::Wayland);
+    /// Opens `bar` on `output` and keeps it up to date with the placement.
+    pub fn open_bar(bar: Bar, output: Output) {
+        super::open_bar(bar, output, super::Wayland);
     }
 
     /// Keeps the notification popups mounted while cards arrive and leave.
@@ -381,7 +383,7 @@ mod tests {
         let recording = Recording::default();
         let ((), owner) = create_root(|| {
             for name in ["DP-1", "DP-2", "HDMI-A-2"] {
-                open_bar(output(name), recording.clone());
+                open_bar(Bar::new(), output(name), recording.clone());
             }
         });
         assert_eq!(recording.len(), 3);

@@ -4,18 +4,10 @@
 //! all of the bar. Vertical bars use compact icons and stack the clock.
 
 use crate::bar::island::Island;
-use crate::bar::status::status_island;
-use crate::bar::tray::tray_island;
-use crate::bar::media::media_island;
-use crate::bar::clock::clock_island;
-use crate::bar::window::window_island;
-use crate::bar::workspaces::workspaces_of;
-use crate::bar::launcher::launcher_island;
 use crate::placement::BarPlacement;
 use crate::theme::{TextStyle, colors};
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
-use std::rc::Rc;
 
 pub mod clock;
 pub mod island;
@@ -50,6 +42,11 @@ impl Bar {
         Self::default()
     }
 
+    /// Opens the bar on `output`, and keeps it up to date with the placement.
+    pub fn open(&self, output: Output) {
+        crate::shell_layer::wayland::open_bar(self.clone(), output);
+    }
+
     pub fn left(mut self, islands: impl IntoIterator<Item = Island>) -> Self {
         self.left = islands.into_iter().collect();
         self
@@ -66,7 +63,8 @@ impl Bar {
     }
 }
 
-pub fn view(output: Output, at: BarPlacement) -> Div {
+/// The bar as it is drawn on `output`: the islands of `bar`, on a pane of frosted glass.
+pub fn view(bar: &Bar, output: Output, at: BarPlacement) -> Div {
     let vertical = at.is_vertical();
     let mut root = div()
         .select_none()
@@ -110,32 +108,13 @@ pub fn view(output: Output, at: BarPlacement) -> Div {
                 .pointer_events_none()
                 .dyn_style(|s| s.bg(colors().surface.with_alpha(0.34))),
         )
-        .child(
-            leading
-                .child(launcher_island(output.clone(), at))
-                .child(workspaces_island(
-                    workspaces_of(output.clone()),
-                    Rc::new({
-                        let output = output.clone();
-                        move |id: &str| {
-                            if let Some(w) =
-                                workspaces().on(&output).into_iter().find(|w| w.id() == id)
-                            {
-                                w.activate();
-                            }
-                        }
-                    }),
-                    at,
-                ))
-                .child(window_island(output.clone(), at)),
-        )
-        .child(clock_island(output.clone(), at))
-        .child(
-            trailing
-                .child(media_island(output.clone(), at))
-                .child(tray_island(at))
-                .child(status_island(output, at)),
-        )
+        .child(bar.left.iter().fold(leading, |group, island| {
+            group.child((island.build)(output.clone(), at))
+        }))
+        .children(bar.center.iter().map(|island| (island.build)(output.clone(), at)))
+        .child(bar.right.iter().fold(trailing, |group, island| {
+            group.child((island.build)(output.clone(), at))
+        }))
 }
 
 #[cfg(test)]

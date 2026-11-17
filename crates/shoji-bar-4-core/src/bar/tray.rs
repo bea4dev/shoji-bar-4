@@ -11,7 +11,7 @@ use anti_webui_md3e::components::{MenuItem, MenuStyle, menu_item, styled_menu};
 const TRAY_ICON: f32 = 24.0;
 
 /// The icons of the tray.
-pub fn tray_island(at: BarPlacement) -> Show {
+fn tray_island(at: BarPlacement) -> Show {
     show(
         || !tray().items().is_empty(),
         move || {

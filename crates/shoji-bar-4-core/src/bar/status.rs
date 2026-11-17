@@ -9,7 +9,7 @@ use anti_webui::shell::{BatteryState, Connectivity};
 use anti_webui_md3e::icons;
 
 /// Network, Bluetooth, sound and battery at a glance; a click opens quick settings.
-pub fn status_island(output: Output, at: BarPlacement) -> Div {
+fn status_island(output: Output, at: BarPlacement) -> Div {
     let vertical = at.is_vertical();
     let net = network();
     let bt = bluetooth();

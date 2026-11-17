@@ -10,7 +10,7 @@ use anti_webui_md3e::motion::slow_spatial;
 
 /// What is playing, while something plays: a little equalizer and, on the top bar, its title.
 /// A click opens the player beside it; the middle button pauses it or plays it again.
-pub fn media_island(output: Output, at: BarPlacement) -> Show {
+fn media_island(output: Output, at: BarPlacement) -> Show {
     let vertical = at.is_vertical();
     let m = media();
     let current = memo(move || m.current());

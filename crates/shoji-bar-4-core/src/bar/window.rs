@@ -12,7 +12,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 /// The window with the keyboard on this output.
-pub fn window_island(output: Output, at: BarPlacement) -> Show {
+fn window_island(output: Output, at: BarPlacement) -> Show {
     focused_island(
         memo(move || {
             toplevels()

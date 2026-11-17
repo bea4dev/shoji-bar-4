@@ -16,7 +16,7 @@ use crate::{
 };
 
 /// The button that opens the launcher: an icon on a shape that turns and blooms on hover.
-pub fn launcher_island(output: Output, at: BarPlacement) -> Div {
+fn launcher_island(output: Output, at: BarPlacement) -> Div {
     let hovered = signal(false);
     let open = memo({
         let output = output.clone();

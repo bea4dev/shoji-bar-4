@@ -42,7 +42,7 @@ fn clock_text(part: ClockPart) -> String {
 
 /// The time, its digits rolling over as they change, and the date. Hovering makes the time
 /// heavier; a click opens the calendar. A vertical bar stacks the parts instead of showing the date.
-pub fn clock_island(output: Output, at: BarPlacement) -> Div {
+fn clock_island(output: Output, at: BarPlacement) -> Div {
     let vertical = at.is_vertical();
     let hovered = signal(false);
     let weight = follow(
