@@ -4,7 +4,7 @@
 //! all of the bar. Vertical bars use compact icons and stack the clock.
 
 use crate::appinfo::{app_id_icon, tray_icon_image};
-use crate::bar::island::Island;
+use crate::bar::island::{ISLAND, Island, VERTICAL_ISLAND, bar_island};
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::{AnchorPoint, BarPlacement, PanelSide};
 use crate::settings::settings;
@@ -120,21 +120,6 @@ pub fn view(output: Output, at: BarPlacement) -> Div {
                 .child(tray_island(at))
                 .child(status_island(output, at)),
         )
-}
-
-const VERTICAL_ISLAND: f32 = 40.0;
-
-/// A horizontal pill, or a vertical island with its height set by its contents.
-fn bar_island(at: BarPlacement) -> Div {
-    let node = island();
-    if at.is_vertical() {
-        node.flex_col()
-            .w(VERTICAL_ISLAND)
-            .h(Length::Auto)
-            .rounded(VERTICAL_ISLAND / 2.0)
-    } else {
-        node
-    }
 }
 
 /// The button that opens the launcher: an icon on a shape that turns and blooms on hover.

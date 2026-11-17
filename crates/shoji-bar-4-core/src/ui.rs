@@ -1,6 +1,6 @@
 //! Small pieces the bar, the dock and the panels share.
 
-use crate::theme::{TextStyle, colors, elevation};
+use crate::theme::{TextStyle, colors};
 use anti_webui::prelude::*;
 use anti_webui_md3e::ColorScheme;
 use anti_webui_md3e::components::{Ink, MaterialShape, ShapeStyle, sized_icon, styled_shape};
@@ -92,22 +92,6 @@ pub fn settle_in(order: usize, node: Div) -> Div {
             .scale(0.85 + 0.15 * t)
             .translate_y(-24.0 * (1.0 - t))
     })
-}
-
-/// A floating container of the bar: a pill on `surface_container`.
-/// How tall an island of the bar is.
-pub const ISLAND: f32 = 32.0;
-
-pub fn island() -> Div {
-    div()
-        .flex()
-        .flex_row()
-        .items_center()
-        .flex_none()
-        .h(ISLAND)
-        .rounded(ISLAND / 2.0)
-        .shadows(elevation(1))
-        .dyn_style(|s| s.bg(colors().surface_container))
 }
 
 /// Gives `node` Material's state layer and ripples, in its own shape, in `color`.
