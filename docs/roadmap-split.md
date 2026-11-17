@@ -9,6 +9,41 @@ shells as ordinary crates that depend on them. Each step is one PR into `split`.
 The layers and `Part` / `Cx` / `Motion` follow the proposal in #4. Items marked with ★ go beyond that
 proposal and are open for discussion.
 
+## Target layout (from the proposal in #4)
+
+```
+shoji-bar-4-core/        components and machinery only; no layout decisions
+├── context.rs           Cx, IslandState, Part
+├── motion.rs            Motion (springs, delays, stagger)
+├── layout.rs            row(), column(), spacer(): combine Parts
+├── bar/
+│   ├── mod.rs           Bar { left, center, right }, Bar::open(output)
+│   ├── island.rs        Island: the frame (shape, padding, hover, click, highlight, entrance)
+│   ├── clock.rs         time(), date()                       parts
+│   ├── status.rs        wifi(), bluetooth(), volume(), battery()
+│   └── workspaces.rs, window.rs, media.rs, tray.rs, launcher.rs
+├── panels/              PanelDef and the contents of each panel
+├── dock.rs, lock.rs, notify.rs, osd.rs, settings.rs, theme.rs, wm.rs, ...
+└── run.rs               run(root): starts the shell, handles `msg` and `preview`
+
+shoji-bar-4/             the shell as shipped: arranges the parts, sets the overall style
+├── src/lib.rs           pub fn bar() -> Bar, pub fn motion() -> Motion   (the stock layout, public)
+└── src/main.rs          shoji_bar_4_core::run(|| ...)
+
+my-shell/                someone who wants their own shell: an ordinary crate that depends on
+                         shoji-bar-4-core (and, optionally, shoji-bar-4 to start from the stock layout)
+```
+
+Four layers, each one customizable on its own:
+
+```
+Bar          where the islands go (left / center / right)
+ └─ Island   the frame of an island: shape, padding, click, highlight, entrance animation
+     └─ layout   how the parts inside are arranged (row / column)
+         └─ Part     a single component: clock::time(), status::wifi(), ...
+             └─ data     settings(), battery(), network(), ... (as today)
+```
+
 ## Rules for every step
 
 - One PR = one branch, started from an up to date `split`, with small atomic commits: each one builds
@@ -20,49 +55,62 @@ proposal and are open for discussion.
 ## Steps (PRs)
 
 1. Refactor: core crate ([#12](https://github.com/bea4dev/shoji-bar-4/pull/12))
-   - [x] make repo a cargo workspace
-   - [x] public entry points for wayland layers
-   - [x] move into shoji-bar-4-core
-   - [x] call to run in the clean main
-   - [x] fix docs describing workspace updating pointers to code
-   - [x] only the binary is a default member (the core was included by mistake)
+   - [ ] make repo a cargo workspace
+   - [ ] public entry points for wayland layers
+   - [ ] move into shoji-bar-4-core
+   - [ ] call to run in the clean main
+   - [ ] fix docs describing workspace updating pointers to code
+   - [ ] only the binary is a default member (the core was included by mistake)
 
 2. Refactor: stock layout as `bar()`
-   - [ ] objects of the core: `Bar`, `Island`, `PanelDef`, placed as in the proposal in #4
-         (`context.rs`, `bar/mod.rs`, `bar/island.rs`, `panels/`); every island and panel has a
-         stable, unique `id`, to edit the layout with remove, add...
-   - [ ] `layout.rs`: `row()`, `column()`, `spacer()`
-   - [ ] move out layout of bar and panels out of core
-   - [ ] `pub fn empty_bar() -> Bar` in `shoji-bar-4/src/lib.rs`; `main.rs` calls `run`
-   - [ ] `pub fn default_bar() -> Bar` in `shoji-bar-4/src/lib.rs`
+   - [ ] re-export `anti_webui` and `anti_webui_md3e` from the core, so a shell depends on the core
+         only (suggested by bea4dev in the review of #12)
+   - [ ] `shoji-bar-4` has a library target (`src/lib.rs`)
+   - [ ] `Bar { left, center, right }` in `bar/mod.rs`
+   - [ ] `Island { id, build }` in `bar/island.rs`
+   - [ ] every stock island is an `Island` with a stable, unique `id`: launcher, workspaces, window,
+         clock, media, tray, status
+   - [ ] `Bar::open(output)` draws the `Bar` it is given: `view` reads it, instead of the fixed list
+   - [ ] move the layout of the bar out of the core: `pub fn bar() -> Bar` in
+         `shoji-bar-4/src/lib.rs`, and `main.rs` hands it over
+   - [ ] decide how `preview bar` gets the bar, since `bar()` lives in the binary and the core
+         cannot call it (open question for bea4dev)
 
 3. Create `Part` and `Cx`
-   - [ ] `Part = Rc<dyn Fn(&Cx) -> View>`
-   - [ ] `Cx { output, island }`, `#[non_exhaustive]`: `motion` joins it in step 6
+   - [ ] `context.rs`: `Part = Rc<dyn Fn(&Cx) -> View>`
+   - [ ] `Cx { output }`, `#[non_exhaustive]`: `island` joins it in step 4 and `motion` in step 6
+   - [ ] `layout.rs`: `row()`, `column()`, `spacer()`, which combine Parts
    - [ ] the content of every island becomes a `Part`
 
 4. Refactor: move content out of the Island
-   - [ ] Island as frame (shape, padding, hover, click, highlight, entrance); its content is a `Part`
+   - [ ] `Island` as the frame (shape, padding, hover, click, highlight, entrance); its content is a
+         `Part`
    - [ ] `IslandState { hovered, active, index }` in `Cx`
+   - [ ] the parts in their own files: `clock.rs`, `status.rs`, `workspaces.rs`, `window.rs`,
+         `media.rs`, `tray.rs`, `launcher.rs`
 
 5. Feat: bar builder (stable ids)
-   - [ ] `.insert_before()`
-   - [ ] `.insert_after()`
-   - [ ] `.replace()`
-   - [ ] `.remove()`
+   - [ ] `.insert_before(id, island)`
+   - [ ] `.insert_after(id, island)`
+   - [ ] `.replace(id, island)`
+   - [ ] `.remove(id)`
    - [ ] ★ `Vec<Section>` and `.section()`, to expand or reduce the number of sections instead of
          the fixed left / center / right (public on API to user)
 
 6. Refactor: motion
-   - [ ] collect static/constants animation into object Motion; `Motion::default()` keeps today's
-         values; `motion` joins `Cx`; `pub fn motion() -> Motion` next to `bar()`
+   - [ ] `motion.rs`: collect the static/constants animation (`fast_spatial()`, `flow()`, `GOING`...)
+         into `Motion`; `Motion::default()` keeps today's values
+   - [ ] `motion` joins `Cx` (`Rc<Motion>`); `Island` can hold an `Option<Motion>`
+   - [ ] `pub fn motion() -> Motion` in `shoji-bar-4/src/lib.rs`, next to `bar()`
    - [ ] `enter_delay` and `stagger`: new behaviour, in a commit of their own
    - [ ] ★ named motions: `motion.register("fade", f)`
 
 7. Refactor: panel
-   - [ ] collect static/constants panels into object Panel (`PanelDef` and its builder); the
-         contents of each panel become `Part`s
-   - [ ] `Cx` outside the bar (`island: Option<IslandState>`) and a public `cascade(...)` helper
+   - [ ] `panels/`: `PanelDef` and its builder, replacing the closed `Panel` enum; the contents of
+         each panel become `Part`s
+   - [ ] `Cx` outside the bar (`island: Option<IslandState>`)
+   - [ ] the calendar cascade becomes `motion.cascade_step`, with a public `pop_in` / `cascade(...)`
+         helper
    - [ ] ★ `grid(rows, cols, spans)` as a layout for panels
 
 8. Documentation
@@ -76,6 +124,7 @@ proposal and are open for discussion.
 - ★ `Section::free()`, whose children are placed with `.absolute()` for exact pixels.
 - ★ Named motions.
 - ★ A grid layout for panels.
+- How `preview` gets the bar from the binary (step 2).
 
 ## Extra
 
@@ -83,5 +132,9 @@ proposal and are open for discussion.
    - [ ] zoom
    - [ ] execute command of notification (Open, Edit...)
 
-2. Features specific to one desktop (for example Omarchy): they use the API once it exists, so they
+2. From the PR #4, if bea4dev wants them, each in a PR of its own
+   - [ ] `--version`, `-V` and `version`
+   - [ ] safe mode (`--default`), to run the stock interface when a custom shell misbehaves
+
+3. Features specific to one desktop (for example Omarchy): they use the API once it exists, so they
    come after the split, in an optional crate.
