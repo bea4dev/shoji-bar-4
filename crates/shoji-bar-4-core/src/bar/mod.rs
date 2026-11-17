@@ -5,6 +5,7 @@
 
 use crate::appinfo::{app_id_icon, tray_icon_image};
 use crate::bar::island::{ISLAND, Island, VERTICAL_ISLAND, bar_island};
+use crate::bar::launcher::launcher_island;
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::{AnchorPoint, BarPlacement, PanelSide};
 use crate::settings::settings;
@@ -21,6 +22,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 pub mod island;
+pub mod launcher;
 
 /// The size of the words in the bar: smaller than Material's titles, as a bar is.
 pub(crate) const BAR_TEXT: TextStyle = TextStyle {
@@ -128,26 +130,6 @@ pub fn view(output: Output, at: BarPlacement) -> Div {
                 .child(tray_island(at))
                 .child(status_island(output, at)),
         )
-}
-
-/// The button that opens the launcher: an icon on a shape that turns and blooms on hover.
-fn launcher_island(output: Output, at: BarPlacement) -> Div {
-    let hovered = signal(false);
-    let open = memo({
-        let output = output.clone();
-        move || is_open(&output, Panel::Launcher)
-    });
-    let side = if at.is_vertical() {
-        VERTICAL_ISLAND
-    } else {
-        ISLAND
-    };
-    bar_island(at)
-        .size(side)
-        .justify_center()
-        .on_hover(move |h| hovered.set(h))
-        .on_click(move |_| toggle(&output, Panel::Launcher))
-        .child(launcher_glyph(open, hovered, || 15.0).size(26.0))
 }
 
 /// A workspace as the bar shows it.
