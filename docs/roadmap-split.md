@@ -55,26 +55,32 @@ Bar          where the islands go (left / center / right)
 ## Steps (PRs)
 
 1. Refactor: core crate ([#12](https://github.com/bea4dev/shoji-bar-4/pull/12))
-   - [ ] make repo a cargo workspace
-   - [ ] public entry points for wayland layers
-   - [ ] move into shoji-bar-4-core
-   - [ ] call to run in the clean main
-   - [ ] fix docs describing workspace updating pointers to code
-   - [ ] only the binary is a default member (the core was included by mistake)
+   - [x] make repo a cargo workspace
+   - [x] public entry points for wayland layers
+   - [x] move into shoji-bar-4-core
+   - [x] call to run in the clean main
+   - [x] fix docs describing workspace updating pointers to code
+   - [x] only the binary is a default member (the core was included by mistake)
 
 2. Refactor: stock layout as `bar()`
-   - [ ] re-export `anti_webui` and `anti_webui_md3e` from the core, so a shell depends on the core
+   - [x] re-export `anti_webui` and `anti_webui_md3e` from the core, so a shell depends on the core
          only (suggested by bea4dev in the review of #12)
-   - [ ] `shoji-bar-4` has a library target (`src/lib.rs`)
-   - [ ] `Bar { left, center, right }` in `bar/mod.rs`
-   - [ ] `Island { id, build }` in `bar/island.rs`
-   - [ ] every stock island is an `Island` with a stable, unique `id`: launcher, workspaces, window,
-         clock, media, tray, status
-   - [ ] `Bar::open(output)` draws the `Bar` it is given: `view` reads it, instead of the fixed list
-   - [ ] move the layout of the bar out of the core: `pub fn bar() -> Bar` in
-         `shoji-bar-4/src/lib.rs`, and `main.rs` hands it over
-   - [ ] decide how `preview bar` gets the bar, since `bar()` lives in the binary and the core
-         cannot call it (open question for bea4dev)
+   - [x] `shoji-bar-4` has a library target (`src/lib.rs`)
+   - [x] `Bar { left, center, right }` in `bar/mod.rs`
+   - [x] `Island { id, build }` in `bar/island.rs`, with `Island::new(id, build)`
+   - [x] each island in its own file under `bar/`: `launcher.rs`, `workspaces.rs`, `window.rs`,
+         `clock.rs`, `media.rs`, `tray.rs`, `status.rs`; the frame they share (`bar_island`) in
+         `island.rs`
+   - [x] every stock island is an `Island` with a stable, unique `id` (`launcher`, `workspaces`,
+         `window`, `clock`, `media`, `tray`, `status`), built by the `island()` of its file
+   - [x] `Bar::open(&self, output)` opens the `Bar` it is given, and `view` draws it instead of the
+         fixed list
+   - [x] the layout of the bar out of the core: `default_bar()` in `shoji-bar-4/src/lib.rs`, the
+         stock bar (bea4dev's proposal calls it `bar()`), and `main.rs` hands it over
+   - [x] `empty_bar()` next to it, as part of the API: a bar with no islands, to build one from
+         scratch
+   - [x] `preview bar` draws the bar of the shell: `run_with(bar, root)`, since the core cannot call
+         `default_bar()` (open question for bea4dev: is this the way?)
 
 3. Create `Part` and `Cx`
    - [ ] `context.rs`: `Part = Rc<dyn Fn(&Cx) -> View>`
@@ -86,8 +92,8 @@ Bar          where the islands go (left / center / right)
    - [ ] `Island` as the frame (shape, padding, hover, click, highlight, entrance); its content is a
          `Part`
    - [ ] `IslandState { hovered, active, index }` in `Cx`
-   - [ ] the parts in their own files: `clock.rs`, `status.rs`, `workspaces.rs`, `window.rs`,
-         `media.rs`, `tray.rs`, `launcher.rs`
+   - [ ] each island file split into its parts: `clock::time()` and `date()`, `status::wifi()`,
+         `bluetooth()`, `volume()` and `battery()`...
 
 5. Feat: bar builder (stable ids)
    - [ ] `.insert_before(id, island)`
@@ -101,7 +107,7 @@ Bar          where the islands go (left / center / right)
    - [ ] `motion.rs`: collect the static/constants animation (`fast_spatial()`, `flow()`, `GOING`...)
          into `Motion`; `Motion::default()` keeps today's values
    - [ ] `motion` joins `Cx` (`Rc<Motion>`); `Island` can hold an `Option<Motion>`
-   - [ ] `pub fn motion() -> Motion` in `shoji-bar-4/src/lib.rs`, next to `bar()`
+   - [ ] `pub fn motion() -> Motion` in `shoji-bar-4/src/lib.rs`, next to `default_bar()`
    - [ ] `enter_delay` and `stagger`: new behaviour, in a commit of their own
    - [ ] ★ named motions: `motion.register("fade", f)`
 
@@ -124,7 +130,8 @@ Bar          where the islands go (left / center / right)
 - ★ `Section::free()`, whose children are placed with `.absolute()` for exact pixels.
 - ★ Named motions.
 - ★ A grid layout for panels.
-- How `preview` gets the bar from the binary (step 2).
+- How `preview` gets the bar from the binary: `run_with(bar, root)` (step 2).
+- The names `default_bar()` and `empty_bar()`, instead of the `bar()` of the proposal.
 
 ## Extra
 
