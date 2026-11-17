@@ -33,7 +33,8 @@ proposal and are open for discussion.
          stable, unique `id`, to edit the layout with remove, add...
    - [ ] `layout.rs`: `row()`, `column()`, `spacer()`
    - [ ] move out layout of bar and panels out of core
-   - [ ] `pub fn bar() -> Bar` in `shoji-bar-4/src/lib.rs`; `main.rs` calls `run`
+   - [ ] `pub fn empty_bar() -> Bar` in `shoji-bar-4/src/lib.rs`; `main.rs` calls `run`
+   - [ ] `pub fn default_bar() -> Bar` in `shoji-bar-4/src/lib.rs`
 
 3. Create `Part` and `Cx`
    - [ ] `Part = Rc<dyn Fn(&Cx) -> View>`
