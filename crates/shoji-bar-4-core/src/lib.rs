@@ -7,6 +7,7 @@ pub mod bar;
 pub mod battery_card;
 pub mod calendar;
 pub mod clipboard;
+pub mod context;
 pub mod dock;
 pub mod ipc;
 pub mod launcher;
