@@ -137,5 +137,7 @@ fn clock_island(output: Output, at: BarPlacement) -> Div {
 
 /// The clock, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("clock", |output, at| clock_island(output, at).into_view())
+    Island::new("clock", |cx| {
+        clock_island(cx.output.clone(), cx.placement).into_view()
+    })
 }

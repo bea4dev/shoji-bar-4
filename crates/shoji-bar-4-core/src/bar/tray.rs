@@ -156,5 +156,5 @@ fn tray_groups(item: &TrayItem, list: &[TrayMenuItem]) -> Vec<Vec<MenuItem>> {
 
 /// The icons of the tray, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("tray", |_output, at| tray_island(at).into_view())
+    Island::new("tray", |cx| tray_island(cx.placement).into_view())
 }

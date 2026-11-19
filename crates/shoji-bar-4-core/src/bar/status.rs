@@ -138,5 +138,7 @@ pub fn battery_icon(
 
 /// The state of the system, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("status", |output, at| status_island(output, at).into_view())
+    Island::new("status", |cx| {
+        status_island(cx.output.clone(), cx.placement).into_view()
+    })
 }

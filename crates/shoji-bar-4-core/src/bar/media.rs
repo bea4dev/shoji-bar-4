@@ -122,5 +122,7 @@ fn equalizer(playing: Memo<bool>) -> Div {
 
 /// What is playing, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("media", |output, at| media_island(output, at).into_view())
+    Island::new("media", |cx| {
+        media_island(cx.output.clone(), cx.placement).into_view()
+    })
 }

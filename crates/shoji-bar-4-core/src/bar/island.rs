@@ -2,11 +2,11 @@ use std::rc::Rc;
 
 use anti_webui::{
     core::view::{Div, View, div},
-    shell::Output,
     style::{Length, Styled},
 };
 
 use crate::{
+    context::{Cx, Part},
     placement::BarPlacement,
     theme::{colors, elevation},
 };
@@ -14,15 +14,11 @@ use crate::{
 #[derive(Clone)]
 pub struct Island {
     pub id: String,
-    pub build: Rc<dyn Fn(Output, BarPlacement) -> View>,
-    // TODO: add other fields: shape, padding, hover, click, highlight, entrance
+    pub build: Part,
 }
 
 impl Island {
-    pub fn new(
-        id: impl Into<String>,
-        build: impl Fn(Output, BarPlacement) -> View + 'static,
-    ) -> Self {
+    pub fn new(id: impl Into<String>, build: impl Fn(&Cx) -> View + 'static) -> Self {
         Self {
             id: id.into(),
             build: Rc::new(build),

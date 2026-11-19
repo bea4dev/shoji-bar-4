@@ -328,7 +328,9 @@ fn small_change(old: &str, new: &str) -> bool {
 
 /// The window with the keyboard, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("window", |output, at| window_island(output, at).into_view())
+    Island::new("window", |cx| {
+        window_island(cx.output.clone(), cx.placement).into_view()
+    })
 }
 
 #[cfg(test)]
