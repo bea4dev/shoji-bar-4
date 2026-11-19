@@ -11,6 +11,7 @@ pub mod context;
 pub mod dock;
 pub mod ipc;
 pub mod launcher;
+pub mod layout;
 pub mod lock;
 pub mod media_panel;
 pub mod notify;
