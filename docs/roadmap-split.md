@@ -85,7 +85,7 @@ Bar          where the islands go (left / center / right)
 3. Create `Part` and `Cx`
    - [x] `context.rs`: `Part = Rc<dyn Fn(&Cx) -> View>`
    - [x] `Cx { output }`, `#[non_exhaustive]`: `island` joins it in step 4 and `motion` in step 6
-   - [ ] `layout.rs`: `row()`, `column()`, `spacer()`, which combine Parts
+   - [x] `layout.rs`: `row()`, `column()`, `spacer()`, which combine Parts
    - [ ] the content of every island becomes a `Part`
 
 4. Refactor: move content out of the Island
