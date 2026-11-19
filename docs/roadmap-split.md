@@ -83,8 +83,8 @@ Bar          where the islands go (left / center / right)
          `default_bar()` (open question for bea4dev: is this the way?)
 
 3. Create `Part` and `Cx`
-   - [ ] `context.rs`: `Part = Rc<dyn Fn(&Cx) -> View>`
-   - [ ] `Cx { output }`, `#[non_exhaustive]`: `island` joins it in step 4 and `motion` in step 6
+   - [x] `context.rs`: `Part = Rc<dyn Fn(&Cx) -> View>`
+   - [x] `Cx { output }`, `#[non_exhaustive]`: `island` joins it in step 4 and `motion` in step 6
    - [ ] `layout.rs`: `row()`, `column()`, `spacer()`, which combine Parts
    - [ ] the content of every island becomes a `Part`
 
