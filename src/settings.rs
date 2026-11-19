@@ -119,6 +119,105 @@ impl BarPosition {
     }
 }
 
+/// Outer screen-edge padding and inter-window gaps, aligned with compositor layout settings.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ShellPadding {
+    pub gaps: u16,
+    pub top: Option<u16>,
+    pub right: Option<u16>,
+    pub bottom: Option<u16>,
+    pub left: Option<u16>,
+}
+
+impl ShellPadding {
+    pub const DEFAULT_GAPS: u16 = 14;
+    pub const MAX_GAPS: u16 = 64;
+    pub const MAX_EDGE: u16 = 512;
+    pub const DEFAULT: Self = Self {
+        gaps: Self::DEFAULT_GAPS,
+        top: None,
+        right: None,
+        bottom: None,
+        left: None,
+    };
+
+    pub fn normalized(self) -> Self {
+        Self {
+            gaps: self.gaps.min(Self::MAX_GAPS),
+            top: self.top.map(|v| v.min(Self::MAX_EDGE)),
+            right: self.right.map(|v| v.min(Self::MAX_EDGE)),
+            bottom: self.bottom.map(|v| v.min(Self::MAX_EDGE)),
+            left: self.left.map(|v| v.min(Self::MAX_EDGE)),
+        }
+    }
+
+    pub fn effective_top(self) -> u16 {
+        self.top.unwrap_or(self.gaps)
+    }
+
+    pub fn effective_right(self) -> u16 {
+        self.right.unwrap_or(self.gaps)
+    }
+
+    pub fn effective_bottom(self) -> u16 {
+        self.bottom.unwrap_or(self.gaps)
+    }
+
+    pub fn effective_left(self) -> u16 {
+        self.left.unwrap_or(self.gaps)
+    }
+
+    pub fn has_overrides(self) -> bool {
+        self.top.is_some() || self.right.is_some() || self.bottom.is_some() || self.left.is_some()
+    }
+
+    pub fn to_json(self) -> Value {
+        let p = self.normalized();
+        json!({
+            "gaps": p.gaps,
+            "top": p.top,
+            "right": p.right,
+            "bottom": p.bottom,
+            "left": p.left,
+        })
+    }
+
+    pub fn from_json(v: &Value) -> Self {
+        if let Some(n) = v.as_u64() {
+            return Self {
+                gaps: n.min(Self::MAX_GAPS as u64) as u16,
+                ..Self::DEFAULT
+            };
+        }
+        let Some(obj) = v.as_object() else {
+            return Self::DEFAULT;
+        };
+        let gaps = obj
+            .get("gaps")
+            .and_then(Value::as_u64)
+            .map(|n| n.min(Self::MAX_GAPS as u64) as u16)
+            .unwrap_or(Self::DEFAULT_GAPS);
+        let side = |key: &str| {
+            obj.get(key)
+                .and_then(Value::as_u64)
+                .map(|n| n.min(Self::MAX_EDGE as u64) as u16)
+        };
+        Self {
+            gaps,
+            top: side("top"),
+            right: side("right"),
+            bottom: side("bottom"),
+            left: side("left"),
+        }
+    }
+}
+
+impl Default for ShellPadding {
+    fn default() -> Self {
+        Self::DEFAULT
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Settings {
     pub mode: ThemeMode,
@@ -131,6 +230,9 @@ pub struct Settings {
     /// The desktop entry ids of the apps the dock always shows, in order.
     pub pinned: Vec<String>,
     pub bar_position: BarPosition,
+    pub padding: ShellPadding,
+    pub launcher_enabled: bool,
+    pub dock_enabled: bool,
     pub clock_24h: bool,
     pub clock_seconds: bool,
     /// The user's picture, a copy kept next to this file; `None` for the desktop's.
@@ -156,6 +258,9 @@ impl Default for Settings {
             .map(String::from)
             .to_vec(),
             bar_position: BarPosition::Top,
+            padding: ShellPadding::DEFAULT,
+            launcher_enabled: true,
+            dock_enabled: true,
             clock_24h: true,
             clock_seconds: false,
             avatar: None,
@@ -173,6 +278,9 @@ impl Settings {
             "wallpaper": self.wallpaper.as_ref().map(|p| p.to_string_lossy().into_owned()),
             "pinned": self.pinned,
             "bar_position": self.bar_position.name(),
+            "padding": self.padding.to_json(),
+            "launcher_enabled": self.launcher_enabled,
+            "dock_enabled": self.dock_enabled,
             "clock_24h": self.clock_24h,
             "clock_seconds": self.clock_seconds,
             "avatar": self.avatar.as_ref().map(|p| p.to_string_lossy().into_owned()),
@@ -208,6 +316,15 @@ impl Settings {
         }
         if let Some(p) = str_of("bar_position").and_then(BarPosition::from_name) {
             s.bar_position = p;
+        }
+        if let Some(padding) = v.get("padding") {
+            s.padding = ShellPadding::from_json(padding);
+        }
+        if let Some(b) = bool_of("launcher_enabled") {
+            s.launcher_enabled = b;
+        }
+        if let Some(b) = bool_of("dock_enabled") {
+            s.dock_enabled = b;
         }
         if let Some(b) = bool_of("clock_24h") {
             s.clock_24h = b;
@@ -285,4 +402,88 @@ pub fn settings() -> Signal<Settings> {
             s
         })
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn missing_layout_settings_keep_defaults_for_existing_configs() {
+        let parsed = Settings::from_json(&json!({ "bar_position": "left" }));
+        assert_eq!(parsed.bar_position, BarPosition::Left);
+        assert!(parsed.launcher_enabled);
+        assert!(parsed.dock_enabled);
+        assert_eq!(parsed.padding, ShellPadding::DEFAULT);
+        assert_eq!(parsed.padding.gaps, 14);
+        assert_eq!(parsed.padding.effective_top(), 14);
+        assert_eq!(parsed.padding.effective_right(), 14);
+        assert_eq!(parsed.padding.effective_bottom(), 14);
+        assert_eq!(parsed.padding.effective_left(), 14);
+        assert!(!parsed.padding.has_overrides());
+    }
+
+    #[test]
+    fn padding_json_round_trip_shorthand_auto_clamping_and_isolation() {
+        let custom = ShellPadding {
+            gaps: 16,
+            top: Some(8),
+            right: None,
+            bottom: Some(0),
+            left: Some(64),
+        };
+        let mut settings = Settings::default();
+        settings.padding = custom;
+        settings.launcher_enabled = false;
+        settings.dock_enabled = false;
+        let round_trip = Settings::from_json(&settings.to_json());
+        assert_eq!(round_trip.padding, custom);
+        assert!(!round_trip.launcher_enabled);
+        assert!(!round_trip.dock_enabled);
+        assert!(round_trip.padding.has_overrides());
+        assert_eq!(round_trip.padding.effective_top(), 8);
+        assert_eq!(round_trip.padding.effective_right(), 16);
+        assert_eq!(round_trip.padding.effective_bottom(), 0);
+        assert_eq!(round_trip.padding.effective_left(), 64);
+
+        assert_eq!(
+            ShellPadding::from_json(&json!(16)),
+            ShellPadding {
+                gaps: 16,
+                ..ShellPadding::DEFAULT
+            }
+        );
+
+        assert_eq!(
+            ShellPadding::from_json(&json!({
+                "gaps": 999,
+                "top": "auto",
+                "right": null,
+                "bottom": "bad",
+                "left": 999,
+            })),
+            ShellPadding {
+                gaps: ShellPadding::MAX_GAPS,
+                top: None,
+                right: None,
+                bottom: None,
+                left: Some(ShellPadding::MAX_EDGE),
+            }
+        );
+
+        assert_eq!(
+            ShellPadding::from_json(&json!({
+                "gaps": "invalid",
+                "top": -5,
+                "left": 48,
+            })),
+            ShellPadding {
+                gaps: ShellPadding::DEFAULT_GAPS,
+                top: None,
+                right: None,
+                bottom: None,
+                left: Some(48),
+            }
+        );
+    }
 }

@@ -17,8 +17,6 @@ use url::Url;
 
 /// The panel's, with the card of what is playing inside it.
 const WIDTH: f32 = 392.0;
-/// How far the panel keeps from the sides of the output.
-const EDGE: f32 = 14.0;
 /// How tall the place that takes the pointer around the seek bar is.
 const SEEK_H: f32 = 28.0;
 
@@ -128,20 +126,35 @@ pub fn panel(output: Output, anchor: Option<AnchorPoint>, at: BarPlacement) -> D
     };
     let width = output.logical_size.width as f32;
     let height = output.logical_size.height as f32;
-    let (x, y) = anchor
-        .map(|a| (a.x, a.y))
-        .unwrap_or((width - EDGE - WIDTH / 2.0, height / 2.0));
-    let left = (x - WIDTH / 2.0).clamp(EDGE, (width - WIDTH - EDGE).max(EDGE));
-    let top = signal(y);
+    let placement = crate::placement::memoized();
+    let panel_h = signal(0.0f32);
     let panel = div().w(WIDTH);
     let panel = if at.is_vertical() {
         panel
-            .dyn_style(move |s| s.mt(top.get()))
-            .on_resized(move |_, h| {
-                top.set((y - h / 2.0).clamp(EDGE, (height - h - EDGE).max(EDGE)));
+            .on_resized(move |_, h| panel_h.set(h))
+            .dyn_style(move |s| {
+                let p = placement.get();
+                let min_y = p.top_pad();
+                let y = anchor.map(|a| a.y).unwrap_or(height / 2.0);
+                let h = panel_h.get();
+                let mt = if h > 0.0 {
+                    let max_y = (height - h - p.bottom_pad()).max(min_y);
+                    (y - h / 2.0).clamp(min_y, max_y)
+                } else {
+                    y.max(min_y)
+                };
+                s.mt(mt)
             })
     } else {
-        panel.ml(left)
+        panel.dyn_style(move |s| {
+            let p = placement.get();
+            let min_x = p.left_pad();
+            let max_x = (width - WIDTH - p.right_pad()).max(min_x);
+            let x = anchor
+                .map(|a| a.x)
+                .unwrap_or(width - p.right_pad() - WIDTH / 2.0);
+            s.ml((x - WIDTH / 2.0).clamp(min_x, max_x))
+        })
     };
     panel
         .p(16.0_f32)

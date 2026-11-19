@@ -21,6 +21,7 @@ use std::time::Duration;
 
 pub fn view(output: Output, at: BarPlacement) -> Div {
     let vertical = at.is_vertical();
+    let live = crate::placement::memoized();
     let mut root = div()
         .select_none()
         .size_full()
@@ -31,9 +32,19 @@ pub fn view(output: Output, at: BarPlacement) -> Div {
         .items_center()
         .gap(10.0_f32);
     root = if vertical {
-        root.flex_col().px(6.0_f32).py(14.0_f32)
+        root.flex_col().px(6.0_f32).dyn_style(move |s| {
+            let p = live.get();
+            s.pt(p.top_pad())
+                .pb(p.bottom_pad())
+                .text_color(colors().on_surface)
+        })
     } else {
-        root.flex_row().px(14.0_f32)
+        root.flex_row().dyn_style(move |s| {
+            let p = live.get();
+            s.pl(p.left_pad())
+                .pr(p.right_pad())
+                .text_color(colors().on_surface)
+        })
     };
     let leading = div().flex().items_center().gap(10.0_f32).flex_1();
     let leading = if vertical {
@@ -52,7 +63,7 @@ pub fn view(output: Output, at: BarPlacement) -> Div {
     } else {
         trailing.flex_row().min_w(0.0)
     };
-    root.dyn_style(|s| s.text_color(colors().on_surface))
+    root
         // Faint, but enough for the compositor to blur what is behind it: it blurs behind what is
         // at least a quarter opaque.
         .child(
@@ -65,7 +76,13 @@ pub fn view(output: Output, at: BarPlacement) -> Div {
         )
         .child(
             leading
-                .child(launcher_island(output.clone(), at))
+                .child(show(
+                    || settings().with(|s| s.launcher_enabled),
+                    {
+                        let output = output.clone();
+                        move || launcher_island(output.clone(), at)
+                    },
+                ))
                 .child(workspaces_island(
                     workspaces_of(output.clone()),
                     Rc::new({

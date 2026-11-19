@@ -3,13 +3,14 @@
 
 use crate::qs_pages::header;
 use crate::quick_settings::{Page, open_at, section};
-use crate::settings::{BarPosition, Palette, ThemeMode, settings};
+use crate::settings::{BarPosition, Palette, ShellPadding, ThemeMode, settings};
 use crate::theme::{SEEDS, TextStyle, colors, scheme_for, wallpaper_seed};
 use crate::ui::*;
 use anti_webui::prelude::*;
 use anti_webui_md3e::components::{
-    ButtonSize, ButtonStyle, MaterialShape, ShapeStyle, connected_button_group, filter_chip,
-    sized_icon, styled_button, styled_shape, switch,
+    ButtonSize, ButtonStyle, MaterialShape, ShapeStyle, TextFieldStyle, connected_button_group,
+    divider, filter_chip, sized_icon, styled_button, styled_shape, styled_slider, switch,
+    text_field,
 };
 use anti_webui_md3e::icons;
 use anti_webui_md3e::motion::{default_effects, fast_spatial};
@@ -22,7 +23,7 @@ pub fn settings_page() -> Div {
         .child(header("Settings", div()))
         .child(settle_in(1, account_section()))
         .child(settle_in(2, style_section()))
-        .child(settle_in(3, bar_section()))
+        .child(settle_in(3, desktop_layout_section()))
         .child(settle_in(4, clock_section()))
 }
 
@@ -113,40 +114,408 @@ fn account_section() -> Div {
     )
 }
 
-/// Where the bar is shown.
-fn bar_section() -> Div {
+fn format_edge_input(value: Option<u16>) -> String {
+    value.map_or_else(String::new, |v| v.to_string())
+}
+
+fn parse_edge_input(raw: &str, label: &str) -> Result<Option<u16>, String> {
+    let trimmed = raw.trim();
+    if trimmed.is_empty() || trimmed.eq_ignore_ascii_case("auto") {
+        return Ok(None);
+    }
+    trimmed
+        .parse::<u16>()
+        .ok()
+        .filter(|&n| n <= ShellPadding::MAX_EDGE)
+        .map(Some)
+        .ok_or_else(|| format!("{label} must be 0–{} or auto.", ShellPadding::MAX_EDGE))
+}
+
+fn setting_switch(label: &'static str, on: Binding<bool>) -> Div {
+    div()
+        .flex()
+        .flex_row()
+        .items_center()
+        .px(4.0_f32)
+        .child(static_txt(TextStyle::BODY_MEDIUM, label).flex_1())
+        .child(switch(on))
+}
+
+/// Bar edge, optional desktop components, and shell padding/gaps alignment.
+fn desktop_layout_section() -> Div {
     let positions = BarPosition::ALL;
+    let overrides_open = signal(settings().with_untracked(|s| s.padding.has_overrides()));
+    let top_text = signal(String::new());
+    let right_text = signal(String::new());
+    let bottom_text = signal(String::new());
+    let left_text = signal(String::new());
+    let error = signal(String::new());
+
+    let saved_edges = memo(|| {
+        settings().with(|s| {
+            let p = s.padding.normalized();
+            (p.top, p.right, p.bottom, p.left)
+        })
+    });
+    effect(move || {
+        let (top, right, bottom, left) = saved_edges.get();
+        top_text.set(format_edge_input(top));
+        right_text.set(format_edge_input(right));
+        bottom_text.set(format_edge_input(bottom));
+        left_text.set(format_edge_input(left));
+        error.set(String::new());
+    });
+
+    let stepper_btn = |symbol: &'static icons::Symbol, label: &'static str, delta: i32| {
+        pressable(
+            div()
+                .size(28.0)
+                .rounded(14.0_f32)
+                .flex()
+                .items_center()
+                .justify_center()
+                .flex_none()
+                .cursor(CursorIcon::Pointer)
+                .focusable()
+                .dyn_style(|s| s.bg(colors().surface_container_highest))
+                .access(move |a| a.role(anti_webui::prelude::Role::Button).label(label))
+                .on_click(move |_| {
+                    settings().update(|s| {
+                        let cur = s.padding.gaps.min(ShellPadding::MAX_GAPS) as i32;
+                        s.padding.gaps =
+                            (cur + delta).clamp(0, ShellPadding::MAX_GAPS as i32) as u16;
+                    });
+                })
+                .child(sym(symbol, 16.0, |c| c.on_surface_variant)),
+            |c| c.on_surface_variant,
+        )
+    };
+
+    let mut presets = div().flex().flex_row().gap(4.0_f32);
+    for preset in [0u16, 8, 12, 14, 16, 24] {
+        let pill = pressable(
+            div()
+                .flex_1()
+                .h(30.0)
+                .flex()
+                .items_center()
+                .justify_center()
+                .cursor(CursorIcon::Pointer)
+                .focusable()
+                .transition_of(
+                    [Prop::Background, Prop::TextColor],
+                    Transition::ms(160).ease_out(),
+                )
+                .dyn_style(move |s| {
+                    let c = colors();
+                    let active = settings().with(|cfg| cfg.padding.gaps == preset);
+                    s.rounded(if active { 15.0_f32 } else { 10.0_f32 })
+                        .bg(if active {
+                            c.primary
+                        } else {
+                            c.surface_container_highest
+                        })
+                        .text_color(if active {
+                            c.on_primary
+                        } else {
+                            c.on_surface
+                        })
+                })
+                .access(move |a| {
+                    a.role(anti_webui::prelude::Role::Button)
+                        .label(format!("Gaps {preset} px"))
+                })
+                .on_click(move |_| settings().update(|cfg| cfg.padding.gaps = preset))
+                .child(static_txt(TextStyle::LABEL_MEDIUM, preset.to_string())),
+            move |c| {
+                if settings().with(|cfg| cfg.padding.gaps == preset) {
+                    c.on_primary
+                } else {
+                    c.on_surface
+                }
+            },
+        );
+        presets = presets.child(pill);
+    }
+
+    let gaps_binding = Binding::new(
+        || {
+            settings().with(|s| {
+                (s.padding.gaps.min(ShellPadding::MAX_GAPS) as f32)
+                    / (ShellPadding::MAX_GAPS as f32)
+            })
+        },
+        |v| {
+            let next = (v * ShellPadding::MAX_GAPS as f32)
+                .round()
+                .clamp(0.0, ShellPadding::MAX_GAPS as f32) as u16;
+            settings().update(|s| s.padding.gaps = next);
+        },
+    );
+
+    let apply_edges = move || {
+        let parsed = (|| {
+            Ok::<_, String>((
+                parse_edge_input(&top_text.get_untracked(), "Top")?,
+                parse_edge_input(&right_text.get_untracked(), "Right")?,
+                parse_edge_input(&bottom_text.get_untracked(), "Bottom")?,
+                parse_edge_input(&left_text.get_untracked(), "Left")?,
+            ))
+        })();
+        match parsed {
+            Ok((top, right, bottom, left)) => {
+                settings().update(|s| {
+                    let mut next = s.padding.normalized();
+                    next.top = top;
+                    next.right = right;
+                    next.bottom = bottom;
+                    next.left = left;
+                    s.padding = next;
+                });
+                top_text.set(format_edge_input(top));
+                right_text.set(format_edge_input(right));
+                bottom_text.set(format_edge_input(bottom));
+                left_text.set(format_edge_input(left));
+                error.set(String::new());
+            }
+            Err(message) => error.set(message),
+        }
+    };
+
+    let clear_edges = move |_: &PointerEvent| {
+        settings().update(|s| {
+            let mut next = s.padding.normalized();
+            next.top = None;
+            next.right = None;
+            next.bottom = None;
+            next.left = None;
+            s.padding = next;
+        });
+        top_text.set(String::new());
+        right_text.set(String::new());
+        bottom_text.set(String::new());
+        left_text.set(String::new());
+        error.set(String::new());
+    };
+
+    let edge_field = move |label: &'static str, value: Signal<String>| {
+        text_field(
+            value,
+            TextFieldStyle::new()
+                .label(label)
+                .placeholder("auto")
+                .on_submit(move |_| apply_edges()),
+        )
+        .flex_1()
+        .min_w(0.0)
+    };
+
+    let toggle_overrides = move |icon| {
+        styled_button(
+            "Edge overrides",
+            ButtonStyle::text().size(ButtonSize::ExtraSmall).icon(icon),
+        )
+        .on_click(move |_| overrides_open.update(|open| *open = !*open))
+    };
+
     section()
-        .child(heading(icons::DESKTOP_WINDOWS, "Bar position"))
+        .child(heading(icons::SPACE_DASHBOARD, "Desktop & layout"))
+        .child(static_txt(TextStyle::LABEL_LARGE, "Bar position"))
         .child(connected_button_group(
             positions.map(|p| p.label()),
             ButtonStyle::tonal(),
             move |i| settings().with(|s| s.bar_position == positions[i]),
             move |i| settings().update(|s| s.bar_position = positions[i]),
         ))
+        .child(setting_switch(
+            "Launcher",
+            Binding::new(
+                || settings().with(|s| s.launcher_enabled),
+                |on| settings().update(|s| s.launcher_enabled = on),
+            ),
+        ))
+        .child(setting_switch(
+            "Dock",
+            Binding::new(
+                || settings().with(|s| s.dock_enabled),
+                |on| settings().update(|s| s.dock_enabled = on),
+            ),
+        ))
+        .child(divider())
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .gap(4.0_f32)
+                .px(2.0_f32)
+                .child(static_txt(TextStyle::LABEL_LARGE, "Gaps").flex_1())
+                .child(show(
+                    || settings().with(|s| s.padding.normalized() != ShellPadding::DEFAULT),
+                    || {
+                        pressable(
+                            div()
+                                .h(24.0)
+                                .px(10.0_f32)
+                                .mr(2.0_f32)
+                                .rounded(12.0_f32)
+                                .flex()
+                                .items_center()
+                                .justify_center()
+                                .flex_none()
+                                .cursor(CursorIcon::Pointer)
+                                .focusable()
+                                .dyn_style(|s| {
+                                    let c = colors();
+                                    s.bg(c.surface_container_highest).text_color(c.primary)
+                                })
+                                .access(|a| {
+                                    a.role(anti_webui::prelude::Role::Button)
+                                        .label("Reset padding and gaps")
+                                })
+                                .on_click(|_| {
+                                    settings().update(|s| s.padding = ShellPadding::DEFAULT)
+                                })
+                                .child(static_txt(TextStyle::LABEL_MEDIUM, "Reset")),
+                            |c| c.primary,
+                        )
+                    },
+                ))
+                .child(stepper_btn(icons::CHEVRON_LEFT, "Decrease gaps", -1))
+                .child(
+                    txt(TextStyle::LABEL_LARGE, || {
+                        format!(
+                            "{} px",
+                            settings().with(|s| s.padding.gaps.min(ShellPadding::MAX_GAPS))
+                        )
+                    })
+                    .min_w(44.0)
+                    .text_align(TextAlign::Center)
+                    .dyn_style(|s| s.text_color(colors().primary)),
+                )
+                .child(stepper_btn(icons::CHEVRON_RIGHT, "Increase gaps", 1)),
+        )
+        .child(
+            TextStyle::BODY_SMALL
+                .apply(div().child(text(|| {
+                    let p = settings().with(|s| s.padding.normalized());
+                    if !p.has_overrides() {
+                        format!("Gaps {} px · all edges follow gaps", p.gaps)
+                    } else {
+                        let edge = |name: &str, v: Option<u16>| match v {
+                            Some(n) => format!("{name} {n}"),
+                            None => format!("{name} auto ({})", p.gaps),
+                        };
+                        format!(
+                            "Gaps {} px · {} · {} · {} · {}",
+                            p.gaps,
+                            edge("Top", p.top),
+                            edge("Right", p.right),
+                            edge("Bottom", p.bottom),
+                            edge("Left", p.left),
+                        )
+                    }
+                })))
+                .dyn_style(|s| s.text_color(colors().on_surface_variant)),
+        )
+        .child(presets)
+        .child(
+            styled_slider(gaps_binding, crate::quick_settings::slider_style())
+                .w_full()
+                .my(-4.0),
+        )
+        .child(
+            div()
+                .flex()
+                .flex_row()
+                .items_center()
+                .justify_center()
+                .min_h(36.0)
+                .child(show(
+                    move || !overrides_open.get(),
+                    move || toggle_overrides(icons::EXPAND_MORE),
+                ))
+                .child(show(
+                    move || overrides_open.get(),
+                    move || toggle_overrides(icons::EXPAND_LESS),
+                )),
+        )
+        .child(show(
+            move || overrides_open.get(),
+            move || {
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(10.0_f32)
+                    .child(
+                        TextStyle::BODY_SMALL
+                            .apply(div().child(
+                                "Blank or 'auto' follows gaps. Enter 0–512 px to match Niri struts.",
+                            ))
+                            .dyn_style(|s| s.text_color(colors().on_surface_variant)),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap(8.0_f32)
+                            .child(edge_field("Top", top_text))
+                            .child(edge_field("Right", right_text)),
+                    )
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .gap(8.0_f32)
+                            .child(edge_field("Bottom", bottom_text))
+                            .child(edge_field("Left", left_text)),
+                    )
+                    .child(show(
+                        move || !error.with(String::is_empty),
+                        move || {
+                            TextStyle::BODY_SMALL
+                                .apply(div().child(text(move || error.get())))
+                                .dyn_style(|s| s.text_color(colors().error))
+                        },
+                    ))
+                    .child(
+                        div()
+                            .flex()
+                            .flex_row()
+                            .items_center()
+                            .justify_end()
+                            .gap(8.0_f32)
+                            .child(
+                                styled_button(
+                                    "Clear overrides",
+                                    ButtonStyle::text().size(ButtonSize::Small),
+                                )
+                                .on_click(clear_edges),
+                            )
+                            .child(
+                                styled_button(
+                                    "Apply",
+                                    ButtonStyle::filled().size(ButtonSize::Small),
+                                )
+                                .on_click(move |_| apply_edges()),
+                            ),
+                    )
+            },
+        ))
 }
 
 /// How the clock in the bar reads.
 fn clock_section() -> Div {
-    let row = |label: &'static str, on: Binding<bool>| {
-        div()
-            .flex()
-            .flex_row()
-            .items_center()
-            .px(4.0_f32)
-            .child(static_txt(TextStyle::BODY_MEDIUM, label).flex_1())
-            .child(switch(on))
-    };
     section()
         .child(heading(icons::SCHEDULE, "Clock"))
-        .child(row(
+        .child(setting_switch(
             "24-hour time",
             Binding::new(
                 || settings().with(|s| s.clock_24h),
                 |on| settings().update(|s| s.clock_24h = on),
             ),
         ))
-        .child(row(
+        .child(setting_switch(
             "Show seconds",
             Binding::new(
                 || settings().with(|s| s.clock_seconds),
@@ -371,4 +740,50 @@ fn swatch(seed: Option<u32>, name: &'static str) -> Div {
                         )),
                 ),
         )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::settings::{Settings, ShellPadding};
+    use anti_webui::core::{
+        Ui,
+        event::WindowEvent,
+        geometry::{Scale, SizeI},
+    };
+
+    #[test]
+    fn edge_input_parsing_accepts_blank_auto_and_bounds() {
+        assert_eq!(parse_edge_input("", "Top"), Ok(None));
+        assert_eq!(parse_edge_input("  auto  ", "Top"), Ok(None));
+        assert_eq!(parse_edge_input("AUTO", "Top"), Ok(None));
+        assert_eq!(parse_edge_input("0", "Top"), Ok(Some(0)));
+        assert_eq!(parse_edge_input("512", "Top"), Ok(Some(512)));
+        assert!(parse_edge_input("513", "Top").is_err());
+        assert!(parse_edge_input("-1", "Top").is_err());
+        assert!(parse_edge_input("px", "Top").is_err());
+    }
+
+    #[test]
+    fn settings_page_renders_desktop_layout_card_with_overrides() {
+        crate::settings::never_save();
+        settings().set(Settings {
+            padding: ShellPadding {
+                gaps: 16,
+                top: Some(8),
+                right: Some(64),
+                bottom: None,
+                left: Some(64),
+            },
+            ..Settings::default()
+        });
+        let mut ui = Ui::new(|| div().w(396.0).p(16.0_f32).child(settings_page()));
+        ui.handle_event(WindowEvent::Resized {
+            size: SizeI::new(396, 1600),
+            scale: Scale::from_f64(1.0),
+        });
+        ui.update();
+        drop(ui);
+        settings().set(Settings::default());
+    }
 }
