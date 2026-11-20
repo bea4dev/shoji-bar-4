@@ -10,7 +10,7 @@ use anti_webui::{
 };
 
 use crate::{
-    bar::island::{Island, ISLAND, VERTICAL_ISLAND, bar_island},
+    bar::island::{ISLAND, Island, VERTICAL_ISLAND, bar_island},
     panels::{Panel, is_open},
     placement::BarPlacement,
 };
@@ -37,7 +37,7 @@ fn launcher_island(output: Output, at: BarPlacement) -> Div {
 
 /// The launcher button, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("launcher", |output, at| {
-        launcher_island(output, at).into_view()
+    Island::new("launcher", |cx| {
+        launcher_island(cx.output.clone(), cx.placement).into_view()
     })
 }

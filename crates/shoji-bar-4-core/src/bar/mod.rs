@@ -4,6 +4,7 @@
 //! all of the bar. Vertical bars use compact icons and stack the clock.
 
 use crate::bar::island::Island;
+use crate::context::Cx;
 use crate::placement::BarPlacement;
 use crate::theme::{TextStyle, colors};
 use anti_webui::prelude::*;
@@ -65,6 +66,7 @@ impl Bar {
 
 /// The bar as it is drawn on `output`: the islands of `bar`, on a pane of frosted glass.
 pub fn view(bar: &Bar, output: Output, at: BarPlacement) -> Div {
+    let cx = Cx::new(output, at);
     let vertical = at.is_vertical();
     let mut root = div()
         .select_none()
@@ -108,13 +110,17 @@ pub fn view(bar: &Bar, output: Output, at: BarPlacement) -> Div {
                 .pointer_events_none()
                 .dyn_style(|s| s.bg(colors().surface.with_alpha(0.34))),
         )
-        .child(bar.left.iter().fold(leading, |group, island| {
-            group.child((island.build)(output.clone(), at))
-        }))
-        .children(bar.center.iter().map(|island| (island.build)(output.clone(), at)))
-        .child(bar.right.iter().fold(trailing, |group, island| {
-            group.child((island.build)(output.clone(), at))
-        }))
+        .child(
+            bar.left
+                .iter()
+                .fold(leading, |group, island| group.child((island.build)(&cx))),
+        )
+        .children(bar.center.iter().map(|island| (island.build)(&cx)))
+        .child(
+            bar.right
+                .iter()
+                .fold(trailing, |group, island| group.child((island.build)(&cx))),
+        )
 }
 
 #[cfg(test)]
@@ -125,7 +131,7 @@ mod tests {
     fn island(id: &str) -> Island {
         Island {
             id: id.into(),
-            build: Rc::new(|_, _| unreachable!()),
+            build: Rc::new(|_| unreachable!()),
         }
     }
 

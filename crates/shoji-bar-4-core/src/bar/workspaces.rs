@@ -261,7 +261,8 @@ pub fn workspaces_island(list: Memo<Vec<Ws>>, activate: Rc<dyn Fn(&str)>, at: Ba
 
 /// The workspaces of the output, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("workspaces", |output, at| {
+    Island::new("workspaces", |cx| {
+        let output = cx.output.clone();
         let activate: Rc<dyn Fn(&str)> = Rc::new({
             let output = output.clone();
             move |id: &str| {
@@ -270,6 +271,6 @@ pub fn island() -> Island {
                 }
             }
         });
-        workspaces_island(workspaces_of(output), activate, at).into_view()
+        workspaces_island(workspaces_of(output), activate, cx.placement).into_view()
     })
 }
