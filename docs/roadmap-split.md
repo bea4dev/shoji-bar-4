@@ -28,7 +28,7 @@ shoji-bar-4-core/        components and machinery only; no layout decisions
 
 shoji-bar-4/             the shell as shipped: arranges the parts, sets the overall style
 ├── src/lib.rs           pub fn bar() -> Bar, pub fn motion() -> Motion   (the stock layout, public)
-└── src/main.rs          shoji_bar_4_core::run(|| ...)
+└── src/main.rs          shoji_bar_4_core::run(layout(), |layout| ...)
 
 my-shell/                someone who wants their own shell: an ordinary crate that depends on
                          shoji-bar-4-core (and, optionally, shoji-bar-4 to start from the stock layout)
@@ -80,7 +80,7 @@ Bar          where the islands go (left / center / right)
    - [x] `empty_bar()` next to it, as part of the API: a bar with no islands, to build one from
          scratch
    - [x] `preview bar` draws the bar of the shell: `run_with(bar, root)`, since the core cannot call
-         `default_bar()` (open question for bea4dev: is this the way?)
+         `default_bar()` (replaced by `Layout` in step 4, as bea4dev asked)
 
 3. Create `Part` and `Cx`
    - [x] `context.rs`: `Part = Rc<dyn Fn(&Cx) -> View>`
@@ -91,6 +91,16 @@ Bar          where the islands go (left / center / right)
          one `Cx` for all of them
 
 4. Refactor: move content out of the Island
+   Fixes asked in the review of #15, first:
+   - [x] `run(layout, root)`: one `Layout { bar }` that `run` gives to `preview` and to `root`
+         (instead of `run_with`); motion and the panels join it as fields
+   - [x] `row(gap, parts)` and `column(gap, parts)`: `gap` is one `f32` for every space, or one per
+         space (see the Proposal in the PR)
+   - [ ] a `gap` that does not fit the parts is reported to the user, and the row is drawn without
+         gaps instead of failing
+   - [ ] the doc of `spacer()` says it needs a row wider than its content
+
+   The step itself:
    - [ ] `Island` as the frame (shape, padding, hover, click, highlight, entrance); its content is a
          `Part`
    - [ ] `IslandState { hovered, active, index }` in `Cx`
@@ -132,7 +142,10 @@ Bar          where the islands go (left / center / right)
 - ★ `Section::free()`, whose children are placed with `.absolute()` for exact pixels.
 - ★ Named motions.
 - ★ A grid layout for panels.
-- How `preview` gets the bar from the binary: `run_with(bar, root)` (step 2).
+- How `preview` gets the bar from the binary: solved with `Layout` given to `run` (step 4).
+- How a bad configuration is reported to the user (a gap that does not fit, an unknown id...), by the
+  check itself and not through the API: stderr, or a critical notification? It must never stop
+  the shell from drawing.
 - The names `default_bar()` and `empty_bar()`, instead of the `bar()` of the proposal.
 
 ## Extra
