@@ -19,7 +19,7 @@ use anti_webui::shell::prelude::*;
 use anti_webui::wgpu::{Gpu, Renderer};
 use std::time::{Duration, Instant};
 
-pub fn run(args: &[String], bar: &crate::bar::Bar) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(args: &[String], layout: &crate::run::Layout) -> Result<(), Box<dyn std::error::Error>> {
     let part = args.first().cloned().unwrap_or_else(|| "bar".into());
     let out = args
         .get(1)
@@ -93,7 +93,7 @@ pub fn run(args: &[String], bar: &crate::bar::Bar) -> Result<(), Box<dyn std::er
         .and_then(|s| s.parse().ok())
         .unwrap_or(20);
 
-    let bar = bar.clone();
+    let layout = layout.clone();
     let gpu = Gpu::headless()?;
     let mut renderer = Renderer::new(
         &gpu.device,
@@ -124,7 +124,7 @@ pub fn run(args: &[String], bar: &crate::bar::Bar) -> Result<(), Box<dyn std::er
             }
         }
         let view = match part.as_str() {
-            "bar" => crate::bar::view(&bar, output, at),
+            "bar" => crate::bar::view(&layout.bar, output, at),
             // As ShojiWM lists them: the ones with windows and the active one. At 1.5 s a new,
             // empty one after the last is gone to; at 3 s the first, which leaves the empty one.
             "workspaces" => {
