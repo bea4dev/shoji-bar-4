@@ -53,6 +53,17 @@ pub fn column(gaps: impl Into<Gaps>, parts: impl IntoIterator<Item = Part>) -> P
     stack(gaps.into(), parts, true)
 }
 
+/// Chooses one of two parts by the placement of the bar, which is only known when it is drawn.
+pub fn by_placement(horizontal: Part, vertical: Part) -> Part {
+    Rc::new(move |cx| {
+        if cx.placement.is_vertical() {
+            vertical(cx)
+        } else {
+            horizontal(cx)
+        }
+    })
+}
+
 /// Empty space that grows to fill what is left, so what comes after goes to the far end. It only
 /// has room to grow if the row around it is wider than its content: a `row` inside an island is as
 /// wide as its parts, so there the spacer does nothing.
