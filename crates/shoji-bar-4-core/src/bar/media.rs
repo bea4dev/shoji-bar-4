@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::bar::BAR_TEXT;
 use crate::bar::island::{Island, VERTICAL_ISLAND, bar_island};
 use crate::panels::{Panel, is_open, toggle};
@@ -122,7 +124,8 @@ fn equalizer(playing: Memo<bool>) -> Div {
 
 /// What is playing, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("media", |cx| {
-        media_island(cx.output.clone(), cx.placement).into_view()
-    })
+    Island::new(
+        "media",
+        Rc::new(|cx| media_island(cx.output.clone(), cx.placement).into_view()),
+    )
 }

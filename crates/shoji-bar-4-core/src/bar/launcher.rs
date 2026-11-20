@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::panels::toggle;
 use crate::ui::launcher_glyph;
 use anti_webui::prelude::{IntoView, Styled};
@@ -37,7 +39,8 @@ fn launcher_island(output: Output, at: BarPlacement) -> Div {
 
 /// The launcher button, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("launcher", |cx| {
-        launcher_island(cx.output.clone(), cx.placement).into_view()
-    })
+    Island::new(
+        "launcher",
+        Rc::new(|cx| launcher_island(cx.output.clone(), cx.placement).into_view()),
+    )
 }

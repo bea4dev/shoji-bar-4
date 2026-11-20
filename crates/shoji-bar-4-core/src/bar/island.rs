@@ -1,27 +1,105 @@
 use std::rc::Rc;
 
 use anti_webui::{
-    core::view::{Div, View, div},
+    core::{
+        reactive::{memo, signal},
+        view::{Div, IntoView, View, div},
+    },
     style::{Length, Styled},
 };
 
 use crate::{
-    context::{Cx, Part},
+    context::{Cx, IslandState, Part},
     placement::BarPlacement,
     theme::{colors, elevation},
+    ui::pressable,
 };
 
 #[derive(Clone)]
 pub struct Island {
     pub id: String,
-    pub build: Part,
+    pub content: Part,
+    frame: Option<Frame>,
+}
+
+#[derive(Clone, Default)]
+struct Frame {
+    padding: (f32, f32),
+    active: Option<Rc<dyn Fn(&Cx) -> bool>>,
+    on_click: Option<Rc<dyn Fn(&Cx)>>,
 }
 
 impl Island {
-    pub fn new(id: impl Into<String>, build: impl Fn(&Cx) -> View + 'static) -> Self {
+    /// The frame, created the first time one of its fields is set.
+    fn frame_mut(&mut self) -> &mut Frame {
+        self.frame.get_or_insert_with(Frame::default)
+    }
+
+    pub fn new(id: impl Into<String>, content: Part) -> Self {
         Self {
             id: id.into(),
-            build: Rc::new(build),
+            content,
+            frame: None,
+        }
+    }
+
+    pub fn padding(mut self, horizontal: f32, vertical: f32) -> Self {
+        self.frame_mut().padding = (horizontal, vertical);
+        self
+    }
+
+    pub fn active(mut self, f: impl Fn(&Cx) -> bool + 'static) -> Self {
+        self.frame_mut().active = Some(Rc::new(f));
+        self
+    }
+
+    pub fn on_click(mut self, f: impl Fn(&Cx) + 'static) -> Self {
+        self.frame_mut().on_click = Some(Rc::new(f));
+        self
+    }
+
+    pub fn view(&self, cx: &Cx, index: usize) -> View {
+        let Some(frame) = &self.frame else {
+            return (self.content)(cx); // no frame: the island draws itselft, as today
+        };
+
+        let hovered = signal(false);
+        let active = {
+            let (f, cx) = (frame.active.clone(), cx.clone());
+            memo(move || f.as_ref().is_some_and(|f| f(&cx)))
+        };
+
+        let cx = cx.with_island(IslandState {
+            hovered,
+            active,
+            index,
+        });
+
+        let (horizontal, vertical) = frame.padding;
+        let node = bar_island(cx.placement);
+        let node = if cx.placement.is_vertical() {
+            node.py(vertical)
+        } else {
+            node.px(horizontal)
+        };
+        let node = node
+            .on_hover(move |h| hovered.set(h))
+            .dyn_style(move |s| {
+                let c = colors();
+                if active.get() {
+                    s.bg(c.primary_container).text_color(c.on_primary_container)
+                } else {
+                    s
+                }
+            })
+            .child((self.content)(&cx));
+
+        match frame.on_click.clone() {
+            Some(on_click) => {
+                let cx = cx.clone();
+                pressable(node.on_click(move |_| on_click(&cx)), |c| c.on_surface).into_view()
+            }
+            None => node.into_view(),
         }
     }
 }

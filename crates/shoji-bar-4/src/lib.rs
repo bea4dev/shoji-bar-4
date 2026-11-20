@@ -1,7 +1,15 @@
 //! shoji-bar-4 as it ships: the bars that arrange the islands of `shoji-bar-4-core`. Another shell
 //! can start from them, and change what it wants.
 
-use shoji_bar_4_core::bar::{Bar, clock, launcher, media, status, tray, window, workspaces};
+use shoji_bar_4_core::{
+    Layout,
+    bar::{Bar, clock, launcher, media, status, tray, window, workspaces},
+};
+
+/// creates a default bar into a Layout to pass only one bar avoiding duplicated bars
+pub fn layout() -> Layout {
+    Layout { bar: default_bar() }
+}
 
 /// A bar with no islands, to build one's own from scratch.
 pub fn empty_bar() -> Bar {

@@ -3,6 +3,8 @@
 //! system at the end. Each group floats in an island of its own, on a pane of frosted glass that is
 //! all of the bar. Vertical bars use compact icons and stack the clock.
 
+use std::cell::Cell;
+
 use crate::bar::island::Island;
 use crate::context::Cx;
 use crate::placement::BarPlacement;
@@ -67,6 +69,12 @@ impl Bar {
 /// The bar as it is drawn on `output`: the islands of `bar`, on a pane of frosted glass.
 pub fn view(bar: &Bar, output: Output, at: BarPlacement) -> Div {
     let cx = Cx::new(output, at);
+    let index = Cell::new(0);
+    let draw = |island: &Island| {
+        let i = index.get();
+        index.set(i + 1);
+        island.view(&cx, i)
+    };
     let vertical = at.is_vertical();
     let mut root = div()
         .select_none()
@@ -113,26 +121,24 @@ pub fn view(bar: &Bar, output: Output, at: BarPlacement) -> Div {
         .child(
             bar.left
                 .iter()
-                .fold(leading, |group, island| group.child((island.build)(&cx))),
+                .fold(leading, |group, island| group.child(draw(island))),
         )
-        .children(bar.center.iter().map(|island| (island.build)(&cx)))
+        .children(bar.center.iter().map(|island| draw(island)))
         .child(
             bar.right
                 .iter()
-                .fold(trailing, |group, island| group.child((island.build)(&cx))),
+                .fold(trailing, |group, island| group.child(draw(island))),
         )
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use std::rc::Rc;
 
+    use super::*;
+
     fn island(id: &str) -> Island {
-        Island {
-            id: id.into(),
-            build: Rc::new(|_| unreachable!()),
-        }
+        Island::new(id, Rc::new(|_| unreachable!()))
     }
 
     #[test]

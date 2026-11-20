@@ -1,40 +1,21 @@
-use crate::bar::island::{Island, bar_island};
+use std::rc::Rc;
+
+use crate::bar::island::Island;
+use crate::context::Part;
+use crate::layout::{by_placement, column, row};
 use crate::panels::{Panel, is_open, toggle};
-use crate::placement::BarPlacement;
-use crate::theme::{TextStyle, colors};
+use crate::theme::TextStyle;
 use crate::ui::*;
 use anti_webui::prelude::*;
 use anti_webui::shell::prelude::*;
 use anti_webui::shell::{BatteryState, Connectivity};
 use anti_webui_md3e::icons;
 
-/// Network, Bluetooth, sound and battery at a glance; a click opens quick settings.
-fn status_island(output: Output, at: BarPlacement) -> Div {
-    let vertical = at.is_vertical();
-    let net = network();
-    let bt = bluetooth();
-    let a = audio();
-    let b = battery();
-    let open = memo({
-        let output = output.clone();
-        move || is_open(&output, Panel::QuickSettings)
-    });
-    let color = move |c: &anti_webui_md3e::ColorScheme| c.on_surface_variant;
-    let content = if vertical {
-        bar_island(at).py(10.0_f32).gap(7.0_f32)
-    } else {
-        bar_island(at).px(12.0_f32).gap(9.0_f32)
-    };
-    let content = content
-        .on_click(move |_| toggle(&output, Panel::QuickSettings))
-        .dyn_style(move |s| {
-            if open.get() {
-                s.bg(colors().primary_container)
-            } else {
-                s
-            }
-        })
-        .child(dyn_sym(
+/// How the network is connected: Wi-Fi with its strength, the cable, or why there is none.
+pub fn wifi() -> Part {
+    Rc::new(|_cx| {
+        let net = network();
+        dyn_sym(
             move || match net.wifi() {
                 Some(ap) => wifi_icon(ap.strength),
                 None if net.wired().is_some_and(|w| w.connected) => icons::LAN,
@@ -42,9 +23,17 @@ fn status_island(output: Output, at: BarPlacement) -> Div {
                 None => icons::WIFI_OFF,
             },
             16.0,
-            color,
-        ))
-        .child(show(
+            |c: &anti_webui_md3e::ColorScheme| c.on_surface_variant,
+        )
+        .into_view()
+    })
+}
+
+/// Bluetooth, while the adapter is on: it shows whether a device is connected.
+pub fn bluetooth() -> Part {
+    Rc::new(|_cx| {
+        let bt = anti_webui::shell::bluetooth();
+        show(
             move || bt.available() && bt.adapter().is_some_and(|a| a.powered),
             move || {
                 dyn_sym(
@@ -56,20 +45,37 @@ fn status_island(output: Output, at: BarPlacement) -> Div {
                         }
                     },
                     16.0,
-                    color,
+                    |c: &anti_webui_md3e::ColorScheme| c.on_surface_variant,
                 )
             },
-        ))
-        .child(dyn_sym(
+        )
+        .into_view()
+    })
+}
+
+/// The volume of the default output: muted, low or high.
+pub fn volume() -> Part {
+    Rc::new(|_cx| {
+        let a = audio();
+        dyn_sym(
             move || match a.default_sink() {
                 Some(s) if s.muted || s.volume <= 0.001 => icons::VOLUME_OFF,
                 Some(s) if s.volume < 0.5 => icons::VOLUME_DOWN,
                 _ => icons::VOLUME_UP,
             },
             16.0,
-            color,
-        ))
-        .child(show(
+            |c: &anti_webui_md3e::ColorScheme| c.on_surface_variant,
+        )
+        .into_view()
+    })
+}
+
+/// The battery, while there is one: its icon and its percentage, stacked on a vertical bar.
+pub fn battery() -> Part {
+    Rc::new(|cx| {
+        let vertical = cx.placement.is_vertical();
+        let b = anti_webui::shell::battery();
+        show(
             move || b.available(),
             move || {
                 let battery = div().flex().items_center().gap(2.0_f32);
@@ -82,21 +88,15 @@ fn status_island(output: Output, at: BarPlacement) -> Div {
                     .child(dyn_sym(
                         move || battery_icon(b.percentage(), b.state()),
                         16.0,
-                        color,
+                        |c: &anti_webui_md3e::ColorScheme| c.on_surface_variant,
                     ))
                     .child(txt(TextStyle::LABEL_MEDIUM, move || {
                         format!("{:.0}%", b.percentage())
                     }))
             },
-        ))
-        .dyn_style(move |s| {
-            if open.get() {
-                s.text_color(colors().on_primary_container)
-            } else {
-                s
-            }
-        });
-    pressable(content, |c| c.on_surface)
+        )
+        .into_view()
+    })
 }
 
 pub fn wifi_icon(strength: u8) -> &'static anti_webui_md3e::icons::Symbol {
@@ -136,9 +136,14 @@ pub fn battery_icon(
     }
 }
 
-/// The state of the system, as an island of the bar.
+/// Network, Bluetooth, sound and battery at a glance; a click opens quick settings.
 pub fn island() -> Island {
-    Island::new("status", |cx| {
-        status_island(cx.output.clone(), cx.placement).into_view()
-    })
+    let parts = [wifi(), bluetooth(), volume(), battery()];
+    Island::new(
+        "status",
+        by_placement(row(9.0, parts.clone()), column(7.0, parts)),
+    )
+    .padding(12.0, 10.0)
+    .active(|cx| is_open(&cx.output, Panel::QuickSettings))
+    .on_click(|cx| toggle(&cx.output, Panel::QuickSettings))
 }

@@ -28,7 +28,7 @@ shoji-bar-4-core/        components and machinery only; no layout decisions
 
 shoji-bar-4/             the shell as shipped: arranges the parts, sets the overall style
 ├── src/lib.rs           pub fn bar() -> Bar, pub fn motion() -> Motion   (the stock layout, public)
-└── src/main.rs          shoji_bar_4_core::run(|| ...)
+└── src/main.rs          shoji_bar_4_core::run(layout(), |layout| ...)
 
 my-shell/                someone who wants their own shell: an ordinary crate that depends on
                          shoji-bar-4-core (and, optionally, shoji-bar-4 to start from the stock layout)
@@ -80,7 +80,7 @@ Bar          where the islands go (left / center / right)
    - [x] `empty_bar()` next to it, as part of the API: a bar with no islands, to build one from
          scratch
    - [x] `preview bar` draws the bar of the shell: `run_with(bar, root)`, since the core cannot call
-         `default_bar()` (open question for bea4dev: is this the way?)
+         `default_bar()` (replaced by `Layout` in step 4, as bea4dev asked)
 
 3. Create `Part` and `Cx`
    - [x] `context.rs`: `Part = Rc<dyn Fn(&Cx) -> View>`
@@ -91,11 +91,20 @@ Bar          where the islands go (left / center / right)
          one `Cx` for all of them
 
 4. Refactor: move content out of the Island
-   - [ ] `Island` as the frame (shape, padding, hover, click, highlight, entrance); its content is a
-         `Part`
-   - [ ] `IslandState { hovered, active, index }` in `Cx`
-   - [ ] each island file split into its parts: `clock::time()` and `date()`, `status::wifi()`,
-         `bluetooth()`, `volume()` and `battery()`...
+   Fixes asked in the review of #15, first:
+   - [x] `run(layout, root)`: one `Layout { bar }` that `run` gives to `preview` and to `root`
+         (instead of `run_with`); motion and the panels join it as fields
+   - [x] `row(gap, parts)` and `column(gap, parts)`: `gap` is one `f32` for every space, or one per
+         space (see the Proposal in the PR)
+   - [ ] a `gap` that does not fit the parts is reported to the user, and the row is drawn without
+         gaps instead of failing
+   - [x] the doc of `spacer()` says it needs a row wider than its content
+
+   The step itself:
+   - [x] `Island` as the frame (padding, hover, click, highlight); its content is a `Part`
+   - [x] `IslandState { hovered, active, index }` in `Cx`
+   - [x] the islands made of several things are split into their parts: `clock::time()` and
+         `date()`, `status::wifi()`, `bluetooth()`, `volume()` and `battery()`
 
 5. Feat: bar builder (stable ids)
    - [ ] `.insert_before(id, island)`
@@ -108,10 +117,16 @@ Bar          where the islands go (left / center / right)
 6. Refactor: motion
    - [ ] `motion.rs`: collect the static/constants animation (`fast_spatial()`, `flow()`, `GOING`...)
          into `Motion`; `Motion::default()` keeps today's values
+   - [ ] the frame of the island learns what the islands that are still outside of it need, and
+         they move into it: `visible` with an enter and an exit (`media`, `tray` and `window`
+         appear and disappear), `on_scroll` (`workspaces`), a frame without the press layer
+         (`launcher` has its own hover) and `shape` (its corner radius); `media` is split then into
+         `equalizer()` and its title, and `Island` stops holding an `Option` of its frame
    - [ ] `motion` joins `Cx` (`Rc<Motion>`); `Island` can hold an `Option<Motion>`
    - [ ] `pub fn motion() -> Motion` in `shoji-bar-4/src/lib.rs`, next to `default_bar()`
    - [ ] `enter_delay` and `stagger`: new behaviour, in a commit of their own
-   - [ ] ★ named motions: `motion.register("fade", f)`
+   - [ ] the animations of an island as typed fields of `Motion`, or closures, not looked up by a
+         string name (as bea4dev preferred in the review of #13)
 
 7. Refactor: panel
    - [ ] `panels/`: `PanelDef` and its builder, replacing the closed `Panel` enum; the contents of
@@ -129,11 +144,19 @@ Bar          where the islands go (left / center / right)
 ## Open for discussion
 
 - ★ Sections in any number, instead of the fixed `left` / `center` / `right`.
-- ★ `Section::free()`, whose children are placed with `.absolute()` for exact pixels.
-- ★ Named motions.
 - ★ A grid layout for panels.
-- How `preview` gets the bar from the binary: `run_with(bar, root)` (step 2).
+- How `preview` gets the bar from the binary: solved with `Layout` given to `run` (step 4).
+- How a bad configuration is reported to the user (a gap that does not fit, an unknown id...), by the
+  check itself and not through the API: stderr, or a critical notification? It must never stop
+  the shell from drawing.
 - The names `default_bar()` and `empty_bar()`, instead of the `bar()` of the proposal.
+
+Decided in the review of #13, and dropped from the plan:
+
+- `Section::free()`: children placed with `.absolute()` at exact pixels break easily on a vertical
+  bar.
+- Named motions (`motion.register("fade", f)`): a lookup by string loses type checking; fields on
+  `Motion` or closures are enough.
 
 ## Extra
 
