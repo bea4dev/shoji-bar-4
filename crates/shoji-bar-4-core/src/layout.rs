@@ -53,7 +53,9 @@ pub fn column(gaps: impl Into<Gaps>, parts: impl IntoIterator<Item = Part>) -> P
     stack(gaps.into(), parts, true)
 }
 
-/// Empty space that grows to fill what is left, so what comes after goes to the far end.
+/// Empty space that grows to fill what is left, so what comes after goes to the far end. It only
+/// has room to grow if the row around it is wider than its content: a `row` inside an island is as
+/// wide as its parts, so there the spacer does nothing.
 pub fn spacer() -> Part {
     Rc::new(|_cx: &Cx| div().flex_1().into_view())
 }

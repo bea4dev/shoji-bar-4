@@ -98,7 +98,7 @@ Bar          where the islands go (left / center / right)
          space (see the Proposal in the PR)
    - [ ] a `gap` that does not fit the parts is reported to the user, and the row is drawn without
          gaps instead of failing
-   - [ ] the doc of `spacer()` says it needs a row wider than its content
+   - [x] the doc of `spacer()` says it needs a row wider than its content
 
    The step itself:
    - [ ] `Island` as the frame (shape, padding, hover, click, highlight, entrance); its content is a
