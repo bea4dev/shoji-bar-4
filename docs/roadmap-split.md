@@ -101,9 +101,9 @@ Bar          where the islands go (left / center / right)
    - [x] the doc of `spacer()` says it needs a row wider than its content
 
    The step itself:
-   - [ ] `Island` as the frame (shape, padding, hover, click, highlight, entrance); its content is a
-         `Part`
-   - [ ] `IslandState { hovered, active, index }` in `Cx`
+   - [x] `Island` as the frame (padding, hover, click, highlight); its content is a `Part`
+   - [ ] `shape` of the frame (its corner radius); `entrance` waits for the motion of step 6
+   - [x] `IslandState { hovered, active, index }` in `Cx`
    - [ ] each island file split into its parts: `clock::time()` and `date()`, `status::wifi()`,
          `bluetooth()`, `volume()` and `battery()`...
 
@@ -121,7 +121,8 @@ Bar          where the islands go (left / center / right)
    - [ ] `motion` joins `Cx` (`Rc<Motion>`); `Island` can hold an `Option<Motion>`
    - [ ] `pub fn motion() -> Motion` in `shoji-bar-4/src/lib.rs`, next to `default_bar()`
    - [ ] `enter_delay` and `stagger`: new behaviour, in a commit of their own
-   - [ ] ★ named motions: `motion.register("fade", f)`
+   - [ ] the animations of an island as typed fields of `Motion`, or closures, not looked up by a
+         string name (as bea4dev preferred in the review of #13)
 
 7. Refactor: panel
    - [ ] `panels/`: `PanelDef` and its builder, replacing the closed `Panel` enum; the contents of
@@ -139,14 +140,19 @@ Bar          where the islands go (left / center / right)
 ## Open for discussion
 
 - ★ Sections in any number, instead of the fixed `left` / `center` / `right`.
-- ★ `Section::free()`, whose children are placed with `.absolute()` for exact pixels.
-- ★ Named motions.
 - ★ A grid layout for panels.
 - How `preview` gets the bar from the binary: solved with `Layout` given to `run` (step 4).
 - How a bad configuration is reported to the user (a gap that does not fit, an unknown id...), by the
   check itself and not through the API: stderr, or a critical notification? It must never stop
   the shell from drawing.
 - The names `default_bar()` and `empty_bar()`, instead of the `bar()` of the proposal.
+
+Decided in the review of #13, and dropped from the plan:
+
+- `Section::free()`: children placed with `.absolute()` at exact pixels break easily on a vertical
+  bar.
+- Named motions (`motion.register("fade", f)`): a lookup by string loses type checking; fields on
+  `Motion` or closures are enough.
 
 ## Extra
 
