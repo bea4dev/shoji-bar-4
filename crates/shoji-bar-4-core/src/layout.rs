@@ -62,10 +62,17 @@ pub fn spacer() -> Part {
 
 fn stack(gaps: Gaps, parts: impl IntoIterator<Item = Part>, vertical: bool) -> Part {
     let parts: Vec<Part> = parts.into_iter().collect();
-    let spaces = spaces(&gaps.0, parts.len()).unwrap_or_else(|| {
-        report();
-        vec![0.0; parts.len() + 1]
-    });
+    let uniform = match gaps.0[..] {
+        [g] => Some(g),
+        _ => None,
+    };
+    let spaces = match uniform {
+        Some(_) => Vec::new(),
+        None => spaces(&gaps.0, parts.len()).unwrap_or_else(|| {
+            report();
+            vec![0.0; parts.len() + 1]
+        }),
+    };
     Rc::new(move |cx| {
         let node = div().flex().items_center();
         let node = if vertical {
@@ -73,17 +80,23 @@ fn stack(gaps: Gaps, parts: impl IntoIterator<Item = Part>, vertical: bool) -> P
         } else {
             node.flex_row()
         };
-        let space = |g: f32| if vertical { div().h(g) } else { div().w(g) }.flex_none();
-        let mut node = node;
-        for (part, g) in parts.iter().zip(&spaces) {
-            if *g > 0.0 {
-                node = node.child(space(*g));
+        let node = match uniform {
+            Some(g) => node.gap(g).children(parts.iter().map(|part| part(cx))),
+            None => {
+                let space = |g: f32| if vertical { div().h(g) } else { div().w(g) }.flex_none();
+                let mut node = node;
+                for (part, g) in parts.iter().zip(&spaces) {
+                    if *g > 0.0 {
+                        node = node.child(space(*g));
+                    }
+                    node = node.child(part(cx));
+                }
+                if spaces[parts.len()] > 0.0 {
+                    node = node.child(space(spaces[parts.len()]));
+                }
+                node
             }
-            node = node.child(part(cx));
-        }
-        if spaces[parts.len()] > 0.0 {
-            node = node.child(space(spaces[parts.len()]));
-        }
+        };
         node.into_view()
     })
 }
