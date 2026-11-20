@@ -102,10 +102,9 @@ Bar          where the islands go (left / center / right)
 
    The step itself:
    - [x] `Island` as the frame (padding, hover, click, highlight); its content is a `Part`
-   - [ ] `shape` of the frame (its corner radius); `entrance` waits for the motion of step 6
    - [x] `IslandState { hovered, active, index }` in `Cx`
-   - [ ] each island file split into its parts: `clock::time()` and `date()`, `status::wifi()`,
-         `bluetooth()`, `volume()` and `battery()`...
+   - [x] the islands made of several things are split into their parts: `clock::time()` and
+         `date()`, `status::wifi()`, `bluetooth()`, `volume()` and `battery()`
 
 5. Feat: bar builder (stable ids)
    - [ ] `.insert_before(id, island)`
@@ -118,6 +117,11 @@ Bar          where the islands go (left / center / right)
 6. Refactor: motion
    - [ ] `motion.rs`: collect the static/constants animation (`fast_spatial()`, `flow()`, `GOING`...)
          into `Motion`; `Motion::default()` keeps today's values
+   - [ ] the frame of the island learns what the islands that are still outside of it need, and
+         they move into it: `visible` with an enter and an exit (`media`, `tray` and `window`
+         appear and disappear), `on_scroll` (`workspaces`), a frame without the press layer
+         (`launcher` has its own hover) and `shape` (its corner radius); `media` is split then into
+         `equalizer()` and its title, and `Island` stops holding an `Option` of its frame
    - [ ] `motion` joins `Cx` (`Rc<Motion>`); `Island` can hold an `Option<Motion>`
    - [ ] `pub fn motion() -> Motion` in `shoji-bar-4/src/lib.rs`, next to `default_bar()`
    - [ ] `enter_delay` and `stagger`: new behaviour, in a commit of their own
