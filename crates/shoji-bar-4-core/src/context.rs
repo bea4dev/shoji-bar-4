@@ -1,15 +1,25 @@
 use std::rc::Rc;
 
 use crate::placement::BarPlacement;
-use anti_webui::{core::view::View, shell::Output};
+use anti_webui::{
+    core::{
+        reactive::{Memo, Signal, memo, signal},
+        view::View,
+    },
+    shell::Output,
+};
 
 pub type Part = Rc<dyn Fn(&Cx) -> View>;
 
 // TODO: to be completed on step 6: motion.rs
 pub struct Motion;
-// TODO: to be completed on step 4
-#[derive(Clone)]
-pub struct IslandState;
+
+#[derive(Clone, Copy)]
+pub struct IslandState {
+    pub hovered: Signal<bool>,
+    pub active: Memo<bool>, // highlighted, e.g. while its panel is open
+    pub index: usize,       // position in the bar, for staggered entrances
+}
 
 #[non_exhaustive]
 #[derive(Clone)]
@@ -26,7 +36,18 @@ impl Cx {
             output,
             placement,
             motion: Rc::new(Motion),
-            island: IslandState,
+            island: IslandState {
+                hovered: signal(false),
+                active: memo(|| false),
+                index: 0,
+            },
+        }
+    }
+
+    pub fn with_island(&self, island: IslandState) -> Cx {
+        Cx {
+            island,
+            ..self.clone()
         }
     }
 }
