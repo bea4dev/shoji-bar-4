@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::appinfo::tray_icon_image;
 use crate::bar::island::{Island, VERTICAL_ISLAND, bar_island};
 use crate::placement::{BarPlacement, PanelSide};
@@ -156,5 +158,5 @@ fn tray_groups(item: &TrayItem, list: &[TrayMenuItem]) -> Vec<Vec<MenuItem>> {
 
 /// The icons of the tray, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("tray", |cx| tray_island(cx.placement).into_view())
+    Island::new("tray", Rc::new(|cx| tray_island(cx.placement).into_view()))
 }

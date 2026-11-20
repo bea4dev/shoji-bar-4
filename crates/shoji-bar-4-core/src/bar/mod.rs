@@ -133,10 +133,12 @@ pub fn view(bar: &Bar, output: Output, at: BarPlacement) -> Div {
 
 #[cfg(test)]
 mod tests {
+    use std::rc::Rc;
+
     use super::*;
 
     fn island(id: &str) -> Island {
-        Island::new(id, |_| unreachable!())
+        Island::new(id, Rc::new(|_| unreachable!()))
     }
 
     #[test]

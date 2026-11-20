@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::bar::island::{Island, bar_island};
 use crate::panels::{Panel, is_open, toggle};
 use crate::placement::BarPlacement;
@@ -138,7 +140,8 @@ pub fn battery_icon(
 
 /// The state of the system, as an island of the bar.
 pub fn island() -> Island {
-    Island::new("status", |cx| {
-        status_island(cx.output.clone(), cx.placement).into_view()
-    })
+    Island::new(
+        "status",
+        Rc::new(|cx| status_island(cx.output.clone(), cx.placement).into_view()),
+    )
 }

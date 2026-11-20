@@ -35,10 +35,10 @@ impl Island {
         self.frame.get_or_insert_with(Frame::default)
     }
 
-    pub fn new(id: impl Into<String>, build: impl Fn(&Cx) -> View + 'static) -> Self {
+    pub fn new(id: impl Into<String>, content: Part) -> Self {
         Self {
             id: id.into(),
-            content: Rc::new(build),
+            content,
             frame: None,
         }
     }
